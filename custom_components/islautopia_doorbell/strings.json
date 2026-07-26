@@ -1,0 +1,46 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add Islautopia Doorbell",
+        "description": "Enter the doorbell's local IP or hostname (skip this if it already showed up as a discovered device below).",
+        "data": { "host": "Local IP or hostname" }
+      },
+      "zeroconf_confirm": {
+        "title": "Doorbell found on the network",
+        "description": "Found {name} via mDNS. Continue to pair it."
+      },
+      "pair": {
+        "title": "Pair with {name}",
+        "description": "Enter the administrator email and password you already created on the doorbell itself (app or web dashboard, /api/setup). Used once to obtain an access credential - never stored.",
+        "data": { "email": "Administrator email", "password": "Password" }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the doorbell - check the IP/hostname and that it's on the same network",
+      "not_a_doorbell": "The device responded but doesn't look like an Islautopia Doorbell",
+      "invalid_auth": "Wrong administrator email or password",
+      "device_not_paired": "The doorbell itself isn't registered with the cloud yet - wait a moment and try again",
+      "cloud_authorize_failed": "The cloud rejected the registration - try again later"
+    },
+    "abort": {
+      "already_configured": "This doorbell is already configured",
+      "no_device_id": "The mDNS announcement didn't include a valid device_id"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Re-pair",
+        "description": "Use this if the remote access credential was revoked from the cloud admin panel. Enter the doorbell's administrator email/password again.",
+        "data": { "email": "Administrator email", "password": "Password" }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the doorbell",
+      "invalid_auth": "Wrong administrator email or password",
+      "device_not_paired": "The doorbell itself isn't registered with the cloud yet",
+      "cloud_authorize_failed": "The cloud rejected the registration"
+    }
+  }
+}
