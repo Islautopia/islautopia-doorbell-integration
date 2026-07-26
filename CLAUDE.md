@@ -154,6 +154,53 @@ cada combinación resuelve exactamente al servicio esperado, y que button/scene/
 — pendiente de que el líder repita su captura MQTT en vivo con la integración actualizada
 desplegada (tiene el harness listo, confirmó que tarda un minuto). Ver `COORDINATION.md` Q25.
 
+## Decisión razonada (2026-07-26): NO se exponen entidades de "clientes conectados" ni "turno de palabra" — y por qué
+
+Con el contrato de multicliente (`API_CONTRACT.md` §1.4-ter: turno de palabra, contador de
+clientes WebRTC y calidad por destinatario) se valoró exponer en HA, como sensores de esta
+integración, **cuántos clientes hay conectados** y **quién tiene el turno de palabra**, para que
+el usuario pudiera automatizar sobre ello. **Decisión: no, y no por pereza — no hay ningún camino
+correcto para obtener ese dato desde aquí.** Los tres candidatos, y por qué se descartan:
+
+1. **Sondear `GET /api/get_states` (que sí trae `webrtc_clients`, §1.2).** Imposible con lo que
+   esta integración tiene. Verificado en el firmware real (`main/webtask.c::get_states_handler`
+   llama a `auth_require()`, y `main/auth.c` solo acepta **cookie de sesión**): esa ruta exige
+   una sesión de usuario del doorbell. La única credencial que la integración guarda es la de
+   `pair_app`, que el firmware acepta **solo** en `/webrtc/signal` y `/webrtc/signal/post`
+   (§1.4) — nunca en `/api/*`. Conseguirlo exigiría guardar el email+contraseña de administrador
+   del doorbell dentro de Home Assistant, que es exactamente lo que todo el diseño de
+   emparejamiento existe para evitar (ver §1.5: la app/card nunca ve credenciales de admin). Un
+   contador de espectadores no justifica ni de lejos esa regresión de seguridad.
+
+2. **Mantener una conexión WS permanente al relay desde la integración y escuchar `session_info`.**
+   No funciona, y además se estropearía a sí mismo. `session_info` se emite **por sesión WebRTC
+   viva** (`broadcast_session_info()` recorre `g_sessions[]` y solo escribe en las que están
+   `in_use`): un cliente conectado al relay que nunca manda `request_offer` no tiene slot y no
+   recibe nada. Para recibirlo habría que abrir una sesión WebRTC de verdad… que **incrementaría
+   el propio contador que se quiere medir** (efecto observador) y ocuparía permanentemente 1 de
+   los 4 slots (`MAX_WEBRTC_SESSIONS=4`), dejando al usuario con 3. Descartado sin más análisis.
+
+3. **MQTT.** El firmware ya publica autodiscovery de HA (`main/networktask.c`) con sus entidades
+   de modo/timbre/puerta/presencia, y desde 2026-07-09 lo re-publica en cada evento real. Añadir
+   ahí un `webrtc_clients` costaría casi nada, no necesitaría ninguna conexión nueva, no tendría
+   efecto observador y le daría al usuario una entidad con histórico de verdad. **Es el sitio
+   correcto para esto — pero es un cambio de FIRMWARE, no de esta integración.** Queda propuesto
+   al equipo de firmware, no implementado aquí.
+
+Sobre **el turno de palabra como entidad**, la respuesta es no en cualquier caso, incluso por
+MQTT: el dato del contrato es un **número de slot** (`talker`), que fuera del canal de
+señalización no significa nada para nadie (no identifica a una persona ni a un dispositivo — el
+slot 2 de hoy es otro visitante mañana), y es un estado **efímero de segundos** que ensuciaría el
+recorder de HA con transiciones sin valor. Si algún día se quiere automatizar sobre esto, lo
+útil es un booleano *"hay una conversación en curso con la puerta"*, no *"quién"* — y ese es un
+concepto distinto que habría que definir a propósito, no un subproducto del arbitraje interno.
+
+**Consecuencia práctica: esta integración NO necesitó ningún cambio de código para el contrato de
+multicliente.** La card obtiene el contador y el turno por el canal de señalización, directa del
+dispositivo, que es donde ese dato vive de verdad. `manifest.json` no sube de versión por este
+cambio: no se ha tocado ningún fichero de `custom_components/` (la regla de subir la versión
+aplica a cambios de código, y aquí solo se documenta una decisión).
+
 ## No hacer commit/push sin autorización explícita
 
 Mismo protocolo que el resto del equipo.
