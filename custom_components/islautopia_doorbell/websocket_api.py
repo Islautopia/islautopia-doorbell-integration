@@ -37,15 +37,17 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from . import api
 from .const import CONF_CREDENTIAL, CONF_DEVICE_ID, DOMAIN, RELAY_HOST
+from .signal_proxy import async_signed_signal_url
 
 _LOGGER = logging.getLogger(__name__)
 
 
 @callback
 def async_register_websocket_commands(hass: HomeAssistant) -> None:
-    """Register the two WS commands. Safe to call more than once (HA dedupes by name)."""
+    """Register the WS commands. Safe to call more than once (HA dedupes by name)."""
     websocket_api.async_register_command(hass, websocket_get_connection_info)
     websocket_api.async_register_command(hass, websocket_get_turn_credentials)
+    websocket_api.async_register_command(hass, websocket_get_local_signal_url)
 
 
 def _find_entry_data(hass: HomeAssistant, device_id: str) -> dict | None:
@@ -113,6 +115,44 @@ async def websocket_get_connection_info(hass: HomeAssistant, connection, msg) ->
             "device_id": device_id,
             "relay_ws_url": f"wss://{RELAY_HOST}/ws/client/{device_id}",
             "credential": entry_data[CONF_CREDENTIAL],
+        },
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "islautopia_doorbell/get_local_signal_url",
+        vol.Required("device_id"): str,
+    }
+)
+@websocket_api.async_response
+async def websocket_get_local_signal_url(hass: HomeAssistant, connection, msg) -> None:
+    """Return a short-lived signed URL for the local signalling proxy (see signal_proxy.py).
+
+    Signed rather than plain because `EventSource` cannot send an Authorization header - the same
+    limitation that made the firmware accept `?token=` in its query string. This is how Home
+    Assistant's own camera streams solve it.
+
+    The card should prefer this over connecting to the doorbell's public hostname directly. That
+    hostname resolves to a private LAN address, which iCloud Private Relay blocks by design - and
+    Private Relay is on by default on essentially every iPhone, which is where most people open a
+    dashboard on a phone.
+
+    Only signalling goes through the proxy. Media stays peer-to-peer over UDP straight to the
+    doorbell's LAN address, which Private Relay does not touch.
+    """
+    entry_data = _find_entry_data(hass, msg["device_id"])
+    if entry_data is None:
+        connection.send_error(
+            msg["id"], "not_found", "Doorbell not configured on this Home Assistant instance"
+        )
+        return
+
+    connection.send_result(
+        msg["id"],
+        {
+            "device_id": entry_data[CONF_DEVICE_ID],
+            "signal_url": async_signed_signal_url(hass, entry_data[CONF_DEVICE_ID]),
         },
     )
 

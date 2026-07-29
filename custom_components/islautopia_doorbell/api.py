@@ -6,7 +6,10 @@ all, see ARCHITECTURE.md §3 for why. Everything here is either:
 
   - called exactly once, during config flow pairing (async_get_device_id, async_login,
     async_pair_app, async_logout) - see config_flow.py, or
-  - called on-demand by the card via websocket_api.py (async_get_app_turn_credentials).
+  - called on-demand by the card via websocket_api.py (async_get_app_turn_credentials), or
+  - called on-demand while a user is browsing recordings (async_list_recordings) - on demand
+    meaning "because someone opened the media browser", not on a timer. The no-polling rule in
+    ARCHITECTURE.md §3 stands: nothing here runs unless a user asked for it.
 
 See API_CONTRACT.md (IG_Doorbell repo) for the exact routes this talks to: §0 (device_id), §1.1
 (login), §1.5 (pair_app), §3.1-bis (app_turn_credentials).
@@ -15,6 +18,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from urllib.parse import quote
 
 import aiohttp
 
@@ -127,6 +131,97 @@ async def async_logout(session: aiohttp.ClientSession, device_id: str) -> None:
             pass
     except aiohttp.ClientError:
         _LOGGER.debug("Best-effort logout failed for %s (non-blocking)", device_id)
+
+
+def recording_url(device_id: str, credential: str, filename: str) -> str:
+    """Direct URL to a recording's MP4, authenticated with the pairing credential.
+
+    The token travels in the query string rather than a header because this URL is handed to a
+    <video> element / the media player, which cannot set headers. That is the same trade-off the
+    firmware already makes for WebRTC signalling (contract §1.4): EventSource cannot set headers
+    either. The credential is scoped to one doorbell and revocable from the cloud admin panel.
+    """
+    return (
+        f"https://{doorbell_hostname(device_id)}:8443"
+        f"/api/recording?file={quote(filename)}&token={quote(credential)}"
+    )
+
+
+def thumbnail_url(device_id: str, credential: str, filename: str) -> str:
+    """Direct URL to a recording's JPEG thumbnail. 404 for recordings older than the feature."""
+    return (
+        f"https://{doorbell_hostname(device_id)}:8443"
+        f"/api/recording_thumb?file={quote(filename)}&token={quote(credential)}"
+    )
+
+
+async def async_list_recordings(
+    session: aiohttp.ClientSession,
+    device_id: str,
+    credential: str,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict:
+    """GET /api/list_recordings (contract §1.3-bis), authenticated with the pairing credential.
+
+    Returns the firmware's own object as-is: {"total", "offset", "limit", "capped", "items"}.
+    Deliberately not flattened to a bare list - `total` is what makes paging possible at all, and
+    `capped` is the difference between "these are all your recordings" and "these are the 2000
+    most recent of N", which a UI must not paper over.
+
+    Reachable only on the LAN: the relay does not proxy plain HTTP, so browsing recordings works
+    from a Home Assistant that can reach the doorbell and not otherwise. That is the local-first
+    principle working as intended, not a gap - see ARCHITECTURE.md.
+    """
+    url = (
+        f"https://{doorbell_hostname(device_id)}:8443"
+        f"/api/list_recordings?limit={limit}&offset={offset}&token={quote(credential)}"
+    )
+    try:
+        async with session.get(url, timeout=_TIMEOUT) as resp:
+            if resp.status == 401:
+                raise AuthenticationError("Pairing credential rejected by the doorbell")
+            if resp.status != 200:
+                raise DoorbellApiError(f"GET list_recordings -> HTTP {resp.status}")
+            return await resp.json(content_type=None)
+    except aiohttp.ClientError as err:
+        # Almost always "the doorbell is not reachable from this Home Assistant" - a different
+        # VLAN, or simply powered off. Said plainly so it does not read as a credential problem.
+        raise DoorbellApiError(f"Could not reach the doorbell to list recordings: {err}") from err
+
+
+class NotAllowedError(DoorbellApiError):
+    """The credential is valid but this role may not do that (403 admin_required).
+
+    Distinct from AuthenticationError on purpose, and the firmware makes the same distinction for
+    the same reason: a client needs to tell "I don't know who you are" from "I know who you are
+    and you can't" - one means ask for credentials, the other means hide the button.
+    """
+
+
+async def async_check_recording_playable(
+    session: aiohttp.ClientSession, device_id: str, credential: str, filename: str
+) -> None:
+    """HEAD the recording so a failure surfaces as a sentence instead of a dead player.
+
+    Costs one LAN round trip and turns the commonest failure - a pairing made from a non-admin
+    session, which may list and watch but not download - into something the user can act on.
+    Returns None if playable; raises otherwise.
+    """
+    url = recording_url(device_id, credential, filename)
+    try:
+        async with session.head(url, timeout=_TIMEOUT) as resp:
+            if resp.status == 403:
+                raise NotAllowedError("admin_required")
+            if resp.status == 401:
+                raise AuthenticationError("Pairing credential rejected by the doorbell")
+            if resp.status == 404:
+                raise DoorbellApiError("That recording no longer exists on the doorbell")
+            if resp.status not in (200, 206):
+                raise DoorbellApiError(f"HEAD recording -> HTTP {resp.status}")
+    except aiohttp.ClientError as err:
+        raise DoorbellApiError(f"Could not reach the doorbell: {err}") from err
 
 
 async def async_get_app_turn_credentials(

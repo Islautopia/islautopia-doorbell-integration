@@ -33,6 +33,7 @@ from homeassistant.helpers import device_registry as dr
 
 from .const import CONF_DEVICE_ID, DOMAIN
 from .mqtt_dispatch import async_ensure_door_action_listener, async_release_door_action_listener
+from .signal_proxy import async_register_signal_proxy
 from .websocket_api import async_register_websocket_commands
 
 _LOGGER = logging.getLogger(__name__)
@@ -44,6 +45,7 @@ PLATFORMS: list[str] = []
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Register integration-wide resources once, regardless of how many entries get added."""
     async_register_websocket_commands(hass)
+    async_register_signal_proxy(hass)
     return True
 
 
