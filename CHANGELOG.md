@@ -6,6 +6,21 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.4.1] — 2026-07-29
+
+### Fixed
+
+- **Looking up a paired doorbell relied on luck.** The lookup walked everything the integration
+  keeps in memory and accepted anything shaped like a config entry. The state of the shared MQTT
+  listener is stored in the same place and is shaped the same way, so it was examined too — it
+  only ever stayed out of the way because it happens to carry no device id. Anything added there
+  later with one would have been matched silently. The lookup now asks Home Assistant which config
+  entries exist and checks those, and nothing else.
+
+  No behaviour changes today. This is a trap removed before it could be sprung.
+
+---
+
 ## [0.4.0] — 2026-07-29
 
 **First public release.** Until now this integration was only available privately, which meant it
@@ -87,6 +102,7 @@ First release.
 - A bridge that lets the companion Lovelace card reach the doorbell without anything to configure
   by hand.
 
+[0.4.1]: https://github.com/Islautopia/islautopia-doorbell-integration/releases/tag/v0.4.1
 [0.4.0]: https://github.com/Islautopia/islautopia-doorbell-integration/releases/tag/v0.4.0
 [0.3.0]: https://github.com/Islautopia/islautopia-doorbell-integration/releases/tag/v0.3.0
 [0.2.0]: https://github.com/Islautopia/islautopia-doorbell-integration/releases/tag/v0.2.0

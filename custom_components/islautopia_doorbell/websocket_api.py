@@ -49,7 +49,21 @@ def async_register_websocket_commands(hass: HomeAssistant) -> None:
 
 
 def _find_entry_data(hass: HomeAssistant, device_id: str) -> dict | None:
-    for entry_data in hass.data.get(DOMAIN, {}).values():
+    """Find the stored data for a paired doorbell, by its device id.
+
+    This asks Home Assistant which config entries actually exist and looks each one up by id,
+    instead of walking everything stored under our domain key and accepting whatever happens to
+    look like a config entry.
+
+    That distinction matters: two unrelated things share that key. One is the data for each paired
+    doorbell, stored per config entry. The other is the state of the shared MQTT listener, which is
+    also a plain dict. Walking the values meant the listener state got examined too, and it only
+    ever stayed out of the way because it happens to carry no device id — luck, not design. Anything
+    added there later with a `device_id` field would have been matched silently.
+    """
+    stored = hass.data.get(DOMAIN, {})
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        entry_data = stored.get(entry.entry_id)
         if isinstance(entry_data, dict) and entry_data.get(CONF_DEVICE_ID) == device_id:
             return entry_data
     return None
