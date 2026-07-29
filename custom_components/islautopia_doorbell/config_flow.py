@@ -107,7 +107,7 @@ class IslautopiaDoorbellConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle discovery via `_igdoorbell._tcp.local.`.
 
         Match by the `device_id` TXT record, never by the mDNS instance name - see the module
-        docstring and COORDINATION.md Q6.
+        docstring and const.py.
         """
         device_id = discovery_info.properties.get("device_id")
         if not device_id:

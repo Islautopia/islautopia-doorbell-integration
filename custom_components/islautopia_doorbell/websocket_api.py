@@ -12,7 +12,7 @@ Two commands:
   - islautopia_doorbell/get_turn_credentials: fetched fresh, on demand, right before the card
     starts a new WebRTC session (TURN credentials are short-lived, ~1h TTL).
 
-NOTE (2026-07-10, see COORDINATION.md): get_connection_info used to also resolve/return a
+NOTE (2026-07-10): get_connection_info used to also resolve/return a
 server-side mDNS-discovered `local_host` - removed entirely, not just made non-blocking. Two
 independent reasons converged: (1) the card never actually used it to build its connection URL
 (it always connects via the doorbell's public hostname, both because the real TLS certificate is
@@ -73,20 +73,22 @@ async def websocket_get_connection_info(hass: HomeAssistant, connection, msg) ->
     VLANs/subnets. No LAN address resolution happens on this side on purpose - see the module
     docstring for why an earlier `local_host` field was removed rather than kept around unused.
     """
-    # Instrumentacion real (2026-07-10, ver COORDINATION.md - reporte de 10+s para arrancar la
-    # card): loggeada a nivel INFO a proposito (no debug) para que sea facil de encontrar en los
-    # Registros de HA sin tener que subir el log level, mientras se investiga el problema real de
-    # rendimiento. Bajar a debug una vez cerrado.
+    # Real instrumentation (2026-07-10 - a report of 10+ seconds for the card to start up):
+    # logged at INFO on purpose (not debug) so it is easy to find in HA's Logs without having to
+    # raise the log level, while the actual performance problem is being investigated. Drop this
+    # to debug once that is closed out.
     t0 = time.monotonic()
     entry_data = _find_entry_data(hass, msg["device_id"])
     if entry_data is None:
-        connection.send_error(msg["id"], "not_found", "Doorbell no configurado en esta instancia")
+        connection.send_error(
+            msg["id"], "not_found", "Doorbell not configured on this Home Assistant instance"
+        )
         return
 
     device_id = entry_data[CONF_DEVICE_ID]
     elapsed_ms = round((time.monotonic() - t0) * 1000)
-    _LOGGER.info(
-        "[islautopia_doorbell timing] get_connection_info para %s: %sms",
+    _LOGGER.debug(
+        "[islautopia_doorbell timing] get_connection_info for %s: %sms",
         device_id,
         elapsed_ms,
     )
@@ -118,7 +120,9 @@ async def websocket_get_turn_credentials(hass: HomeAssistant, connection, msg) -
     t0 = time.monotonic()
     entry_data = _find_entry_data(hass, msg["device_id"])
     if entry_data is None:
-        connection.send_error(msg["id"], "not_found", "Doorbell no configurado en esta instancia")
+        connection.send_error(
+            msg["id"], "not_found", "Doorbell not configured on this Home Assistant instance"
+        )
         return
 
     session = async_get_clientsession(hass)
@@ -130,16 +134,16 @@ async def websocket_get_turn_credentials(hass: HomeAssistant, connection, msg) -
         connection.send_error(
             msg["id"],
             "unauthorized",
-            "Credencial de pairing invalida o revocada - re-empareja el doorbell desde "
-            "Ajustes > Dispositivos y servicios",
+            "Pairing credential is invalid or has been revoked - re-pair the doorbell from "
+            "Settings > Devices & services",
         )
     except api.DoorbellApiError as err:
-        _LOGGER.warning("Fallo pidiendo TURN credentials para %s: %s", msg["device_id"], err)
+        _LOGGER.warning("Failed requesting TURN credentials for %s: %s", msg["device_id"], err)
         connection.send_error(msg["id"], "cloud_error", str(err))
     else:
         elapsed_ms = round((time.monotonic() - t0) * 1000)
-        _LOGGER.info(
-            "[islautopia_doorbell timing] get_turn_credentials para %s: %sms",
+        _LOGGER.debug(
+            "[islautopia_doorbell timing] get_turn_credentials for %s: %sms",
             msg["device_id"],
             elapsed_ms,
         )

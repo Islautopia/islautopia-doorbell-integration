@@ -15,11 +15,11 @@ doorbell/presence sensors, an "open door" button) is already published by the fi
 MQTT discovery (`main/networktask.c::enviar_ha_discovery_completo()` in IG_Doorbell) the moment
 the user points the doorbell at a broker - this integration doesn't need to duplicate it.
 
-IMPORTANT (found via real-hardware testing 2026-07-09, see COORDINATION.md): the device this
+IMPORTANT (found via real-hardware testing 2026-07-09): the device this
 integration registers MUST share identifiers with the device the firmware's own MQTT discovery
 creates, or the user ends up with two separate, disconnected devices in HA - ours with zero
 entities (confusing, looks broken) and a second "IG-Doorbell" one (created by the `mqtt`
-integration) holding the actual mode/timbre/puerta/persona/open-door entities. See
+integration) holding the actual mode / doorbell / door / presence / open-door entities. See
 `async_setup_entry` below for the fix (matching identifier so HA's device registry merges them
 into a single device).
 """
@@ -68,14 +68,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Registering both on the SAME device_registry entry makes Home Assistant MERGE this
     # integration's device with the one MQTT discovery already created (or will create) for the
     # exact same physical doorbell - one single device in the UI, holding both the MQTT-published
-    # entities (mode/timbre/puerta/persona/abrir) and this integration's own config entry, instead
-    # of two disconnected devices where ours looked broken with zero entities. Order doesn't
-    # matter - HA's device registry merges on identifier match regardless of which integration
-    # registers first.
-    # Deliberately do NOT pass `name=` here (found via real-hardware testing 2026-07-09, see
-    # COORDINATION.md): the firmware itself is the only real source of truth for the device's
+    # entities (mode / doorbell / door / presence / open-door) and this integration's own config
+    # entry, instead of two disconnected devices where ours looked broken with zero entities.
+    # Order doesn't matter - HA's device registry merges on identifier match regardless of which
+    # integration registers first.
+    # Deliberately do NOT pass `name=` here (found via real-hardware testing 2026-07-09):
+    # the firmware itself is the only real source of truth for the device's
     # user-configured `device_name` (§0-bis of API_CONTRACT.md) - it now ships that name inside
-    # its own MQTT discovery `dev.name` field (firmware_cloud, same day). `async_get_or_create`
+    # its own MQTT discovery `dev.name` field (added to the firmware the same day).
+    # `async_get_or_create`
     # only overwrites the stored device name when `name` is explicitly passed - passing
     # `name=entry.title` here on EVERY setup/reload would race against the mqtt integration's own
     # registration call for the same merged device (see identifiers below) and could stomp the
@@ -97,34 +98,35 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         model="IG Doorbell",
     )
 
-    # Instrumentacion real (2026-07-10, ver COORDINATION.md Q17 - el bug de "sin entidades"
-    # volvio a aparecer tras el despliegue del lote de mDNS, con este mismo fix de fusion de
-    # identifiers ya presente en el codigo). Primer intento (con formateo diferido %s/%r de
-    # logging) desaparecio sin dejar rastro ni en home-assistant.log ni como excepcion visible -
-    # hallazgo real: el codigo DESPUES de este bloque (async_ensure_door_action_listener) se
-    # seguia ejecutando con normalidad, lo que descarta una excepcion en la evaluacion de los
-    # argumentos (eso habria abortado toda la funcion). El sospechoso mas probable es que el
-    # formateo LOS propio de logging (record.getMessage(), que solo corre al emitir, no al
-    # llamar) fallara con algo dentro de device.identifiers/device.config_entries, y que
-    # Handler.handleError() lo tragara mandandolo a stderr en vez de al fichero de log - asi que
-    # esta vez se construye el mensaje entero como texto plano ANTES de llamar a _LOGGER.info(),
-    # con manejo explicito de errores para que un fallo aqui sea imposible que vuelva a ser
-    # invisible (si algo dentro de este bloque revienta, al menos se vera ese propio error).
+    # Real instrumentation (2026-07-10 - the "no entities" bug reappeared after the mDNS batch
+    # was deployed, with this very identifier-merging fix already present in the code). The first
+    # attempt at this log line (using logging's deferred %s/%r formatting) vanished without a
+    # trace: nothing in home-assistant.log, no visible exception. Real finding: the code AFTER
+    # this block (async_ensure_door_action_listener) kept running normally, which rules out an
+    # exception while evaluating the arguments (that would have aborted the whole function). The
+    # most likely suspect is that logging's own lazy formatting (record.getMessage(), which only
+    # runs on emit, not on call) blew up on something inside device.identifiers /
+    # device.config_entries, and that Handler.handleError() swallowed it by sending it to stderr
+    # instead of to the log file - so this time the whole message is built as plain text BEFORE
+    # calling _LOGGER.debug(), with explicit error handling so a failure here can never be
+    # invisible again (if anything inside this block breaks, at least that error itself shows up).
     try:
         diag_msg = (
-            "[islautopia_doorbell diag] device tras async_get_or_create: "
+            "[islautopia_doorbell diag] device after async_get_or_create: "
             f"id={device.id!r} name={device.name!r} name_by_user={device.name_by_user!r} "
             f"identifiers={sorted(str(i) for i in device.identifiers)} "
             f"config_entries={sorted(str(c) for c in device.config_entries)} "
-            f"(buscabamos identifiers={sorted(str(i) for i in {(DOMAIN, entry.data[CONF_DEVICE_ID]), ('mqtt', mqtt_ident)})})"
+            f"(we were looking for identifiers={sorted(str(i) for i in {(DOMAIN, entry.data[CONF_DEVICE_ID]), ('mqtt', mqtt_ident)})})"
         )
-    except Exception as diag_err:  # noqa: BLE001 - deliberado, ver comentario de arriba
-        _LOGGER.info("[islautopia_doorbell diag] fallo construyendo el mensaje de diagnostico: %r", diag_err)
+    except Exception as diag_err:  # noqa: BLE001 - deliberate, see the comment above
+        _LOGGER.debug(
+            "[islautopia_doorbell diag] failed to build the diagnostic message: %r", diag_err
+        )
     else:
-        _LOGGER.info(diag_msg)
+        _LOGGER.debug(diag_msg)
 
     # Reference-counted: the MQTT listener for videoportero/door/action is global (the topic
-    # itself carries no device_id, see COORDINATION.md Q3) - only one subscription is ever
+    # itself carries no device_id) - only one subscription is ever
     # active, kept alive as long as at least one entry is loaded.
     await async_ensure_door_action_listener(hass)
 

@@ -69,10 +69,10 @@ async def async_get_device_id(session: aiohttp.ClientSession, host_or_ip: str) -
                 raise DoorbellApiError(f"GET /api/device_id -> HTTP {resp.status}")
             data = await resp.json(content_type=None)
     except aiohttp.ContentTypeError as err:
-        raise DoorbellApiError("Respuesta de /api/device_id no es JSON valido") from err
+        raise DoorbellApiError("Response from /api/device_id is not valid JSON") from err
     device_id = data.get("device_id") if isinstance(data, dict) else None
     if not device_id:
-        raise DoorbellApiError("Respuesta de /api/device_id sin 'device_id'")
+        raise DoorbellApiError("Response from /api/device_id has no 'device_id'")
     return device_id
 
 
@@ -95,7 +95,7 @@ async def async_login(
         # no JSON error body to parse, only the status/Location tell success from failure.
         location = resp.headers.get("Location", "")
         if resp.status != 302 or "error=1" in location:
-            raise AuthenticationError("Email o contrasena de administrador incorrectos")
+            raise AuthenticationError("Wrong administrator email or password")
 
 
 async def async_pair_app(
@@ -106,12 +106,12 @@ async def async_pair_app(
     async with session.post(url, data={"label": label}, timeout=_TIMEOUT) as resp:
         if resp.status == 409:
             raise DeviceNotPairedError(
-                "El doorbell aun no esta emparejado con la nube - espera a que "
-                "termine su propio registro e intentalo de nuevo"
+                "The doorbell is not paired with the cloud yet - wait for it to finish its own "
+                "registration and try again"
             )
         if resp.status == 502:
             raise CloudAuthorizeFailedError(
-                "La nube rechazo el registro de esta app - reintenta mas tarde"
+                "The cloud rejected registering this app - try again later"
             )
         if resp.status != 200:
             raise DoorbellApiError(f"POST /api/pair_app -> HTTP {resp.status}")
@@ -126,7 +126,7 @@ async def async_logout(session: aiohttp.ClientSession, device_id: str) -> None:
         async with session.post(url, timeout=_TIMEOUT):
             pass
     except aiohttp.ClientError:
-        _LOGGER.debug("Logout best-effort fallo para %s (no bloqueante)", device_id)
+        _LOGGER.debug("Best-effort logout failed for %s (non-blocking)", device_id)
 
 
 async def async_get_app_turn_credentials(
@@ -142,11 +142,11 @@ async def async_get_app_turn_credentials(
     headers = {"Authorization": f"Bearer {credential}"}
     async with session.get(url, headers=headers, timeout=_TIMEOUT) as resp:
         if resp.status == 401:
-            raise AuthenticationError("Credencial de pairing invalida o revocada")
+            raise AuthenticationError("Pairing credential is invalid or has been revoked")
         if resp.status == 403:
-            raise DoorbellApiError("El propio doorbell esta baneado en la nube")
+            raise DoorbellApiError("The doorbell itself is banned in the cloud")
         if resp.status == 503:
-            raise DoorbellApiError("Base de credenciales de la nube no disponible ahora mismo")
+            raise DoorbellApiError("The cloud credential database is unavailable right now")
         if resp.status != 200:
             raise DoorbellApiError(f"GET app_turn_credentials -> HTTP {resp.status}")
         return await resp.json(content_type=None)
