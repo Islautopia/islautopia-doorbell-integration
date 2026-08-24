@@ -6,6 +6,95 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.5.0] — 2026-08-24
+
+Esta version cambia como habla el videoportero con Home Assistant, y con ello quien crea las
+entidades. Si vienes de una anterior, lee lo primero.
+
+### Cambiado
+
+- **Se acabo MQTT. El videoportero escribe ahora directamente a Home Assistant, por un webhook.**
+
+  Un broker era un requisito previo que la mitad de la gente que instala esto no cumple, y esta
+  integracion tiene que funcionar en un Home Assistant instalado esta manana, igual que funcionan
+  las apps. **Ya no hace falta ningun broker, ni la integracion MQTT.**
+
+  El videoportero manda **el mismo sobre** que ya componia para el relay. Un formato propio para
+  Home Assistant habria sido un quinto dialecto que mantener.
+
+- **Las entidades las crea ahora esta integracion**, no el autodescubrimiento del videoportero.
+
+  Lo que lo desbloqueo es mas pequeno de lo que parece: leer el estado del videoportero exigia la
+  contrasena de administrador, que es justo lo que el emparejamiento existe para evitar, asi que
+  esta integracion no podia construir ni una sola entidad. El firmware lo corrigio el mismo dia.
+
+### Anadido
+
+- **Una entidad de eventos** con todo lo que el videoportero cuenta: alguien llamo, un visitante,
+  un paquete, la puerta se abrio, una llave rechazada. Una sola entidad y la lista de tipos
+  abierta, a proposito: asi una funcion nueva del videoportero se puede automatizar el mismo dia,
+  sin esperar a que esta integracion se actualice.
+- **Visitante** y **Paquete en la puerta**, para lo que se prefiere como estado y no como instante.
+- **Modo** (Normal, Ausente, No molestar, Custom). Cambiarlo exige que el emparejamiento sea
+  administrador de ese videoportero; leerlo, no.
+- **Abrir puerta**, y **solo si ese videoportero tiene cerradura configurada**. No se dibuja
+  apagado: no se dibuja.
+- **Espectadores**, y diagnosticos de firmware, panel de calle y lector de huellas.
+- **Un selector de entidades** en las opciones: eliges cuales puede accionar el videoportero, y
+  solo esas se ofrecen en las apps. Hasta 24 -- no es un limite de memoria, es cuantas caben en un
+  desplegable antes de dejar de ser una lista.
+
+### Corregido
+
+- **Volver a emparejar borraba la configuracion de las opciones.** Un flujo de opciones reemplaza
+  el diccionario entero, y el paso de reemparejar devolvia uno vacio. Nunca se noto porque hasta
+  hoy no habia ninguna opcion que perder.
+
+### Si vienes de 0.4.x
+
+El videoportero deja de publicar por MQTT, asi que **las entidades viejas se quedaran como no
+disponibles**. Se pueden borrar. Las nuevas aparecen solas en el mismo dispositivo.
+
+Y hay que darle a Home Assistant **una direccion local** en Ajustes -> Sistema -> Red, si no la
+tiene: es a donde el videoportero escribe. Tiene que ser la de tu red -- mandarlo a internet para
+alcanzar una maquina que tiene al lado significa que esto deja de funcionar el dia que se caiga la
+linea.
+
+---
+
+## [0.4.3] — 2026-07-29
+
+### Corregido
+
+- **El relevo de senalizacion llevaba cinco dias sin llegar a nadie.** Aparecio en 0.4.2 pero es
+  posterior a esa etiqueta, asi que ninguna instalacion lo tenia: la integracion contestaba
+  `unknown_command` a la card, que es exactamente lo que hace una version anterior.
+
+  Importa mas que una publicacion olvidada normal. Un reinicio a fabrica borra los emparejamientos
+  del aparato mientras la nube conserva el suyo, asi que el camino local empieza a devolver `401`
+  y el remoto sigue funcionando. Sin el relevo la card **no puede verlo** -- `EventSource` no
+  expone el codigo de estado-- y caeria al relay en silencio, mas lenta y sin nada que lo
+  explicara. El relevo deja pasar ese `401`, que es para lo que existe.
+
+---
+
+## [0.4.2] — 2026-07-29
+
+*(Entrada reconstruida el 2026-08-24 a partir de los commits: esta version se publico sin pasar
+por este fichero.)*
+
+### Anadido
+
+- **Home Assistant hace de relevo de la senalizacion del videoportero**, para que el camino local
+  sobreviva en iOS.
+- **Un origen de medios** con las grabaciones del videoportero.
+
+### Cambiado
+
+- El icono viaja dentro de la integracion, que es como se hace ahora.
+
+---
+
 ## [0.4.1] — 2026-07-29
 
 ### Fixed

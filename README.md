@@ -36,8 +36,10 @@ The doorbell sends a **close** a few seconds after the open — however many sec
 open duration — so your lock re-locks and your light turns itself off. Buttons, scripts and scenes
 are one-shot by nature, so nothing is sent for them.
 
-Without this integration those messages reach your MQTT broker and nothing listens to them. You
-would have to write an automation by hand for every entity you use. That is the problem this solves.
+The doorbell asks over your local network, and this integration answers. Nothing to install
+alongside it, no broker, no automation to write for every entity you own.
+
+You choose which entities it is allowed to touch, in the integration's own options — see below.
 
 ### 2. Pairs your doorbell with Home Assistant, safely
 
@@ -48,7 +50,23 @@ never written to disk.
 That credential is deliberately limited: it can watch live video and open the door. It cannot
 change your doorbell's settings or manage its users.
 
-### 3. Lets the Lovelace card find your doorbell by itself
+### 3. Brings your doorbell into Home Assistant as a real device
+
+Once paired you get, without configuring anything:
+
+| | |
+|---|---|
+| **Events** | one entity carrying everything the doorbell has to say — someone rang, a visitor, a parcel, the door opened, a key was refused. Use it directly as an automation trigger |
+| **Visitor** / **Parcel in the doorway** | for the ones you want as a state rather than an instant |
+| **Mode** | Normal, Away, Do Not Disturb, Custom — so *"Do Not Disturb at 23:00"* is a two-line automation |
+| **Open door** | a button, when your doorbell has a lock configured |
+| **Viewers** | how many people are watching right now |
+| Firmware, street panel, fingerprint reader | diagnostics |
+
+Changing the mode needs the pairing to be an **administrator** of that doorbell. Everything else
+only reads.
+
+### 4. Lets the Lovelace card find your doorbell by itself
 
 If you use the [Islautopia Intercom Card](https://github.com/Islautopia/islautopia-intercom-card),
 this integration is what lets it work with nothing to copy and paste. It hands the card what a
@@ -63,11 +81,14 @@ from home and the video has to travel through a relay.
 browser to the doorbell, or through a relay when you are away. Home Assistant is not in the middle,
 so it is neither a bottleneck nor another copy of your footage.
 
-**It creates no entities of its own.** Your doorbell already publishes its own — ringing, door,
-motion, mode — through Home Assistant's MQTT discovery. This integration attaches itself to that
-same device instead of creating a second, confusing one.
+**It does not keep a session open on your doorbell.** It holds one limited credential and asks
+how things are every 30 seconds; everything that actually needs to be immediate — the ring, a
+parcel — the doorbell pushes on its own the moment it happens.
 
-**It does not poll your doorbell.** No permanent session, no periodic requests.
+**It does not need an MQTT broker.** It used to: the doorbell published its own entities and this
+integration set none up. That was a prerequisite half the people installing this do not meet, and
+it is gone. If you upgraded from an older version you may still see the old MQTT entities lying
+around — Home Assistant will show them as unavailable, and you can delete them.
 
 ---
 
@@ -75,9 +96,11 @@ same device instead of creating a second, confusing one.
 
 1. **An IG Doorbell that is already set up** — on your network, with an administrator account
    created. If it is brand new, set it up from the mobile app or its own web page first.
-2. **The MQTT integration working in Home Assistant**, pointing at the same broker as your
-   doorbell. Whatever broker address the doorbell's settings show, Home Assistant must use that one.
-3. **Home Assistant 2024.1 or newer.**
+2. **Home Assistant 2024.1 or newer.**
+3. **Home Assistant reachable from your doorbell on your own network.** The doorbell writes to it
+   directly, so Home Assistant needs an address it can be reached at — Settings → System → Network,
+   *Home Assistant URL*. A local address: the doorbell is on the network next door, and sending it
+   out to the internet to reach it would mean this stops working the day your line goes down.
 
 ---
 
@@ -110,27 +133,37 @@ segments, where automatic discovery cannot reach across.
 
 Then enter the administrator email and password you created on the doorbell. That is all.
 
+### Choosing what the doorbell may touch
+
+In **Settings → Devices & Services → Islautopia Doorbell → Configure**, pick the entities you want
+to be able to trigger from the doorbell — to unlock the door, or from a step in one of its
+sequences. Only those are offered in the apps, and only those can be acted on.
+
+Up to 24. Not a memory limit: it is how many fit in a dropdown before it stops being a list and
+becomes a catalogue.
+
 ### Making the open button work
 
-On the doorbell itself, set the door type to **Home Assistant** and fill in the entity you want it
-to control — `light.porch`, for example. There is nothing to configure on the Home Assistant side:
-this integration is already listening.
+On the doorbell itself, set the door type to **Home Assistant** and pick the entity you want it to
+control — `light.porch`, for example. It will be one of the ones you chose above.
 
 ---
 
 ## If something does not work
 
 **Nothing happens when the door is opened.** Check that the doorbell's door type is set to Home
-Assistant and that the entity name is spelled exactly as Home Assistant shows it. Then check that
-the doorbell and Home Assistant use the same MQTT broker — that is the most common cause by far.
+Assistant, and that the entity is one of the ones you picked under *Configure*.
 
 **It opens but never closes.** Make sure this integration is up to date. Automatic closing arrived
 in version 0.3.0; earlier versions ignored the close message and left the light or lock open
 forever.
 
-**The device shows up with no entities.** Those entities come from the doorbell over MQTT
-discovery, not from this integration. Check that the MQTT integration is configured and that the
-doorbell reports the same broker.
+**The entities are all unavailable.** The integration cannot reach the doorbell. If it says the
+doorbell no longer recognises it, the pairing credential is dead — re-pair from *Configure*.
+
+**Nothing arrives the moment it happens, but the entities are fine.** The doorbell does not know
+where to write. That usually means Home Assistant has no local address configured — see *Before
+you start* — or that the pairing is not an administrator of that doorbell. The log says which.
 
 For more detail, add this to your `configuration.yaml` and restart:
 
