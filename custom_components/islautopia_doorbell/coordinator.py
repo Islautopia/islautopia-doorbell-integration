@@ -25,6 +25,7 @@ import logging
 from datetime import timedelta
 
 import aiohttp
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -38,12 +39,17 @@ _LOGGER = logging.getLogger(__name__)
 class DoorbellCoordinator(DataUpdateCoordinator[dict]):
     """Un portero. `data` es `get_states` con `firmware_info` mezclado dentro."""
 
-    def __init__(self, hass: HomeAssistant, device_id: str, credential: str) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, device_id: str, credential: str
+    ) -> None:
         super().__init__(
             hass,
             _LOGGER,
             name=f"{DOMAIN}_{device_id}",
             update_interval=timedelta(seconds=INTERVALO_SONDEO),
+            # `config_entry` dejo de ser opcional: sin el, Home Assistant avisa y en las
+            # versiones nuevas se niega a construir el coordinador.
+            config_entry=entry,
         )
         self.device_id = device_id
         self.credential = credential

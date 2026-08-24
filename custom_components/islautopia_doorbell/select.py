@@ -19,18 +19,17 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import api
 from .const import DOMAIN, MODOS
 from .coordinator import DoorbellCoordinator
-from .entity import DoorbellEntity
+from .entity import AddEntities, DoorbellEntity
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntities
 ) -> None:
     c: DoorbellCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     async_add_entities([ModoSelect(c)])

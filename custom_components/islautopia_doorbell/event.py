@@ -24,11 +24,10 @@ from homeassistant.components.event import EventEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN, SIGNAL_EVENTO
 from .coordinator import DoorbellCoordinator
-from .entity import DoorbellEntity
+from .entity import AddEntities, DoorbellEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,7 +43,7 @@ TIPOS_CONOCIDOS = [
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntities
 ) -> None:
     coordinator: DoorbellCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     async_add_entities([DoorbellEventos(coordinator)])

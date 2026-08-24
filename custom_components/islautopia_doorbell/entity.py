@@ -2,6 +2,18 @@
 from __future__ import annotations
 
 from homeassistant.helpers.device_registry import DeviceInfo
+
+# ⚠️ El callback con el que una plataforma da de alta sus entidades CAMBIO DE NOMBRE: Home
+# Assistant introdujo `AddConfigEntryEntitiesCallback` y dejo `AddEntitiesCallback` en desuso. Se
+# importa el nuevo y se cae al viejo, y se re-exporta desde aqui para que las cinco plataformas no
+# repitan el mismo bloque -- una defensa repartida en cinco sitios se cae en cuanto uno se queda
+# atras, y aqui el modo de fallo es que la integracion **no carga**, sin nada que lo explique.
+try:  # HA >= 2025.2
+    from homeassistant.helpers.entity_platform import (
+        AddConfigEntryEntitiesCallback as AddEntities,
+    )
+except ImportError:  # pragma: no cover - HA anterior
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback as AddEntities
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN

@@ -26,13 +26,12 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.const import EntityCategory
 from homeassistant.helpers.event import async_call_later
 
 from .const import DOMAIN, SIGNAL_EVENTO
 from .coordinator import DoorbellCoordinator
-from .entity import DoorbellEntity
+from .entity import AddEntities, DoorbellEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,7 +41,7 @@ SEGUNDOS_VISITANTE = 30
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntities
 ) -> None:
     c: DoorbellCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     async_add_entities([

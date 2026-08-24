@@ -32,7 +32,10 @@ otherwise end up with two disconnected devices for one physical doorbell.
 from __future__ import annotations
 
 import logging
+from ipaddress import ip_address
+from urllib.parse import urlparse
 
+from homeassistant.components import network
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
@@ -97,7 +100,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     device_id = entry.data[CONF_DEVICE_ID]
-    coordinator = DoorbellCoordinator(hass, device_id, entry.data[CONF_CREDENTIAL])
+    coordinator = DoorbellCoordinator(hass, entry, device_id, entry.data[CONF_CREDENTIAL])
 
     # ⚠️ `async_refresh()` y NO `async_config_entry_first_refresh()`, y es deliberado.
     #
@@ -136,15 +139,11 @@ async def _async_configurar_portero(
 ) -> bool:
     """Le dice al portero a donde mandar sus avisos y que entidades puede accionar (§4).
 
-    ⚠️ LA URL TIENE QUE SER LA INTERNA, y no es una precaucion teorica: `get_url()` devuelve la
-    externa si no se le prohibe, y en la instalacion de Inaki el `internal_url` configurado es ya
-    un hostname PUBLICO. Con eso el portero saldria a internet -- DNS al menos-- para hablar con
-    una maquina que tiene en la LAN de al lado, rompiendo el principio 1 **sin dar ningun error**:
-    solo dejaria de funcionar el dia que se caiga la linea.
+    La direccion que se le da tiene que ser alcanzable **sin DNS**. Ver `_base_local`, que es donde
+    vive ese problema y por que `get_url()` no basta para resolverlo.
     """
-    try:
-        base = get_url(hass, allow_external=False, allow_cloud=False, prefer_external=False)
-    except NoURLAvailableError:
+    base = await _base_local(hass)
+    if base is None:
         _LOGGER.error(
             "Home Assistant no sabe cual es su propia direccion en la red local, asi que no se le "
             "puede decir al portero a donde escribir. Ponla en Ajustes > Sistema > Red > "
@@ -194,6 +193,54 @@ async def _async_configurar_portero(
         coordinator.device_id, url_webhook, len(lista),
     )
     return True
+
+
+async def _base_local(hass: HomeAssistant) -> str | None:
+    """La direccion de Home Assistant que el portero puede alcanzar SIN DNS.
+
+    ⚠️ `get_url(allow_external=False)` NO garantiza eso, y darlo por hecho fue un error mio. Esa
+    bandera solo dice *no uses la externa*: si el `internal_url` configurado es a su vez un nombre
+    publico, lo devuelve tal cual. **En el Home Assistant de Inaki es exactamente el caso** --
+    `internal_url` y `external_url` valen los dos `https://hass.islautopia.com`-- asi que la
+    primera instalacion real habria mandado al portero a salir a internet, DNS al menos, para
+    hablar con una maquina que tiene en la LAN de al lado. Eso rompe el principio 1 **sin dar
+    ningun error**: solo deja de funcionar el dia que se caiga la linea.
+
+    Por eso se prefiere **la IP** con la que esta maquina sale a la red, que es lo unico que no
+    necesita que nada resuelva un nombre. `get_url` se queda de respaldo, con su aviso.
+    """
+    # 1) La IP de esta maquina en su propia red.
+    try:
+        ip = await network.async_get_source_ip(hass, network.PUBLIC_TARGET_IP)
+    except Exception:  # noqa: BLE001 - cualquier fallo aqui solo significa "usa el respaldo"
+        ip = None
+    if ip:
+        esquema = "https" if getattr(hass.http, "use_ssl", False) else "http"
+        return f"{esquema}://{ip}:{hass.http.server_port}"
+
+    # 2) Respaldo: lo que Home Assistant crea que es su direccion interna.
+    try:
+        base = get_url(hass, allow_external=False, allow_cloud=False,
+                       allow_ip=True, prefer_external=False)
+    except NoURLAvailableError:
+        return None
+
+    anfitrion = urlparse(base).hostname or ""
+    try:
+        ip_address(anfitrion)
+    except ValueError:
+        # Es un NOMBRE, no una direccion. Puede funcionar perfectamente -- su DNS local puede
+        # resolverlo dentro de casa-- asi que no se rechaza. Pero se dice, porque es la diferencia
+        # entre "funciona" y "funciona mientras haya quien resuelva ese nombre".
+        _LOGGER.warning(
+            "La direccion que Home Assistant da de si mismo es un NOMBRE (%s), no una IP de la "
+            "red local. El videoportero tendra que resolverlo para poder avisar, asi que si ese "
+            "nombre solo existe en internet, los avisos dejaran de llegar en cuanto se caiga la "
+            "linea -- dentro de casa, y sin ningun error. Ponle una direccion local en Ajustes > "
+            "Sistema > Red.",
+            anfitrion,
+        )
+    return base
 
 
 def _programar_reintento(

@@ -50,6 +50,19 @@ entidades. Si vienes de una anterior, lee lo primero.
   el diccionario entero, y el paso de reemparejar devolvia uno vacio. Nunca se noto porque hasta
   hoy no habia ninguna opcion que perder.
 
+### Corregido, el mismo dia
+
+- **La direccion que se le daba al videoportero podia ser publica.** 
+  solo dice *no uses la externa*: si el  configurado es a su vez un nombre publico, lo
+  devuelve tal cual. **En una instalacion real de las nuestras es exactamente el caso** -- las dos
+  URL valen el mismo hostname publico-- asi que el videoportero habria salido a internet, DNS al
+  menos, para hablar con una maquina que tiene en la LAN de al lado. Sin ningun error: solo dejaria
+  de funcionar el dia que se caiga la linea.
+
+  Ahora se prefiere **la IP** con la que Home Assistant sale a su propia red, que es lo unico que no
+  necesita que nada resuelva un nombre. Si aun asi acaba siendo un nombre, **se dice en el registro**
+  en vez de aceptarlo callando.
+
 ### Si vienes de 0.4.x
 
 El videoportero deja de publicar por MQTT, asi que **las entidades viejas se quedaran como no
