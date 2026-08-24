@@ -35,6 +35,8 @@ import logging
 from ipaddress import ip_address
 from urllib.parse import urlparse
 
+import aiohttp
+
 from homeassistant.components import network
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -122,19 +124,65 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Una direccion nueva -- zeroconf, o el usuario cambiandola-- llega como una actualizacion de
     # la entrada, y `_async_update_listener` recarga la integracion entera: se cierra esta sesion y
     # se crea otra con el mapeo nuevo. No hace falta que nada mute lo de aqui en caliente.
+    # Una direccion guardada envejece: el portero de casa cambio de VLAN al montarse en la calle y
+    # la suya dejo de existir (2026-08-24). Asi que no se da por buena -- se COMPRUEBA, y si no lo
+    # es se aprende la que toca preguntandole al nombre publico. El porque entero, en net.py.
+    hostname = api.doorbell_hostname(device_id)
+    guardada = entry.data.get(CONF_HOST_HINT) or entry.options.get(CONF_HOST_HINT)
+
+    # Sesion desnuda para el sondeo: sin resolutor, porque lo que se esta decidiendo AQUI es que
+    # tiene que llevar dentro. Se cierra pase lo que pase.
+    sondeo = aiohttp.ClientSession()
+    try:
+        buena, contesto = await net.averiguar_local(sondeo, device_id, [guardada, hostname])
+    finally:
+        await sondeo.close()
+
+    if buena:
+        # Guarda: aqui solo entra una DIRECCION. La primera version llego a guardar el hostname
+        # -- el mapeo quedaba apuntando un nombre a si mismo y todo parecia ir bien, porque caia
+        # al DNS igual que antes. Un valor equivocado que funciona es peor que un fallo.
+        try:
+            ip_address(buena)
+        except ValueError:
+            _LOGGER.warning(
+                "Descartada '%s' como direccion local de %s: no es una direccion. Se seguira por "
+                "DNS publico. Esto es un fallo de esta integracion, no de la instalacion.",
+                buena, device_id,
+            )
+            buena = None
+
     mapeo = {}
-    pista = entry.data.get(CONF_HOST_HINT) or entry.options.get(CONF_HOST_HINT)
-    if pista:
-        mapeo[api.doorbell_hostname(device_id)] = pista
+    if buena:
+        mapeo[hostname] = buena
+        if buena != guardada:
+            _LOGGER.info(
+                "El portero %s esta ahora en %s (antes %s). Se guarda, asi que un corte de "
+                "internet ya no le quita el acceso a esta casa.",
+                device_id, buena, guardada or "sin direccion guardada",
+            )
+            # Persistir dispara `_async_update_listener`, o sea una recarga. No hay bucle: la
+            # pasada siguiente encuentra la direccion ya buena y no vuelve a escribir.
+            hass.config_entries.async_update_entry(
+                entry, data={**entry.data, CONF_HOST_HINT: buena}
+            )
+    elif contesto:
+        # Contesto y no supe sacarle la direccion: eso NO es un portero apagado, es un fallo
+        # nuestro, y sale a gritos para que no vuelva a pasar desapercibido -- la version anterior
+        # se lo trago y guardo el nombre como si fuera una direccion.
+        _LOGGER.warning(
+            "%s contesta en '%s' y no he podido averiguar su direccion. Se seguira por DNS "
+            "publico, o sea que hara falta internet para hablar con el desde esta misma red.",
+            device_id, contesto,
+        )
     else:
-        # No es un fallo, y por eso no se avisa a gritos: un portero emparejado a mano por su
-        # hostname nunca dio una direccion local. Funciona igual mientras haya internet -- que es
-        # justo la dependencia que se queria quitar, asi que conviene que se pueda ver.
+        # Nadie contesta. No se avisa a gritos porque el caso normal es que el portero este
+        # apagado, y las entidades ya lo van a decir saliendo como no disponibles.
         _LOGGER.debug(
-            "Sin direccion local para %s: se ira por DNS publico, o sea que hara falta internet "
-            "para hablar con el portero desde esta misma red",
+            "No he podido confirmar ninguna direccion local de %s; se ira por DNS publico",
             device_id,
         )
+
     sesion = net.crear_sesion(hass, mapeo)
 
     coordinator = DoorbellCoordinator(

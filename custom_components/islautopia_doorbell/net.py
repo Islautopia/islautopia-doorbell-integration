@@ -60,8 +60,10 @@ that very address, so the resolver and plain DNS are indistinguishable there.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import socket
+from ipaddress import ip_address
 
 import aiohttp
 from aiohttp.abc import AbstractResolver
@@ -141,3 +143,98 @@ def crear_sesion(hass: HomeAssistant, mapeo: dict[str, str]) -> aiohttp.ClientSe
         ssl=client_context(),
     )
     return aiohttp.ClientSession(connector=conector)
+
+
+async def averiguar_local(
+    sesion: aiohttp.ClientSession, device_id: str, candidatas: list[str]
+) -> tuple[str | None, str | None]:
+    """Cual de estas direcciones es de verdad este portero, ahora mismo.
+
+    ## Por que hace falta, medido en la calle el 2026-08-24
+
+    El portero cambio de VLAN al instalarse -- de 192.168.41.173 a 192.168.33.173, que es su red
+    definitiva-- y la direccion guardada dejo de ser suya. Peor: no quedo REHUSANDO, quedo como un
+    **agujero negro**, y eso son 10,01 s medidos por intento antes de caer al DNS. O sea que la
+    direccion obsoleta no es solo inutil: es un lastre en cada peticion, y con el presupuesto de
+    arranque de una entrada por medio puede impedir que la integracion cargue.
+
+    Y no es un caso raro que valga la pena ignorar: §0-bis dice que **mDNS no cruza VLANs**, y que
+    un portero en su propia VLAN es el despliegue previsto. O sea que el descubrimiento automatico
+    no va a encontrarlo NUNCA, sin dar ningun error -- devuelve una lista vacia, indistinguible de
+    "no hay ningun portero".
+
+    ## Como se comprueba, y por que ESTA ruta
+
+    `GET /api/device_id`, HTTP plano en el puerto 80, sin credenciales. El contrato la define en §0
+    exactamente para esto: el primer contacto, antes de tener nada. Es de solo lectura y no tiene
+    ningun efecto lateral, asi que sondear con ella no toca el timbre ni la puerta ni el reloj --
+    que es la razon por la que en este proyecto no se barre con GET a lo que sea.
+
+    ⚠️ **Y se comprueba que el device_id COINCIDE, no que algo conteste.** Una direccion reciclada
+    por DHCP puede tener detras otro aparato, y hasta otro portero: sin esa comparacion, "hay algo
+    ahi" y "es el mio" dan la misma respuesta, y la segunda es la unica que autoriza a guardarla.
+
+    ## Una candidata puede ser un NOMBRE, y se devuelve su direccion igualmente
+
+    La ultima candidata es el hostname publico. Sirve de puente: con internet, preguntarle a el
+    ensena cual es la direccion buena AHORA, y lo que se guarda es esa direccion -- no el nombre.
+    Asi un corte posterior encuentra el numero ya aprendido, en vez de descubrir que el unico sitio
+    donde estaba escrito era un DNS que ya no contesta.
+
+    ⚠️ La primera version leia esa direccion del `peername` de la conexion, y **devolvia None**: al
+    llegar ahi la respuesta ya se habia soltado al pool. No fallaba -- guardaba el NOMBRE como si
+    fuera una direccion, que es peor, porque el mapeo quedaba apuntando un nombre a si mismo y todo
+    seguia funcionando por DNS como si el arreglo estuviera puesto. Ahora se resuelve a proposito.
+
+    ## Devuelve DOS cosas, y la segunda es la que hace diagnosticable esto
+
+    `(direccion, quien_contesto)`. Con las dos se pueden separar tres situaciones que de otro modo
+    salen por el mismo sitio y se leen igual:
+
+        (None, None)      nadie contesto     -> el portero esta apagado o no se alcanza. Normal.
+        (None, "nombre")  contesto y no pude -> ANOMALIA: es un fallo nuestro, y hay que gritarlo
+        ("1.2.3.4", ...)  bien
+
+    La primera version devolvia solo la direccion, asi que los dos primeros casos eran el mismo
+    `None` -- y el segundo se paso por debajo sin que nadie lo viera: guardo el nombre en vez de la
+    direccion, todo siguio funcionando por DNS, y el arreglo parecia puesto sin estarlo.
+    """
+    for ip in candidatas:
+        if not ip:
+            continue
+        try:
+            async with sesion.get(
+                f"http://{ip}/api/device_id",
+                # Corto a proposito: esto corre en el arranque de la entrada y una candidata mala
+                # es justo la que se va a comer el plazo entero. Un portero en la misma red
+                # contesta en decenas de milisegundos.
+                timeout=aiohttp.ClientTimeout(total=2),
+            ) as resp:
+                if resp.status != 200:
+                    continue
+                datos = await resp.json(content_type=None)
+        except (aiohttp.ClientError, OSError, TimeoutError, ValueError):
+            continue
+
+        if not isinstance(datos, dict) or datos.get("device_id") != device_id:
+            continue
+
+        try:
+            ip_address(ip)
+            return ip, ip
+        except ValueError:
+            pass
+
+        # Era un nombre y ha contestado: se resuelve a una direccion, que es lo unico que sirve
+        # para guardar. `getaddrinfo` del bucle no bloquea; una consulta que falle aqui no es
+        # grave -- significa que hay que seguir tirando de DNS, o sea lo de siempre.
+        try:
+            info = await asyncio.get_running_loop().getaddrinfo(
+                ip, 80, family=socket.AF_INET, type=socket.SOCK_STREAM
+            )
+        except OSError:
+            return None, ip
+        if info:
+            return info[0][4][0], ip
+        return None, ip
+    return None, None
