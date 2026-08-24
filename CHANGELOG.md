@@ -52,9 +52,9 @@ entidades. Si vienes de una anterior, lee lo primero.
 
 ### Corregido, el mismo dia
 
-- **La direccion que se le daba al videoportero podia ser publica.** 
-  solo dice *no uses la externa*: si el  configurado es a su vez un nombre publico, lo
-  devuelve tal cual. **En una instalacion real de las nuestras es exactamente el caso** -- las dos
+- **La direccion que se le daba al videoportero podia ser publica.**
+  `get_url(allow_external=False)` solo dice *no uses la externa*: si el `internal_url` configurado
+  es a su vez un nombre publico, lo devuelve tal cual. **En una instalacion real de las nuestras es exactamente el caso** -- las dos
   URL valen el mismo hostname publico-- asi que el videoportero habria salido a internet, DNS al
   menos, para hablar con una maquina que tiene en la LAN de al lado. Sin ningun error: solo dejaria
   de funcionar el dia que se caiga la linea.
