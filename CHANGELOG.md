@@ -6,6 +6,27 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.5.1] — 2026-08-24
+
+### Corregido
+
+- **Borrar el dispositivo de MQTT se llevaba esta integracion por delante.** Medido en una
+  instalacion real el mismo dia: Inaki borro el dispositivo que habia creado el autodescubrimiento
+  de MQTT y **la puerta dejo de abrirse**.
+
+  Nuestro dispositivo llevaba dos identificadores a proposito -- el nuestro y el de MQTT-- para que
+  Home Assistant fusionara los dos en uno solo. Eso era correcto mientras existian ambos, y tenia
+  un coste que estaba escrito aqui como «no cuesta nada»: al compartir dispositivo, **borrar el de
+  MQTT borra tambien nuestra entrada de configuracion**, y con ella el webhook. El videoportero
+  siguio escribiendo a una direccion que ya no escuchaba nadie, sin que nada lo explicara.
+
+  Y una segunda mitad que ese dia solo se libro por suerte: al borrarse una entrada, la integracion
+  **le dice al videoportero que deje de escribir**. Fallo porque la credencial de esa entrada ya
+  estaba muerta. Con una viva habria funcionado, y el videoportero se habria callado por un borrado
+  que el usuario no dirigio contra nosotros.
+
+  La fusion ya no compraba nada: el firmware dejo de hablar MQTT esa misma manana.
+
 ## [0.5.0] — 2026-08-24
 
 Esta version cambia como habla el videoportero con Home Assistant, y con ello quien crea las

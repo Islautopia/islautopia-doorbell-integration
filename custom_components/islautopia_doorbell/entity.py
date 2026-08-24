@@ -34,12 +34,10 @@ class DoorbellEntity(CoordinatorEntity[DoorbellCoordinator]):
     def device_info(self) -> DeviceInfo:
         """Se enganchan al MISMO dispositivo que ya registra __init__.py.
 
-        ⚠️ Y aqui va SOLO nuestro identificador, no el que usaba el autodiscovery de MQTT. El
-        segundo lo pone `__init__.py` a proposito, para que Home Assistant fusionara nuestro
-        dispositivo con el que MQTT hubiera creado para el mismo portero fisico. MQTT se retiro
-        (§4), asi que ya no hay nada con lo que fusionarse -- pero ese identificador se queda alli
-        para que un Home Assistant que todavia arrastre las entidades viejas de MQTT no acabe con
-        dos dispositivos desconectados para el mismo aparato.
+        Un solo identificador, el nuestro, igual que en `__init__.py`. Hubo un segundo -- el del
+        autodescubrimiento de MQTT-- para que Home Assistant fusionara los dos dispositivos; se
+        retiro el 2026-08-24 al medirse lo que costaba: borrar el dispositivo de MQTT se llevaba
+        nuestra entrada de configuracion. El porque entero esta en `__init__.py`.
         """
         datos = self.coordinator.data or {}
         return DeviceInfo(

@@ -69,17 +69,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # integration) to let the user pick a doorbell without ever typing/copying a device_id by
     # hand, and that picker only lists devices that actually exist in the registry.
     #
-    # TWO identifiers on purpose (fix for the "device has no entities" bug found in real testing):
-    # our own (DOMAIN, device_id) - required by the card editor's device picker lookup, which
-    # searches for this exact pair in `device.identifiers` - AND the SAME identifier the
-    # firmware's old MQTT discovery used for its device block ("ig_doorbell_<dev_id>", registered
-    # by the `mqtt` integration as ("mqtt", ...)). Registering both on the SAME device_registry
-    # entry makes Home Assistant MERGE the two into a single device.
+    # ONE identifier: our own. The card editor's device picker looks up exactly this pair in
+    # `device.identifiers`, which is why the device is registered here at all.
     #
-    # ⚠️ The second identifier stays even though the firmware no longer speaks MQTT at all. It
-    # costs nothing, and it is what keeps an existing installation - one that still carries the
-    # entities MQTT discovery published before the upgrade - from ending up with two disconnected
-    # devices for one physical doorbell.
+    # ⚠️ IT USED TO CARRY A SECOND ONE - the identifier the firmware's old MQTT discovery used -
+    # so that Home Assistant would MERGE our device with the one the `mqtt` integration created for
+    # the same physical doorbell. That was right while both existed, and it is removed now, because
+    # it turned out to cost something I had written down as costing nothing.
+    #
+    # Measured on 2026-08-24, on a real installation: deleting the doorbell's MQTT device took THIS
+    # INTEGRATION'S CONFIG ENTRY with it - the two shared a device, so removing the device removed
+    # the entry attached to it. The webhook went with it, the doorbell carried on writing to an
+    # address nobody was listening at, and the door stopped opening. Nothing said why; the only
+    # trace was `async_remove_entry` logging that it could not unconfigure the webhook.
+    #
+    # And a second half that only got away with it by luck: that same removal path TELLS THE
+    # DOORBELL TO STOP WRITING. It failed today because the removed entry's credential was already
+    # dead. With a live one it would have succeeded - and the doorbell would have gone quiet
+    # because of a deletion the user never aimed at us.
+    #
+    # The merge bought nothing any more: the firmware stopped speaking MQTT that same morning. An
+    # installation upgrading from before will keep its old MQTT entities as a separate, unavailable
+    # device, which is honest - they are not ours and nothing feeds them.
     #
     # Deliberately do NOT pass `name=` here (found via real-hardware testing 2026-07-09):
     # `async_get_or_create` only overwrites the stored device name when `name` is explicitly
@@ -87,14 +98,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # user-configured `device_name` (§0-bis) - which the entities publish from `dname`, the actual
     # source of truth (see entity.py). Omitting it means HA still names a brand-new device from
     # this entry's title, and our reloads never overwrite it again.
-    mqtt_ident = f"ig_doorbell_{entry.data[CONF_DEVICE_ID]}"
     device_registry = dr.async_get(hass)
     device_registry.async_get_or_create(
         config_entry_id=entry.entry_id,
-        identifiers={
-            (DOMAIN, entry.data[CONF_DEVICE_ID]),
-            ("mqtt", mqtt_ident),
-        },
+        identifiers={(DOMAIN, entry.data[CONF_DEVICE_ID])},
         manufacturer="Islautopia",
         model="IG Doorbell",
     )
