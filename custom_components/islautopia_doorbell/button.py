@@ -24,7 +24,6 @@ from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from . import api
 from .const import DOMAIN
@@ -58,7 +57,9 @@ class AbrirPuertaButton(DoorbellEntity, ButtonEntity):
         super().__init__(coordinator, "abrir")
 
     async def async_press(self) -> None:
-        sesion = async_get_clientsession(self.hass)
+        # La sesion de este portero: prueba su direccion local antes que el DNS publico
+        # (net.py), asi que esto sigue funcionando con la linea caida.
+        sesion = self.coordinator.sesion
         try:
             await api.async_open_door(sesion, self.coordinator.device_id, self.coordinator.credential)
         except api.NoLockConfiguredError as err:

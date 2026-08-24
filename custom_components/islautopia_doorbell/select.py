@@ -18,7 +18,6 @@ from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from . import api
 from .const import DOMAIN, MODOS
@@ -59,7 +58,9 @@ class ModoSelect(DoorbellEntity, SelectEntity):
         if numero is None:
             raise HomeAssistantError(f"Modo desconocido: {option}")
 
-        sesion = async_get_clientsession(self.hass)
+        # La sesion de este portero: prueba su direccion local antes que el DNS publico
+        # (net.py), asi que esto sigue funcionando con la linea caida.
+        sesion = self.coordinator.sesion
         try:
             # Guardado PARCIAL: solo `m`. Mandar el estado entero convertiria cualquier lectura de
             # hace 30 s en una escritura que pisa lo que otro acaba de cambiar desde el dashboard.

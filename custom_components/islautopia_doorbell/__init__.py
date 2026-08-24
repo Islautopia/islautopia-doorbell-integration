@@ -42,8 +42,14 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.network import NoURLAvailableError, get_url
 
-from . import api, webhook
-from .const import CONF_CREDENTIAL, CONF_DEVICE_ID, CONF_ENTIDADES, DOMAIN
+from . import api, net, webhook
+from .const import (
+    CONF_CREDENTIAL,
+    CONF_DEVICE_ID,
+    CONF_ENTIDADES,
+    CONF_HOST_HINT,
+    DOMAIN,
+)
 from .coordinator import DoorbellCoordinator
 from .signal_proxy import async_register_signal_proxy
 from .websocket_api import async_register_websocket_commands
@@ -107,7 +113,33 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     device_id = entry.data[CONF_DEVICE_ID]
-    coordinator = DoorbellCoordinator(hass, entry, device_id, entry.data[CONF_CREDENTIAL])
+
+    # A donde conectar para hablar con ESTE portero. La URL sigue llevando su hostname publico,
+    # asi que el certificado se valida contra el igual que siempre; lo unico que esto cambia es la
+    # direccion a la que se abre el socket, y con ella que Home Assistant deje de necesitar DNS
+    # publico para alcanzar un aparato que tiene en la misma red. El porque entero, en net.py.
+    #
+    # Una direccion nueva -- zeroconf, o el usuario cambiandola-- llega como una actualizacion de
+    # la entrada, y `_async_update_listener` recarga la integracion entera: se cierra esta sesion y
+    # se crea otra con el mapeo nuevo. No hace falta que nada mute lo de aqui en caliente.
+    mapeo = {}
+    pista = entry.data.get(CONF_HOST_HINT) or entry.options.get(CONF_HOST_HINT)
+    if pista:
+        mapeo[api.doorbell_hostname(device_id)] = pista
+    else:
+        # No es un fallo, y por eso no se avisa a gritos: un portero emparejado a mano por su
+        # hostname nunca dio una direccion local. Funciona igual mientras haya internet -- que es
+        # justo la dependencia que se queria quitar, asi que conviene que se pueda ver.
+        _LOGGER.debug(
+            "Sin direccion local para %s: se ira por DNS publico, o sea que hara falta internet "
+            "para hablar con el portero desde esta misma red",
+            device_id,
+        )
+    sesion = net.crear_sesion(hass, mapeo)
+
+    coordinator = DoorbellCoordinator(
+        hass, entry, device_id, entry.data[CONF_CREDENTIAL], sesion
+    )
 
     # ⚠️ `async_refresh()` y NO `async_config_entry_first_refresh()`, y es deliberado.
     #
@@ -127,6 +159,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         **dict(entry.data),
         "coordinator": coordinator,
         "webhook_id": webhook_id,
+        "sesion": sesion,
     }
 
     if not await _async_configurar_portero(hass, entry, coordinator, primera_vez=True):
@@ -166,7 +199,7 @@ async def _async_configurar_portero(
 
     try:
         await api.async_set_hass_config(
-            async_get_clientsession(hass),
+            coordinator.sesion,
             coordinator.device_id,
             entry.data[CONF_CREDENTIAL],
             url_webhook=url_webhook,
@@ -303,7 +336,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if ok:
         webhook.desregistrar(hass, entry.data[CONF_DEVICE_ID])
-        hass.data[DOMAIN].pop(entry.entry_id, None)
+        datos = hass.data[DOMAIN].pop(entry.entry_id, None)
+        # La sesion es de ESTA entrada y no tiene limpieza automatica a proposito (net.py): la que
+        # trae Home Assistant salta al PARAR, y una integracion se descarga y recarga muchas veces
+        # antes de eso. Sin este cierre, cada recarga deja un conector y su hilo de resolucion.
+        if datos and (sesion := datos.get("sesion")):
+            await sesion.close()
     return ok
 
 
@@ -318,9 +356,14 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     Best-effort: si el portero no esta alcanzable ahora mismo, se dice y se sigue. Impedir que
     alguien desinstale una integracion porque un aparato esta apagado seria peor.
     """
+    mapeo = {}
+    pista = entry.data.get(CONF_HOST_HINT) or entry.options.get(CONF_HOST_HINT)
+    if pista:
+        mapeo[api.doorbell_hostname(entry.data[CONF_DEVICE_ID])] = pista
+    sesion = net.crear_sesion(hass, mapeo)
     try:
         await api.async_set_hass_config(
-            async_get_clientsession(hass),
+            sesion,
             entry.data[CONF_DEVICE_ID],
             entry.data[CONF_CREDENTIAL],
             url_webhook="",
@@ -333,6 +376,11 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
             "a una direccion que ya no escucha nadie hasta que se le vuelva a configurar.",
             entry.data[CONF_DEVICE_ID], err,
         )
+    finally:
+        # Esta sesion es de usar y tirar y NO la limpia nadie: en `async_remove_entry` ya no hay
+        # entrada en `hass.data`, porque la descarga corre antes. Sin este cierre, cada
+        # desinstalacion deja un conector abierto y el hilo de resolucion detras.
+        await sesion.close()
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:

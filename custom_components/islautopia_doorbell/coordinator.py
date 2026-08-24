@@ -40,7 +40,12 @@ class DoorbellCoordinator(DataUpdateCoordinator[dict]):
     """Un portero. `data` es `get_states` con `firmware_info` mezclado dentro."""
 
     def __init__(
-        self, hass: HomeAssistant, entry: ConfigEntry, device_id: str, credential: str
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        device_id: str,
+        credential: str,
+        sesion: aiohttp.ClientSession,
     ) -> None:
         super().__init__(
             hass,
@@ -53,13 +58,21 @@ class DoorbellCoordinator(DataUpdateCoordinator[dict]):
         )
         self.device_id = device_id
         self.credential = credential
-        self._sesion: aiohttp.ClientSession = async_get_clientsession(hass)
+        # La sesion de ESTA entrada, con el resolutor que prueba la direccion local antes que
+        # el DNS publico (net.py). No la compartida: un resolutor sobre aquella contestaria por
+        # todas las integraciones de este Home Assistant.
+        self._sesion = sesion
         # `firmware_info` se pide solo de vez en cuando: la version no cambia sola, y pedirla cada
         # 30 s seria una peticion de mas contra un aparato que atiende de una en una. Se refresca
         # tras un OTA porque el portero se reinicia y el sondeo siguiente falla, lo que pone esto a
         # cero. O sea que la actualizacion se nota sin tener que preguntarla a menudo.
         self._ciclos_hasta_firmware = 0
         self._firmware: dict = {}
+
+    @property
+    def sesion(self) -> aiohttp.ClientSession:
+        """La sesion de este portero, para quien tenga el coordinador y no el hass.data."""
+        return self._sesion
 
     async def _async_update_data(self) -> dict:
         try:

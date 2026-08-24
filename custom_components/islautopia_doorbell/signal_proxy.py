@@ -132,7 +132,10 @@ class DoorbellSignalProxyView(HomeAssistantView):
             f"https://{doorbell_hostname(device_id)}:8443"
             f"/webrtc/signal?token={data[CONF_CREDENTIAL]}"
         )
-        session = async_get_clientsession(hass)
+        # La sesion de este portero: prueba su direccion local antes que el DNS publico
+        # (net.py). Sin esto, la card se queda sin video, sin audio y sin abrir la puerta en
+        # cuanto se cae la linea -- con el portero en el mismo conmutador.
+        session = data.get("sesion") or async_get_clientsession(hass)
 
         try:
             upstream = await session.get(url, timeout=_SSE_TIMEOUT)
@@ -195,7 +198,10 @@ class DoorbellSignalProxyView(HomeAssistantView):
             f"https://{doorbell_hostname(device_id)}:8443"
             f"/webrtc/signal/post?token={data[CONF_CREDENTIAL]}"
         )
-        session = async_get_clientsession(hass)
+        # La sesion de este portero: prueba su direccion local antes que el DNS publico
+        # (net.py). Sin esto, la card se queda sin video, sin audio y sin abrir la puerta en
+        # cuanto se cae la linea -- con el portero en el mismo conmutador.
+        session = data.get("sesion") or async_get_clientsession(hass)
 
         try:
             async with session.post(

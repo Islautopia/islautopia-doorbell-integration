@@ -138,7 +138,10 @@ class DoorbellMediaSource(MediaSource):
     async def _build_device_node(self, doorbell: dict) -> BrowseMediaSource:
         device_id = doorbell[CONF_DEVICE_ID]
         credential = doorbell[CONF_CREDENTIAL]
-        session = async_get_clientsession(self.hass)
+        # Esta peticion la hace HOME ASSISTANT, asi que va por la sesion del portero: prueba su
+        # direccion local antes que el DNS publico (net.py) y el listado sigue saliendo con la
+        # linea caida. El respaldo cubre la entrada a medio cargar.
+        session = doorbell.get("sesion") or async_get_clientsession(self.hass)
 
         try:
             listing = await api.async_list_recordings(
@@ -220,6 +223,19 @@ class DoorbellMediaSource(MediaSource):
         # Probe before handing the URL over. A HEAD costs one round trip on the LAN and turns the
         # commonest failure - a user-role pairing - into a sentence the user can act on, instead
         # of a player that opens and shows nothing.
+        #
+        # ⚠️ Y esta va POR LA SESION COMPARTIDA a proposito, no por la del portero. Lo que se
+        # entrega debajo es una URL para el NAVEGADOR del usuario, que resuelve por su cuenta y no
+        # sabe nada de la direccion local que este proceso tiene guardada. Sondear por un camino
+        # mejor que el que va a usar quien reproduce convertiria esta comprobacion en una que
+        # contesta "adelante" justo cuando el reproductor no va a poder: sin internet, la sonda
+        # saldria bien por la red local y el video no cargaria, sin nada que lo explicara.
+        #
+        # Asi que la sonda comparte camino con el navegador y falla cuando el fallara -- que es lo
+        # unico que la hace valer. La otra mitad, que el navegador NO deberia necesitar DNS publico
+        # para ver un video de un aparato que tiene al lado, es una decision de producto abierta:
+        # cuesta que Home Assistant haga de intermediario, y el docstring de arriba explica por que
+        # se decidio no hacerlo.
         session = async_get_clientsession(self.hass)
         try:
             async with session.head(url, timeout=api._TIMEOUT) as resp:

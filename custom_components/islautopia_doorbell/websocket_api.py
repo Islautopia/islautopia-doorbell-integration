@@ -183,7 +183,7 @@ async def websocket_get_turn_credentials(hass: HomeAssistant, connection, msg) -
         )
         return
 
-    session = async_get_clientsession(hass)
+    session = entry_data.get("sesion") or async_get_clientsession(hass)
     try:
         creds = await api.async_get_app_turn_credentials(
             session, entry_data[CONF_DEVICE_ID], entry_data[CONF_CREDENTIAL]
