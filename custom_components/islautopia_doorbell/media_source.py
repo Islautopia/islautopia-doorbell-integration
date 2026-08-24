@@ -75,10 +75,10 @@ class DoorbellMediaSource(MediaSource):
     def _paired_doorbells(self) -> list[dict]:
         """Every config entry that is a paired doorbell, in a stable order.
 
-        Asks Home Assistant which entries exist and looks each one up, rather than walking
-        everything stored under our domain key - `hass.data[DOMAIN]` also holds the shared MQTT
-        listener state, which is a plain dict too and would otherwise be examined as if it were a
-        doorbell. Same reasoning as `_find_entry_data` in websocket_api.py.
+        Se le pregunta a Home Assistant que entradas existen y se busca cada una, en vez de
+        recorrer todo lo guardado bajo nuestra clave de dominio: ahi hay ademas objetos vivos (el
+        coordinador), y cualquier cosa que alguien guarde manana con un `device_id` dentro
+        coincidiria en silencio. Mismo razonamiento que `_find_entry_data` en websocket_api.py.
         """
         stored = self.hass.data.get(DOMAIN, {})
         found = []

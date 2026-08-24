@@ -245,3 +245,153 @@ async def async_get_app_turn_credentials(
         if resp.status != 200:
             raise DoorbellApiError(f"GET app_turn_credentials -> HTTP {resp.status}")
         return await resp.json(content_type=None)
+
+
+# ==================================================================================================
+# ESTADO Y CONTROL -- lo que alimenta las entidades (2026-08-24)
+#
+# Estas cinco llamadas no existian porque hasta hoy `get_states`, `save_states` y `/open` solo
+# aceptaban COOKIE DE SESION, y esta integracion guarda una credencial de `pair_app` y nunca la
+# contrasena de administrador -- que es justo lo que el emparejamiento existe para evitar. Era la
+# asimetria del hueco 9 del contrato, la misma que ya mordio con `firmware_info` y con las cuatro
+# rutas del DVR. El firmware la cerro el 2026-08-24 y por eso esta integracion puede por fin tener
+# entidades.
+# ==================================================================================================
+
+
+async def async_get_states(
+    session: aiohttp.ClientSession, device_id: str, credential: str
+) -> dict:
+    """GET /api/get_states (contrato §1.2). Cookie **o** `?token=`, sin filtro de rol.
+
+    Es todo el estado configurable del portero en una sola llamada, asi que es lo que alimenta a
+    casi todas las entidades. Sin filtro de rol porque es de solo lectura y no devuelve ninguna
+    contrasena -- `wifi_pass` no sale por ninguna ruta.
+    """
+    url = (
+        f"https://{doorbell_hostname(device_id)}:8443"
+        f"/api/get_states?token={quote(credential)}"
+    )
+    try:
+        async with session.get(url, timeout=_TIMEOUT) as resp:
+            if resp.status == 401:
+                raise AuthenticationError("Pairing credential rejected by the doorbell")
+            if resp.status != 200:
+                raise DoorbellApiError(f"GET get_states -> HTTP {resp.status}")
+            return await resp.json(content_type=None)
+    except aiohttp.ClientError as err:
+        raise DoorbellApiError(f"Could not reach the doorbell: {err}") from err
+
+
+async def async_get_firmware_info(
+    session: aiohttp.ClientSession, device_id: str, credential: str
+) -> dict:
+    """GET /api/firmware_info (contrato §1.2-ter). Version, hardware, y el panel de calle si lo hay."""
+    url = (
+        f"https://{doorbell_hostname(device_id)}:8443"
+        f"/api/firmware_info?token={quote(credential)}"
+    )
+    try:
+        async with session.get(url, timeout=_TIMEOUT) as resp:
+            if resp.status == 401:
+                raise AuthenticationError("Pairing credential rejected by the doorbell")
+            if resp.status != 200:
+                raise DoorbellApiError(f"GET firmware_info -> HTTP {resp.status}")
+            return await resp.json(content_type=None)
+    except aiohttp.ClientError as err:
+        raise DoorbellApiError(f"Could not reach the doorbell: {err}") from err
+
+
+async def async_save_states(
+    session: aiohttp.ClientSession, device_id: str, credential: str, campos: dict[str, str]
+) -> None:
+    """POST /api/save_states (contrato §1.2). **Exige rol admin.**
+
+    Guardado PARCIAL: solo se escribe lo que va en el cuerpo, y omitir un campo lo deja intacto --
+    nunca lo resetea. Por eso aqui se manda un diccionario y no el estado entero: mandar todo
+    convertiria cualquier lectura desfasada en una escritura que pisa lo que otro acaba de cambiar.
+    """
+    url = (
+        f"https://{doorbell_hostname(device_id)}:8443"
+        f"/api/save_states?token={quote(credential)}"
+    )
+    try:
+        async with session.post(url, data=campos, timeout=_TIMEOUT) as resp:
+            if resp.status == 401:
+                raise AuthenticationError("Pairing credential rejected by the doorbell")
+            if resp.status == 403:
+                raise NotAllowedError("This pairing is not an admin of that doorbell")
+            if resp.status != 200:
+                raise DoorbellApiError(f"POST save_states -> HTTP {resp.status}")
+    except aiohttp.ClientError as err:
+        raise DoorbellApiError(f"Could not reach the doorbell: {err}") from err
+
+
+async def async_open_door(
+    session: aiohttp.ClientSession, device_id: str, credential: str
+) -> None:
+    """GET /open (contrato §1.2). Cookie **o** `?token=`, **sin filtro de rol**.
+
+    Sin rol a proposito: el mensaje `open` de la senalizacion nunca lo ha comprobado, asi que
+    exigirlo aqui permitiria la misma accion por un camino y la negaria por el otro.
+
+    `409 no_lock_configured` NO es un fallo de la peticion: es que ese portero no tiene cerradura
+    (`door_m=2`). Se distingue a proposito para que un cliente pueda **no dibujar el boton** en vez
+    de ofrecer uno que defrauda.
+    """
+    url = f"https://{doorbell_hostname(device_id)}:8443/open?token={quote(credential)}"
+    try:
+        async with session.get(url, timeout=_TIMEOUT) as resp:
+            if resp.status == 401:
+                raise AuthenticationError("Pairing credential rejected by the doorbell")
+            if resp.status == 409:
+                raise NoLockConfiguredError("That doorbell has no lock configured (door_m=2)")
+            if resp.status != 200:
+                raise DoorbellApiError(f"GET /open -> HTTP {resp.status}")
+    except aiohttp.ClientError as err:
+        raise DoorbellApiError(f"Could not reach the doorbell to open: {err}") from err
+
+
+async def async_set_hass_config(
+    session: aiohttp.ClientSession,
+    device_id: str,
+    credential: str,
+    *,
+    url_webhook: str,
+    entities: list[dict[str, str]],
+) -> None:
+    """POST /api/hass (contrato §4). **Solo HTTPS 8443**, y exige rol admin.
+
+    Le dice al portero **a donde mandar sus avisos** y **que entidades de Home Assistant puede
+    accionar**. Una `url_webhook` vacia lo desconfigura, que es como se desempareja Home Assistant.
+
+    ⚠️ LA URL TIENE QUE SER LA INTERNA. `get_url(hass)` puede devolver la externa, y entonces el
+    portero saldria a internet para hablar con una maquina que tiene en la LAN de al lado --
+    rompiendo el principio 1 sin dar ningun error, solo dejando de funcionar el dia que se caiga la
+    linea. En la instalacion de Inaki eso ya pasaria: su `internal_url` es un hostname publico.
+    """
+    api_url = (
+        f"https://{doorbell_hostname(device_id)}:8443"
+        f"/api/hass?token={quote(credential)}"
+    )
+    cuerpo = {"url": url_webhook, "entities": entities}
+    try:
+        async with session.post(api_url, json=cuerpo, timeout=_TIMEOUT) as resp:
+            if resp.status == 401:
+                raise AuthenticationError("Pairing credential rejected by the doorbell")
+            if resp.status == 403:
+                raise NotAllowedError("This pairing is not an admin of that doorbell")
+            if resp.status != 200:
+                cuerpo_err = await resp.text()
+                raise DoorbellApiError(f"POST /api/hass -> HTTP {resp.status}: {cuerpo_err[:120]}")
+    except aiohttp.ClientError as err:
+        raise DoorbellApiError(f"Could not reach the doorbell to configure it: {err}") from err
+
+
+class NoLockConfiguredError(DoorbellApiError):
+    """`door_m=2`: ese portero no tiene cerradura. NO es un fallo de la peticion.
+
+    Distinto de un error generico a proposito, por el mismo motivo que el firmware lo distingue:
+    un cliente necesita poder **no dibujar el boton de abrir** en vez de ofrecer uno que defrauda
+    (§1.4-ter). Antes de que `door_m` viajara, la unica forma de saberlo era fallar una vez.
+    """

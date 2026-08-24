@@ -23,6 +23,7 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_HOST
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
@@ -30,10 +31,13 @@ from . import api
 from .const import (
     CONF_CREDENTIAL,
     CONF_DEVICE_ID,
+    CONF_ENTIDADES,
     CONF_HOST_HINT,
     CONF_LABEL,
     DEFAULT_PAIR_LABEL,
     DOMAIN,
+    DOMAIN_OPEN_SERVICE,
+    MAX_ENTIDADES,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -171,12 +175,70 @@ class IslautopiaDoorbellConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class IslautopiaDoorbellOptionsFlow(config_entries.OptionsFlow):
-    """Re-pair - e.g. after the credential was revoked from the cloud admin panel."""
+    """Dos cosas: elegir que entidades puede accionar el portero, y reemparejar."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self._entry = config_entry
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        return self.async_show_menu(
+            step_id="init", menu_options=["entidades", "reemparejar"]
+        )
+
+    async def async_step_entidades(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Que entidades de Home Assistant puede accionar el portero (contrato §4).
+
+        Se eligen AQUI, en Home Assistant, y viajan al portero. El desplegable que ve el usuario en
+        la app lo lee **del portero**, no de Home Assistant -- las apps no hablan con HA ni tienen
+        por que. Por eso viaja tambien el nombre visible de cada una: `light.porche_2` no le dice
+        nada a nadie.
+
+        ⚠️ Y por eso NO viajan dominios enteros: una casa normal tiene cientos de `light.*`, y un
+        desplegable con trescientas entradas es peor que un campo de texto.
+        """
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            elegidas = user_input.get(CONF_ENTIDADES) or []
+            if len(elegidas) > MAX_ENTIDADES:
+                # Se rechaza y se dice, nunca se recorta en silencio: un usuario que elige 30 y se
+                # encuentra 24 en la app no tiene forma de saber cuales faltan ni por que.
+                errors["base"] = "demasiadas"
+            else:
+                # ⚠️ Se conservan las demas opciones. Un flujo de opciones REEMPLAZA el diccionario
+                # entero, asi que devolver solo lo de este paso borraria lo que hubiera guardado
+                # cualquier otro -- en silencio, y sin nada que lo explicara.
+                opciones = dict(self._entry.options)
+                opciones[CONF_ENTIDADES] = elegidas
+                return self.async_create_entry(title="", data=opciones)
+
+        actuales = self._entry.options.get(CONF_ENTIDADES) or []
+        return self.async_show_form(
+            step_id="entidades",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(CONF_ENTIDADES, default=actuales): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            # Solo los dominios que el portero sabe accionar de verdad
+                            # (DOMAIN_OPEN_SERVICE en const.py). Ofrecer una entidad que no puede
+                            # accionar es ofrecer un control que no funciona, que es justo lo que
+                            # este proyecto evita con el boton de abrir cuando no hay cerradura.
+                            # Si falta un dominio, se anade a esa tabla y aparece aqui solo.
+                            domain=sorted(DOMAIN_OPEN_SERVICE),
+                            multiple=True,
+                        )
+                    )
+                }
+            ),
+            errors=errors,
+            description_placeholders={"max": str(MAX_ENTIDADES)},
+        )
+
+    async def async_step_reemparejar(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Reemparejar - p.ej. tras revocar la credencial desde el panel de la nube."""
         errors: dict[str, str] = {}
         if user_input is not None:
             device_id = self._entry.data[CONF_DEVICE_ID]
@@ -190,10 +252,14 @@ class IslautopiaDoorbellOptionsFlow(config_entries.OptionsFlow):
                 new_data = dict(self._entry.data)
                 new_data[CONF_CREDENTIAL] = result.credential
                 self.hass.config_entries.async_update_entry(self._entry, data=new_data)
-                return self.async_create_entry(title="", data={})
+                # ⚠️ `data=dict(self._entry.options)` y NO `data={}`. Un flujo de opciones
+                # REEMPLAZA el diccionario de opciones entero, asi que devolver uno vacio aqui
+                # borraria la lista de entidades del usuario -- por reemparejar, que no tiene nada
+                # que ver, y sin ningun error. Es la clase de fallo que solo se ve semanas despues.
+                return self.async_create_entry(title="", data=dict(self._entry.options))
 
         return self.async_show_form(
-            step_id="init",
+            step_id="reemparejar",
             data_schema=vol.Schema({vol.Required("email"): str, vol.Required("password"): str}),
             errors=errors,
         )

@@ -4,7 +4,9 @@
       "user": {
         "title": "Add Islautopia Doorbell",
         "description": "Enter the doorbell's local IP or hostname (skip this if it already showed up as a discovered device below).",
-        "data": { "host": "Local IP or hostname" }
+        "data": {
+          "host": "Local IP or hostname"
+        }
       },
       "zeroconf_confirm": {
         "title": "Doorbell found on the network",
@@ -13,7 +15,10 @@
       "pair": {
         "title": "Pair with {name}",
         "description": "Enter the administrator email and password you already created on the doorbell itself (app or web dashboard, /api/setup). Used once to obtain an access credential - never stored.",
-        "data": { "email": "Administrator email", "password": "Password" }
+        "data": {
+          "email": "Administrator email",
+          "password": "Password"
+        }
       }
     },
     "error": {
@@ -31,16 +36,34 @@
   "options": {
     "step": {
       "init": {
+        "title": "Islautopia Doorbell",
+        "menu_options": {
+          "entidades": "Entities the doorbell can act on",
+          "reemparejar": "Re-pair"
+        }
+      },
+      "entidades": {
+        "title": "Entities the doorbell can act on",
+        "description": "Pick the entities you want to be able to trigger from the doorbell - to unlock the door, or from a step in one of its sequences. Only these will be offered in the apps. Up to {max}.",
+        "data": {
+          "entidades": "Entities"
+        }
+      },
+      "reemparejar": {
         "title": "Re-pair",
         "description": "Use this if the remote access credential was revoked from the cloud admin panel. Enter the doorbell's administrator email/password again.",
-        "data": { "email": "Administrator email", "password": "Password" }
+        "data": {
+          "email": "Administrator email",
+          "password": "Password"
+        }
       }
     },
     "error": {
       "cannot_connect": "Could not reach the doorbell",
       "invalid_auth": "Wrong administrator email or password",
       "device_not_paired": "The doorbell itself isn't registered with the cloud yet",
-      "cloud_authorize_failed": "The cloud rejected the registration"
+      "cloud_authorize_failed": "The cloud rejected the registration",
+      "demasiadas": "Too many entities - pick {max} at most"
     }
   }
 }

@@ -57,11 +57,15 @@ def _find_entry_data(hass: HomeAssistant, device_id: str) -> dict | None:
     instead of walking everything stored under our domain key and accepting whatever happens to
     look like a config entry.
 
-    That distinction matters: two unrelated things share that key. One is the data for each paired
-    doorbell, stored per config entry. The other is the state of the shared MQTT listener, which is
-    also a plain dict. Walking the values meant the listener state got examined too, and it only
-    ever stayed out of the way because it happens to carry no device id — luck, not design. Anything
-    added there later with a `device_id` field would have been matched silently.
+    Y la distincion importa. El diccionario que hay bajo cada `entry_id` no es solo
+    `entry.data`: lleva ademas objetos vivos (el coordinador, el identificador del webhook).
+    Recorrer los VALORES de `hass.data[DOMAIN]` buscando un `device_id` funcionaria hoy por
+    casualidad, y coincidiria en silencio con cualquier cosa que alguien guarde ahi manana con ese
+    campo dentro. Preguntar a Home Assistant que entradas existen no tiene esa propiedad.
+
+    Lo escribio antes el escucha compartido de MQTT, que vivia bajo esa misma clave y solo se
+    libraba de coincidir porque no llevaba ningun `device_id` -- suerte, no diseno. MQTT se retiro
+    (contrato §4) y el argumento se mantiene entero, ahora contra el propio coordinador.
     """
     stored = hass.data.get(DOMAIN, {})
     for entry in hass.config_entries.async_entries(DOMAIN):

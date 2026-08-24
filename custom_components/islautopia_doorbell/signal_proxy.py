@@ -102,8 +102,8 @@ def async_signed_signal_url(hass: HomeAssistant, device_id: str) -> str:
 def _entry_data(hass: HomeAssistant, device_id: str) -> dict | None:
     """Stored data for a paired doorbell, found by asking which config entries exist.
 
-    Same reasoning as `_find_entry_data` in websocket_api.py: walking `hass.data[DOMAIN]` values
-    would also examine the shared MQTT listener state, which is a plain dict too.
+    Mismo razonamiento que `_find_entry_data` en websocket_api.py: bajo cada `entry_id` hay
+    ademas objetos vivos, asi que recorrer los valores buscando un `device_id` es fragil.
     """
     stored = hass.data.get(DOMAIN, {})
     for entry in hass.config_entries.async_entries(DOMAIN):

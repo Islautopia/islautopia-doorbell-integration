@@ -4,7 +4,9 @@
       "user": {
         "title": "Anadir Islautopia Doorbell",
         "description": "Introduce la IP o el hostname local del doorbell (omite esto si ya aparece como dispositivo descubierto mas abajo).",
-        "data": { "host": "IP o hostname local" }
+        "data": {
+          "host": "IP o hostname local"
+        }
       },
       "zeroconf_confirm": {
         "title": "Doorbell encontrado en la red",
@@ -13,7 +15,10 @@
       "pair": {
         "title": "Emparejar con {name}",
         "description": "Introduce el email y la contrasena de administrador que ya creaste en el propio doorbell (app o dashboard web, /api/setup). Se usan una sola vez para obtener una credencial de acceso - no se guardan.",
-        "data": { "email": "Email de administrador", "password": "Contrasena" }
+        "data": {
+          "email": "Email de administrador",
+          "password": "Contrasena"
+        }
       }
     },
     "error": {
@@ -31,16 +36,34 @@
   "options": {
     "step": {
       "init": {
-        "title": "Re-emparejar",
-        "description": "Usa esto si la credencial de acceso remoto fue revocada desde el panel de administracion de la nube. Introduce de nuevo el email/contrasena de administrador del doorbell.",
-        "data": { "email": "Email de administrador", "password": "Contrasena" }
+        "title": "Islautopia Doorbell",
+        "menu_options": {
+          "entidades": "Entidades que puede accionar el videoportero",
+          "reemparejar": "Volver a emparejar"
+        }
+      },
+      "entidades": {
+        "title": "Entidades que puede accionar el videoportero",
+        "description": "Elige las entidades que quieres poder accionar desde el videoportero: para abrir la puerta, o desde un paso de una de sus secuencias. Solo estas se ofrecen en las apps. Hasta {max}.",
+        "data": {
+          "entidades": "Entidades"
+        }
+      },
+      "reemparejar": {
+        "title": "Volver a emparejar",
+        "description": "Usa esto si se revoco la credencial de acceso remoto desde el panel de administracion de la nube. Vuelve a introducir el correo y la contrasena del administrador del videoportero.",
+        "data": {
+          "email": "Correo del administrador",
+          "password": "Contrasena"
+        }
       }
     },
     "error": {
       "cannot_connect": "No se pudo conectar con el doorbell",
       "invalid_auth": "Email o contrasena de administrador incorrectos",
       "device_not_paired": "El propio doorbell aun no esta registrado en la nube",
-      "cloud_authorize_failed": "La nube rechazo el registro"
+      "cloud_authorize_failed": "La nube rechazo el registro",
+      "demasiadas": "Demasiadas entidades: elige {max} como maximo"
     }
   }
 }

@@ -1,12 +1,15 @@
 {
   "domain": "islautopia_doorbell",
   "name": "Islautopia Doorbell",
-  "codeowners": ["@Islautopia"],
+  "codeowners": [
+    "@Islautopia"
+  ],
   "config_flow": true,
-  "dependencies": ["mqtt"],
   "documentation": "https://github.com/Islautopia/islautopia-doorbell-integration",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/Islautopia/islautopia-doorbell-integration/issues",
-  "version": "0.4.3",
-  "zeroconf": ["_igdoorbell._tcp.local."]
+  "version": "0.5.0",
+  "zeroconf": [
+    "_igdoorbell._tcp.local."
+  ]
 }

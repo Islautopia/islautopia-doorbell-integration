@@ -1,45 +1,53 @@
 """The Islautopia Doorbell integration.
 
-Three runtime responsibilities, deliberately kept this small - see ARCHITECTURE.md §3 for the
-reasoning behind what this integration does NOT do (no polling of the doorbell's local REST API,
-no persisted admin session, no media proxying):
+Four runtime responsibilities - see ARCHITECTURE.md §3 for the reasoning behind what this
+integration does NOT do:
 
-  1. Dispatch `videoportero/door/action` MQTT messages to the right HA service - mqtt_dispatch.py.
-     This is the actual point of the integration; see that module's docstring.
-  2. Credential broker for the Lovelace card (pairing done once in config_flow.py, TURN
-     credentials served on demand) - websocket_api.py.
-  3. Config flow itself (Zeroconf discovery + manual entry, no YAML) - config_flow.py.
+  1. Receive what the doorbell has to say, over a webhook, and turn it into entities and events -
+     webhook.py plus the entity platforms. This replaced MQTT on 2026-08-24.
+  2. Ask the doorbell how it is, so those entities have state - coordinator.py.
+  3. Credential broker for the Lovelace card (pairing done once in config_flow.py, TURN
+     credentials served on demand) - websocket_api.py - and relaying its signalling so the card
+     never has to reach the doorbell's public hostname - signal_proxy.py.
+  4. Config flow itself (Zeroconf discovery + manual entry, no YAML) - config_flow.py.
 
-No entity platforms are set up here on purpose: the state a user would want in HA (mode,
-doorbell/presence sensors, an "open door" button) is already published by the firmware's own
-MQTT discovery (`main/networktask.c::enviar_ha_discovery_completo()` in IG_Doorbell) the moment
-the user points the doorbell at a broker - this integration doesn't need to duplicate it.
+## Why this integration owns the entities now
 
-IMPORTANT (found via real-hardware testing 2026-07-09): the device this
-integration registers MUST share identifiers with the device the firmware's own MQTT discovery
-creates, or the user ends up with two separate, disconnected devices in HA - ours with zero
-entities (confusing, looks broken) and a second "IG-Doorbell" one (created by the `mqtt`
-integration) holding the actual mode / doorbell / door / presence / open-door entities. See
-`async_setup_entry` below for the fix (matching identifier so HA's device registry merges them
-into a single device).
+It did not use to. Every entity a user saw - mode, doorbell, door, presence - was published by the
+firmware's own MQTT discovery, and this integration set up no platforms at all. MQTT is gone
+(API_CONTRACT.md §4), and the reason is not technical: a broker is a prerequisite half the audience
+does not meet, and this has to work on a Home Assistant somebody installed this morning, exactly
+the way the apps do.
+
+What unblocked it is smaller than it sounds. `get_states` took a session cookie and nothing else,
+and this integration holds a pairing credential and never the administrator's password - which is
+precisely what pairing exists to avoid. So it could not read the doorbell's own state to build a
+single entity. The firmware fixed that the same day (§1.2); see api.py.
+
+IMPORTANT (found via real-hardware testing 2026-07-09): the device registered here still carries
+the identifier the firmware's old MQTT discovery used, alongside our own. There is nothing left to
+merge with today - but a Home Assistant that still carries the old MQTT-published entities would
+otherwise end up with two disconnected devices for one physical doorbell.
 """
 from __future__ import annotations
 
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.network import NoURLAvailableError, get_url
 
-from .const import CONF_DEVICE_ID, DOMAIN
-from .mqtt_dispatch import async_ensure_door_action_listener, async_release_door_action_listener
+from . import api, webhook
+from .const import CONF_CREDENTIAL, CONF_DEVICE_ID, CONF_ENTIDADES, DOMAIN
+from .coordinator import DoorbellCoordinator
 from .signal_proxy import async_register_signal_proxy
 from .websocket_api import async_register_websocket_commands
 
 _LOGGER = logging.getLogger(__name__)
 
-# No entity platforms today - see module docstring above.
-PLATFORMS: list[str] = []
+PLATFORMS: list[str] = ["binary_sensor", "button", "event", "select", "sensor"]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -52,45 +60,33 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up one paired doorbell."""
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = dict(entry.data)
 
-    # Register a device purely so this doorbell shows up in HA's own device registry - no
-    # entity platforms are attached to it (see module docstring), but the Lovelace card's
-    # editor uses the native `ha-selector` device picker (filtered to this integration) to let
-    # the user pick a doorbell without ever typing/copying a device_id by hand. That picker
-    # only lists devices that actually exist in the registry - hence this call.
+    # Register a device purely so this doorbell shows up in HA's own device registry - the
+    # Lovelace card's editor uses the native `ha-selector` device picker (filtered to this
+    # integration) to let the user pick a doorbell without ever typing/copying a device_id by
+    # hand, and that picker only lists devices that actually exist in the registry.
     #
-    # TWO identifiers on purpose (fix for the "device has no entities" bug found in real
-    # testing): our own (DOMAIN, device_id) - required by the card editor's device picker
-    # lookup, which specifically searches for this exact pair in `device.identifiers` (see
-    # islautopia-intercom-card's findOurDeviceIdForHaDeviceId/findHaDeviceIdForOurDeviceId) -
-    # AND the SAME identifier the firmware's own MQTT discovery uses for its device block
-    # (`main/networktask.c`: `"dev":{"ids":["ig_doorbell_<dev_id>"], ...}` - MQTT discovery
-    # registers that as identifier ("mqtt", "ig_doorbell_<dev_id>") in HA's device registry).
-    # Registering both on the SAME device_registry entry makes Home Assistant MERGE this
-    # integration's device with the one MQTT discovery already created (or will create) for the
-    # exact same physical doorbell - one single device in the UI, holding both the MQTT-published
-    # entities (mode / doorbell / door / presence / open-door) and this integration's own config
-    # entry, instead of two disconnected devices where ours looked broken with zero entities.
-    # Order doesn't matter - HA's device registry merges on identifier match regardless of which
-    # integration registers first.
+    # TWO identifiers on purpose (fix for the "device has no entities" bug found in real testing):
+    # our own (DOMAIN, device_id) - required by the card editor's device picker lookup, which
+    # searches for this exact pair in `device.identifiers` - AND the SAME identifier the
+    # firmware's old MQTT discovery used for its device block ("ig_doorbell_<dev_id>", registered
+    # by the `mqtt` integration as ("mqtt", ...)). Registering both on the SAME device_registry
+    # entry makes Home Assistant MERGE the two into a single device.
+    #
+    # ⚠️ The second identifier stays even though the firmware no longer speaks MQTT at all. It
+    # costs nothing, and it is what keeps an existing installation - one that still carries the
+    # entities MQTT discovery published before the upgrade - from ending up with two disconnected
+    # devices for one physical doorbell.
+    #
     # Deliberately do NOT pass `name=` here (found via real-hardware testing 2026-07-09):
-    # the firmware itself is the only real source of truth for the device's
-    # user-configured `device_name` (§0-bis of API_CONTRACT.md) - it now ships that name inside
-    # its own MQTT discovery `dev.name` field (added to the firmware the same day).
-    # `async_get_or_create`
-    # only overwrites the stored device name when `name` is explicitly passed - passing
-    # `name=entry.title` here on EVERY setup/reload would race against the mqtt integration's own
-    # registration call for the same merged device (see identifiers below) and could stomp the
-    # real device_name back to our own entry.title (a Zeroconf mDNS name hint, or the raw
-    # device_id in the manual-entry case - see config_flow.py) depending on which integration's
-    # call happened to run last. Omitting `name` here means: HA still gives the device a sane
-    # initial name (device_registry falls back to this config entry's own title automatically
-    # for a brand-new device that has no name yet), but once MQTT discovery registers its own
-    # explicit `name` for the merged device, our reloads/restarts never overwrite it again.
+    # `async_get_or_create` only overwrites the stored device name when `name` is explicitly
+    # passed, and passing our own entry.title on EVERY setup/reload would stomp the real
+    # user-configured `device_name` (§0-bis) - which the entities publish from `dname`, the actual
+    # source of truth (see entity.py). Omitting it means HA still names a brand-new device from
+    # this entry's title, and our reloads never overwrite it again.
     mqtt_ident = f"ig_doorbell_{entry.data[CONF_DEVICE_ID]}"
     device_registry = dr.async_get(hass)
-    device = device_registry.async_get_or_create(
+    device_registry.async_get_or_create(
         config_entry_id=entry.entry_id,
         identifiers={
             (DOMAIN, entry.data[CONF_DEVICE_ID]),
@@ -100,49 +96,196 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         model="IG Doorbell",
     )
 
-    # Real instrumentation (2026-07-10 - the "no entities" bug reappeared after the mDNS batch
-    # was deployed, with this very identifier-merging fix already present in the code). The first
-    # attempt at this log line (using logging's deferred %s/%r formatting) vanished without a
-    # trace: nothing in home-assistant.log, no visible exception. Real finding: the code AFTER
-    # this block (async_ensure_door_action_listener) kept running normally, which rules out an
-    # exception while evaluating the arguments (that would have aborted the whole function). The
-    # most likely suspect is that logging's own lazy formatting (record.getMessage(), which only
-    # runs on emit, not on call) blew up on something inside device.identifiers /
-    # device.config_entries, and that Handler.handleError() swallowed it by sending it to stderr
-    # instead of to the log file - so this time the whole message is built as plain text BEFORE
-    # calling _LOGGER.debug(), with explicit error handling so a failure here can never be
-    # invisible again (if anything inside this block breaks, at least that error itself shows up).
-    try:
-        diag_msg = (
-            "[islautopia_doorbell diag] device after async_get_or_create: "
-            f"id={device.id!r} name={device.name!r} name_by_user={device.name_by_user!r} "
-            f"identifiers={sorted(str(i) for i in device.identifiers)} "
-            f"config_entries={sorted(str(c) for c in device.config_entries)} "
-            f"(we were looking for identifiers={sorted(str(i) for i in {(DOMAIN, entry.data[CONF_DEVICE_ID]), ('mqtt', mqtt_ident)})})"
-        )
-    except Exception as diag_err:  # noqa: BLE001 - deliberate, see the comment above
-        _LOGGER.debug(
-            "[islautopia_doorbell diag] failed to build the diagnostic message: %r", diag_err
-        )
-    else:
-        _LOGGER.debug(diag_msg)
+    device_id = entry.data[CONF_DEVICE_ID]
+    coordinator = DoorbellCoordinator(hass, device_id, entry.data[CONF_CREDENTIAL])
 
-    # Reference-counted: the MQTT listener for videoportero/door/action is global (the topic
-    # itself carries no device_id) - only one subscription is ever
-    # active, kept alive as long as at least one entry is loaded.
-    await async_ensure_door_action_listener(hass)
+    # ⚠️ `async_refresh()` y NO `async_config_entry_first_refresh()`, y es deliberado.
+    #
+    # El segundo ABORTA el arranque de la entrada si el portero no contesta. Y esta entrada hace
+    # ademas de intermediaria de credenciales de la card (websocket_api.py), asi que un portero
+    # apagado un momento se llevaria por delante **tambien la card** -- que es una regresion
+    # respecto a como funcionaba esto con MQTT, donde el arranque siempre salia adelante.
+    #
+    # Con `async_refresh()` la entrada arranca siempre: si el portero no esta, sus entidades salen
+    # como no disponibles (entity.py), que es exactamente lo que significa, y la card sigue
+    # funcionando.
+    await coordinator.async_refresh()
+
+    webhook_id = await webhook.async_registrar(hass, device_id, coordinator.nombre_portero)
+
+    hass.data[DOMAIN][entry.entry_id] = {
+        **dict(entry.data),
+        "coordinator": coordinator,
+        "webhook_id": webhook_id,
+    }
+
+    if not await _async_configurar_portero(hass, entry, coordinator, primera_vez=True):
+        _programar_reintento(hass, entry, coordinator)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a config entry."""
-    await async_release_door_action_listener(hass)
-    hass.data[DOMAIN].pop(entry.entry_id, None)
+async def _async_configurar_portero(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    coordinator: DoorbellCoordinator,
+    *,
+    primera_vez: bool = False,
+) -> bool:
+    """Le dice al portero a donde mandar sus avisos y que entidades puede accionar (§4).
+
+    ⚠️ LA URL TIENE QUE SER LA INTERNA, y no es una precaucion teorica: `get_url()` devuelve la
+    externa si no se le prohibe, y en la instalacion de Inaki el `internal_url` configurado es ya
+    un hostname PUBLICO. Con eso el portero saldria a internet -- DNS al menos-- para hablar con
+    una maquina que tiene en la LAN de al lado, rompiendo el principio 1 **sin dar ningun error**:
+    solo dejaria de funcionar el dia que se caiga la linea.
+    """
+    try:
+        base = get_url(hass, allow_external=False, allow_cloud=False, prefer_external=False)
+    except NoURLAvailableError:
+        _LOGGER.error(
+            "Home Assistant no sabe cual es su propia direccion en la red local, asi que no se le "
+            "puede decir al portero a donde escribir. Ponla en Ajustes > Sistema > Red > "
+            "«Direccion de Home Assistant» y recarga esta integracion."
+        )
+        # No se programa reintento: esto no se arregla porque el portero conteste, se
+        # arregla cuando alguien configure esa direccion -- y eso ya recarga la integracion.
+        return True
+
+    url_webhook = f"{base.rstrip('/')}/api/webhook/{webhook.webhook_id_de(coordinator.device_id)}"
+    entidades = entry.options.get(CONF_ENTIDADES) or []
+    lista = [{"id": e, "name": _nombre_visible(hass, e)} for e in entidades]
+
+    try:
+        await api.async_set_hass_config(
+            async_get_clientsession(hass),
+            coordinator.device_id,
+            entry.data[CONF_CREDENTIAL],
+            url_webhook=url_webhook,
+            entities=lista,
+        )
+    except api.NotAllowedError:
+        # Se dice y NO se reintenta: reemparejar desde una sesion de administrador es lo unico que
+        # lo arregla, y un bucle de reintentos solo llenaria el registro de algo que no va a
+        # cambiar solo.
+        _LOGGER.error(
+            "Este emparejamiento no es administrador de %s, asi que no puede configurar el "
+            "webhook. Vuelve a emparejarlo desde una sesion de administrador.",
+            coordinator.device_id,
+        )
+        return True
+    except api.DoorbellApiError as err:
+        # No es fatal: las entidades siguen funcionando por sondeo. Lo que se pierde es lo que
+        # llega EMPUJADO -- el timbrazo, el paquete-- asi que se dice claramente en vez de dejar al
+        # usuario preguntandose por que no salta nada, y se reintenta en cuanto el portero vuelva.
+        if primera_vez:
+            _LOGGER.warning(
+                "No se pudo configurar el webhook en %s (%s). Se reintentara en cuanto el portero "
+                "vuelva a contestar; hasta entonces las entidades funcionan por sondeo pero los "
+                "avisos en vivo no llegaran.",
+                coordinator.device_id, err,
+            )
+        return False
+
+    _LOGGER.info(
+        "Webhook configurado en %s: %s (%d entidad(es) accionables)",
+        coordinator.device_id, url_webhook, len(lista),
+    )
     return True
 
 
+def _programar_reintento(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: DoorbellCoordinator
+) -> None:
+    """Vuelve a intentar la configuracion en cuanto el portero conteste.
+
+    Hace falta porque el caso normal de fallo es **el portero apagado cuando arranca Home
+    Assistant**, y ahi no hay nada que dispare un segundo intento: el sondeo se recupera solo, pero
+    la configuracion del webhook es una escritura de una sola vez. Sin esto, un corte de luz de
+    madrugada deja el portero sin saber a donde escribir hasta que alguien recargue la integracion
+    a mano -- y el sintoma seria «los avisos ya no llegan», que nadie relaciona con un apagon.
+    """
+    cancelar: list = []
+
+    @callback
+    def _cuando_conteste() -> None:
+        if not coordinator.last_update_success:
+            return
+        # Se suelta el enganche ANTES de reintentar: si no, un fallo del reintento volveria a
+        # entrar aqui en el sondeo siguiente y se acumularian intentos solapados.
+        if cancelar:
+            cancelar.pop()()
+        hass.async_create_task(_reintentar(hass, entry, coordinator))
+
+    cancelar.append(coordinator.async_add_listener(_cuando_conteste))
+    entry.async_on_unload(lambda: cancelar and cancelar.pop()())
+
+
+async def _reintentar(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: DoorbellCoordinator
+) -> None:
+    if not await _async_configurar_portero(hass, entry, coordinator):
+        _programar_reintento(hass, entry, coordinator)
+
+
+def _nombre_visible(hass: HomeAssistant, entity_id: str) -> str:
+    """El nombre que una persona reconoce, para el desplegable de las apps.
+
+    `light.porche_2` no le dice nada a nadie, y ese desplegable lo lee **del portero**, no de Home
+    Assistant -- las apps no hablan con HA ni tienen por que (§4). Si la entidad no existe todavia
+    se manda su propio `entity_id`: un desplegable con una entrada en blanco no se puede elegir, y
+    eso es peor que uno con un nombre feo.
+    """
+    estado = hass.states.get(entity_id)
+    if estado is None:
+        return entity_id
+    return estado.attributes.get("friendly_name") or entity_id
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a config entry."""
+    ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if ok:
+        webhook.desregistrar(hass, entry.data[CONF_DEVICE_ID])
+        hass.data[DOMAIN].pop(entry.entry_id, None)
+    return ok
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Al DESINSTALAR: se le dice al portero que deje de escribir aqui.
+
+    ⚠️ ESTO NO ES CORTESIA: es la otra mitad de la marca que devuelve el webhook. Home Assistant
+    contesta `200` a un webhook que ya no existe -- a proposito, para que nadie pueda enumerarlos--
+    asi que un portero al que no se le dice nada seguiria disparando al vacio para siempre. La
+    marca convierte ese fallo invisible en uno visible; esto es lo que evita que exista.
+
+    Best-effort: si el portero no esta alcanzable ahora mismo, se dice y se sigue. Impedir que
+    alguien desinstale una integracion porque un aparato esta apagado seria peor.
+    """
+    try:
+        await api.async_set_hass_config(
+            async_get_clientsession(hass),
+            entry.data[CONF_DEVICE_ID],
+            entry.data[CONF_CREDENTIAL],
+            url_webhook="",
+            entities=[],
+        )
+        _LOGGER.info("Webhook desconfigurado en %s", entry.data[CONF_DEVICE_ID])
+    except api.DoorbellApiError as err:
+        _LOGGER.warning(
+            "No se pudo desconfigurar el webhook en %s (%s). Ese portero seguira mandando avisos "
+            "a una direccion que ya no escucha nadie hasta que se le vuelva a configurar.",
+            entry.data[CONF_DEVICE_ID], err,
+        )
+
+
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Reload the entry when its data changes (e.g. after a re-pair via the options flow)."""
-    hass.data[DOMAIN][entry.entry_id] = dict(entry.data)
+    """Recarga la entrada cuando cambian sus datos o sus opciones.
+
+    Recargar entera y no parchear a mano: al cambiar la lista de entidades hay que volver a
+    empujarla al portero, y el webhook hay que volver a registrarlo con el nombre nuevo. Hacerlo
+    por partes es como se acaba con la mitad de la configuracion vieja y la mitad nueva.
+    """
+    await hass.config_entries.async_reload(entry.entry_id)
