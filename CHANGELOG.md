@@ -6,6 +6,38 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.6.2] — 2026-09-16
+
+### Fixed
+
+- **The front door stopped opening after Home Assistant restarted during an internet outage.**
+  At setup the integration tells the doorbell where to send its webhooks. It worked out its own
+  address by asking which IP it uses to reach the internet. On 2026-09-15 Home Assistant restarted
+  while the line was down, so that answer was the Supervisor's internal Docker bridge
+  (`172.30.32.1`). That address was sent to the doorbell, which can never reach it, and the door
+  button silently stopped working until someone noticed the next day.
+
+  The address is now taken from the route **to the doorbell itself**, which exists on the local
+  network even without internet. Addresses from Home Assistant's internal container networks are
+  never sent, and a warning is logged if they come up.
+
+## [0.6.1] — 2026-08-24
+
+### Fixed
+
+- **A stored doorbell address is no longer trusted blindly.** When the doorbell moved to its final
+  VLAN, the address saved at pairing stopped being its, and every call silently fell back to public
+  DNS. At setup the stored address is now checked with `GET /api/device_id` (no side effects), the
+  `device_id` is compared, and if it no longer matches, the current address is learned and saved.
+
+## [0.6.0] — 2026-08-24
+
+### Changed
+
+- **The doorbell is reached on the local network first**, so an internet outage no longer takes the
+  door button and the card down. Calls keep using the doorbell's public hostname (so certificate
+  validation is unchanged), but it is resolved to the LAN address first and to public DNS only after.
+
 ## [0.5.1] — 2026-08-24
 
 ### Corregido
