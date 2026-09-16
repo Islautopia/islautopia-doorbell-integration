@@ -32,7 +32,7 @@ otherwise end up with two disconnected devices for one physical doorbell.
 from __future__ import annotations
 
 import logging
-from ipaddress import ip_address
+from ipaddress import ip_address, ip_network
 from urllib.parse import urlparse
 
 import aiohttp
@@ -230,7 +230,7 @@ async def _async_configurar_portero(
     La direccion que se le da tiene que ser alcanzable **sin DNS**. Ver `_base_local`, que es donde
     vive ese problema y por que `get_url()` no basta para resolverlo.
     """
-    base = await _base_local(hass)
+    base = await _base_local(hass, entry.data.get(CONF_HOST_HINT) or entry.options.get(CONF_HOST_HINT))
     if base is None:
         _LOGGER.error(
             "Home Assistant no sabe cual es su propia direccion en la red local, asi que no se le "
@@ -283,7 +283,20 @@ async def _async_configurar_portero(
     return True
 
 
-async def _base_local(hass: HomeAssistant) -> str | None:
+# Redes internas de contenedores que Home Assistant OS / Supervised crea para si mismo. Una
+# direccion de aqui es valida DENTRO de la maquina y inalcanzable desde la LAN (ver `_base_local`).
+_REDES_CONTENEDORES = (ip_network("172.30.32.0/23"), ip_network("172.17.0.0/16"))
+
+
+def _es_red_interna_de_contenedores(ip: str) -> bool:
+    try:
+        direccion = ip_address(ip)
+    except ValueError:
+        return False
+    return any(direccion in red for red in _REDES_CONTENEDORES)
+
+
+async def _base_local(hass: HomeAssistant, destino: str | None = None) -> str | None:
     """La direccion de Home Assistant que el portero puede alcanzar SIN DNS.
 
     ⚠️ `get_url(allow_external=False)` NO garantiza eso, y darlo por hecho fue un error mio. Esa
@@ -297,11 +310,29 @@ async def _base_local(hass: HomeAssistant) -> str | None:
     Por eso se prefiere **la IP** con la que esta maquina sale a la red, que es lo unico que no
     necesita que nada resuelva un nombre. `get_url` se queda de respaldo, con su aviso.
     """
-    # 1) La IP de esta maquina en su propia red.
-    try:
-        ip = await network.async_get_source_ip(hass, network.PUBLIC_TARGET_IP)
-    except Exception:  # noqa: BLE001 - cualquier fallo aqui solo significa "usa el respaldo"
-        ip = None
+    # 1) La IP con la que esta maquina LLEGA AL PORTERO.
+    #
+    # ⚠️ Se pregunta la ruta hacia el portero, no hacia internet. Hasta el 2026-09-16 se usaba
+    # `PUBLIC_TARGET_IP`, y el 15-09 Home Assistant arranco con la linea caida (PPPoE abajo a la
+    # vez que se reinicio): sin ruta a internet, la IP de salida fue la del puente interno de
+    # Docker del Supervisor (172.30.32.1). Se le mando al portero, y la puerta dejo de abrir
+    # --sin ningun error visible-- hasta que alguien lo noto al dia siguiente. Una direccion de
+    # esos puentes nunca es alcanzable desde la LAN, asi que ademas se rechaza explicitamente.
+    ip = None
+    for objetivo in (destino, network.PUBLIC_TARGET_IP):
+        if not objetivo:
+            continue
+        try:
+            candidata = await network.async_get_source_ip(hass, objetivo)
+        except Exception:  # noqa: BLE001 - cualquier fallo aqui solo significa "prueba la siguiente"
+            candidata = None
+        if candidata and not _es_red_interna_de_contenedores(candidata):
+            ip = candidata
+            break
+        if candidata:
+            _LOGGER.warning(
+                "La IP de salida hacia %s es %s, de una red interna de contenedores: el portero no "
+                "puede llegar a ella, asi que no se le da.", objetivo, candidata)
     if ip:
         esquema = "https" if getattr(hass.http, "use_ssl", False) else "http"
         return f"{esquema}://{ip}:{hass.http.server_port}"
