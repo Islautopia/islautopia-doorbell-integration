@@ -428,3 +428,69 @@ latency (3.2 B), second RTSP connection cost (R2), wall-panel switch (3.3), effo
 Android matches iOS on `/api/img_settings`, `/api/storage_info`, reboot and OTA (Android's route list shows
 `change_password`, `upload_cert`/`upload_key` and `whoami` that iOS lacks, and lacks those four literal
 routes — they may be built differently; the union is what this plan inventories).
+
+---
+
+## 7. Phase 0 — done (2026-09-25): integration 0.7.1, card 1.9.1
+
+Released and installed by HACS on the home Home Assistant (one HA restart, 13:25–13:28). Tags
+`v0.7.1` (integration) and `v1.9.1` (card), both from `main`.
+
+### VERIFIED (measured, with the instrument checked both ways)
+
+- **No path to the VPS.** Test HA (container, HA 2026.9.3) started with **no DNS at all**
+  (`--dns 127.0.0.1`), paired with the Waveshare and used for 4 min (setup, entities, live view,
+  timeout, recordings, actions). Packet capture of the container: **0 DNS queries** and **0 packets to
+  any non-private address**; 1,258 packets to the doorbell (80 and 8443). Positive controls on the
+  same instrument: a manual `getaddrinfo` of a `*.doorbell.islautopia.com` name shows up; the old
+  0.6.2 + card 1.8.1 in the same container made **12 DNS queries** (`<id>.doorbell…` ×8, `relay…` ×4)
+  in one minute, and the old card's browser opened `wss://relay.doorbell.islautopia.com/...?token=<credential>`.
+  New card in a real Chromium: **0 requests or websockets outside Home Assistant**. Home HA, Ermita 10,
+  from the 41.x LAN (the tablet's): ICE pair **host → host, 2–3 ms**, same as before without TURN.
+- **Setup without direct IP** fails with the "same network" message and creates nothing (unreachable
+  IP: 6 s; a non-doorbell IP: at once).
+- **The credential no longer reaches a browser**: `get_connection_info` returns only the device id and
+  two entity ids; `get_turn_credentials` no longer exists; thumbnails and playback are signed HA URLs
+  (range requests work, 206; without the signature, 401).
+- **Live-view timeout, on the Waveshare's counters** (`/api/debug/video_drop` sig/view, `/cores`):
+  timeout 30 s → `live_pause` at 31 s (`viewers_paused` 1), **slot freed at 46 s** (sig_used/view_used
+  1 → 0); tap → new session; microphone open 54 s with a 30 s timeout → never paused; after hang-up a
+  ring (webhook envelope) → new session. On the **living-room tablet** with Ermita (timeout 60 s):
+  connected at 14 s, paused at 71 s, freed at 87 s, and **stayed at 0** for the next 93 s.
+- **Leaving the view (Iñaki's rule of the same day)**: switching Lovelace view detaches the card on HA
+  2026.9.3; now `live_pause` at once, back within 15 s = same session resumed; away longer = freed at
+  +15 s; page close = freed at once.
+- **Signalling for quick replies/sequences/REC**: an SSE that never answers the offer takes a
+  **signalling** slot (`sig_used` 1/8) and **no viewer slot** (`view_used` 0/4); `play_audio` and
+  `play_sequence` get their `*_result` on it. `rec_start` works too, but a manual recording **stops
+  when that session ends** (`rec_state` false right after the `bye`), so REC needs a held session —
+  not implemented. The actions `play_sequence`/`play_audio` are implemented and answer with the
+  doorbell's own errors (`empty_slot`, `not_found`); the session always ends with `bye`.
+- Tests: integration 20 pytest + 12/12 mutants killed; card simulation 53 checks, 2 negative and
+  15 positive controls.
+
+### Found on the way (firmware 0.100.0, not changed here)
+
+- `POST /api/unpair_app` **by label** answers 404 when the label has a space, whatever the encoding
+  (`+` or `%20`); by slot it works. The integration now undoes by slot. Every HA label has a space.
+- `HEAD /api/recording` answers 405; the integration probes with a one-byte ranged GET.
+
+### Bugs of 1.9.0 caught on the real tablet (fixed in 1.9.1)
+
+- Re-insertion of the card by HA restarted a session after an idle pause → Ermita's slot flapped
+  0→1→2→1 every ~20 s. The idle pause now lives per doorbell at module level; only a tap or a ring
+  lifts it.
+- The unload `bye` went by `sendBeacon` to a signed path; signed paths are GET-only, so it never
+  arrived. Now a keepalive fetch with the Authorization header.
+
+### BELIEVED, not measured
+
+- The first poll right after the HA restart failed once for both doorbells (`Cannot connect … [None]`)
+  and recovered 30 s later; believed to be the host network not being ready at boot. Confirm by
+  watching the next restart.
+- The Ermita card config still says `idle_release_seconds: 60`; since 1.9.0 the entity rules, so
+  `number.calle_ig_doorbell_v5_tiempo_de_espera_de_la_vista_en_vivo` was set to **60** to keep
+  Iñaki's choice. Nothing else of his configuration was touched.
+- Pausing a live call when the view is left relies on `live_pause` releasing the talk floor and the
+  card asking for it again on return; covered by the simulation, **not** tried with a real call
+  (Ermita is off limits and the Waveshare had other viewers during the session).
