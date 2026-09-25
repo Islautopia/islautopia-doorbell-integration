@@ -6,6 +6,23 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.7.4] — 2026-09-25
+
+### Fixed
+
+- **The mode select was slow to show a change, and sometimes looked like it had not worked.**
+  After writing the mode it relied on the coordinator's debounced refresh, which delays a second
+  change made within 10 s of the first (and a failed read waited for the 30 s poll), so the
+  select kept showing the old mode meanwhile. It now reads the doorbell back right after the
+  write and publishes what the doorbell reports to every entity at once. If the doorbell did not
+  apply the mode (`save_states` drops a field it does not accept without an error status), the
+  entity keeps the doorbell's real mode and the service call fails with a readable reason instead
+  of failing in silence. Tests: `tests/test_select_mode.py`, plus two mutants in
+  `tools/mutantes.py`.
+- Test harness: `async_get_role` (added in 0.7.3) is now patched where the other tests set up an
+  entry, and the media-source fake coordinator has `nombre_portero` - eight tests had been failing
+  since 0.7.3 for those two reasons alone, not because of the code they check.
+
 ## [0.7.3] — 2026-09-25
 
 ### Fixed

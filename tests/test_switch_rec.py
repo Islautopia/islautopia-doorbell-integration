@@ -81,6 +81,7 @@ async def _montar(hass):
     with patch.object(net, "es_este_portero", AsyncMock(return_value=True)), \
          patch.object(api, "async_get_states", AsyncMock(return_value=estado)), \
          patch.object(api, "async_get_firmware_info", AsyncMock(return_value={"fw_version": "0.100.0"})), \
+         patch.object(api, "async_get_role", AsyncMock(return_value="admin")), \
          patch.object(api, "async_set_hass_config", AsyncMock()):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()

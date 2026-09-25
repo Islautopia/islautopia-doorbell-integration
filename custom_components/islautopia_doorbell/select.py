@@ -74,6 +74,37 @@ class ModoSelect(DoorbellEntity, SelectEntity):
         except api.DoorbellApiError as err:
             raise HomeAssistantError(f"Could not change the mode: {err}") from err
 
-        # Se refresca en vez de dar por hecho el valor nuevo. El portero es el dueno del estado, y
-        # asumirlo dejaria la entidad mintiendo si la escritura no llego a aplicarse.
-        await self.coordinator.async_request_refresh()
+        # CONFIRMED AT ONCE, NOT ON THE NEXT POLL (0.7.4, Inaki 2026-09-25: "the mode button is
+        # quite lazy showing the new mode... sometimes it looks like it did not work").
+        #
+        # Until 0.7.3 this was `async_request_refresh()`. That goes through the coordinator's
+        # DEBOUNCER (10 s cooldown): the first change after a quiet spell refreshed at once, but a
+        # second change within 10 s waited out the cooldown, and a failed read waited for the
+        # 30 s poll -- the select kept showing the OLD mode meanwhile, which reads as "it did not
+        # work". Now the doorbell is read directly, right after the write, and what it says is
+        # published to every entity immediately (async_set_updated_data).
+        #
+        # Still not "assume the new value": the doorbell owns the state. save_states ignores a
+        # field it does not accept WITHOUT an error status (contract 1.2), so only the read-back
+        # tells "applied" from "silently dropped". If it was dropped, the entity keeps showing
+        # the doorbell's real mode AND the service call fails with a readable reason, so the card
+        # (or whoever called it) can say so instead of failing in silence.
+        try:
+            estado = await api.async_get_states(
+                sesion, self.coordinator.device_id, self.coordinator.credential
+            )
+        except api.DoorbellApiError:
+            # The write was accepted (200) but the read-back failed: fall back to the normal
+            # refresh rather than claiming a failure that did not happen.
+            await self.coordinator.async_request_refresh()
+            return
+        self.coordinator.async_set_updated_data({**(self.coordinator.data or {}), **estado})
+        try:
+            aplicado = int(estado.get("m")) == numero
+        except (TypeError, ValueError):
+            aplicado = False
+        if not aplicado:
+            raise HomeAssistantError(
+                f"The doorbell did not apply the mode '{option}' (it reports "
+                f"'{MODOS.get(estado.get('m'), estado.get('m'))}')."
+            )

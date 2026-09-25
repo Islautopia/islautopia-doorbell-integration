@@ -57,6 +57,11 @@ MUTANTES = [
     ("the REC switch shows on without checking the doorbell's own rec_state", PKG + "switch.py",
      "        return self._session is not None and self._session.recording",
      "        return self._session is not None"),
+    ("mode select goes back to the debounced refresh (a 2nd change within 10 s waits)", PKG + "select.py",
+     "        self.coordinator.async_set_updated_data({**(self.coordinator.data or {}), **estado})",
+     "        await self.coordinator.async_request_refresh()"),
+    ("mode select accepts a change the doorbell silently dropped", PKG + "select.py",
+     "        if not aplicado:", "        if False:"),
 ]
 
 

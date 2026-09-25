@@ -25,6 +25,7 @@ class _FakeCoordinator:
 
     def __init__(self, role: str) -> None:
         self.role = role
+        self.nombre_portero = None   # media_source.py titles the doorbell with it
 
 
 def _entrada(hass, role: str = "admin"):
