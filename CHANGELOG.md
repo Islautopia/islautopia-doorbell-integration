@@ -6,6 +6,21 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.7.5] — 2026-09-25
+
+### Added
+
+- **Quick replies for the Lovelace card.** New websocket command
+  `islautopia_doorbell/get_quick_replies` reads the doorbell's reduced quick-reply list
+  (`GET /api/sequences?quick=1`, contract §1.18.8 - `id`/`label`/`steps` only, never the
+  admin-only full sequence model) fresh over the LAN on every call, so the card can list them
+  without ever seeing the pairing credential. The card plays one with the `play_sequence` service
+  that already existed since Phase 0 - no new action was needed, and its existing behaviour
+  during a ring (§1.18.1: cancels the street announcement without arming the no-answer sequence)
+  applies unchanged. `api.async_list_quick_replies` is the new low-level call; only the reduced
+  list ever reaches `hass.data`, matching the rule that broke `/api/list_audios` for Android once:
+  this always reads the same source iOS does. Tests: `tests/test_quick_replies.py`.
+
 ## [0.7.4] — 2026-09-25
 
 ### Fixed

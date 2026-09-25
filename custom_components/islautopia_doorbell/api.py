@@ -239,6 +239,34 @@ async def async_list_recordings(
         raise DoorbellApiError(f"Could not reach the doorbell to list recordings: {err}") from err
 
 
+async def async_list_quick_replies(
+    session: aiohttp.ClientSession, device_id: str, credential: str
+) -> list[dict]:
+    """GET /api/sequences?quick=1 (contract §1.18.8): the reduced list any user may read.
+
+    Only `id`, `label` and `steps` per entry - never the full `/api/sequences` (admin-only, and
+    it carries HA `entity_id`s and, in `recipients`, every housemate's email). This is the ONLY
+    quick-reply source: `/api/list_audios` is the retired ten-slot mechanism (Android once read it
+    and reported "no quick replies" on a doorbell that had some under the new one - do not repeat
+    that here).
+    """
+    url = (
+        f"https://{doorbell_hostname(device_id)}:8443"
+        f"/api/sequences?quick=1&token={quote(credential)}"
+    )
+    try:
+        async with session.get(url, timeout=_TIMEOUT) as resp:
+            if resp.status == 401:
+                raise AuthenticationError("Pairing credential rejected by the doorbell")
+            if resp.status != 200:
+                raise DoorbellApiError(f"GET sequences?quick=1 -> HTTP {resp.status}")
+            data = await resp.json(content_type=None)
+    except aiohttp.ClientError as err:
+        raise DoorbellApiError(f"Could not reach the doorbell: {err}") from err
+    items = data.get("quick_replies") if isinstance(data, dict) else None
+    return items if isinstance(items, list) else []
+
+
 class NotAllowedError(DoorbellApiError):
     """The credential is valid but this role may not do that (403 admin_required).
 

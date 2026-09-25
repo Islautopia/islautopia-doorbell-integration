@@ -9,10 +9,14 @@ user who opened a dashboard, and the card used it to talk to the doorbell's publ
 the cloud relay. The card now talks ONLY to this Home Assistant (signal_proxy.py,
 recordings_view.py), which adds the credential server-side and reaches the doorbell over the LAN.
 
-Two commands:
+Three commands:
   - islautopia_doorbell/get_connection_info: the device id and the entity ids the card reads
     (the live-view timeout `number` and the events `event`, so a ring can wake a paused card).
   - islautopia_doorbell/get_local_signal_url: a short-lived signed URL for the signalling proxy.
+  - islautopia_doorbell/get_quick_replies: the doorbell's quick-reply list (id + label), read
+    fresh over the LAN each time - same "card enseña, integración expone" rule as the other two.
+    The card plays one with the existing `play_sequence` service (services.py); this command only
+    supplies the list, never a credential.
 """
 from __future__ import annotations
 
@@ -24,7 +28,8 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 
-from .const import CONF_DEVICE_ID, DOMAIN
+from . import api
+from .const import CONF_CREDENTIAL, CONF_DEVICE_ID, DOMAIN
 from .signal_proxy import async_signed_signal_url
 
 _LOGGER = logging.getLogger(__name__)
@@ -35,6 +40,7 @@ def async_register_websocket_commands(hass: HomeAssistant) -> None:
     """Register the WS commands. Safe to call more than once (HA dedupes by name)."""
     websocket_api.async_register_command(hass, websocket_get_connection_info)
     websocket_api.async_register_command(hass, websocket_get_local_signal_url)
+    websocket_api.async_register_command(hass, websocket_get_quick_replies)
 
 
 def _find_entry_data(hass: HomeAssistant, device_id: str) -> dict | None:
@@ -136,3 +142,44 @@ async def websocket_get_local_signal_url(hass: HomeAssistant, connection, msg) -
             "signal_url": async_signed_signal_url(hass, entry_data[CONF_DEVICE_ID]),
         },
     )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "islautopia_doorbell/get_quick_replies",
+        vol.Required("device_id"): str,
+    }
+)
+@websocket_api.async_response
+async def websocket_get_quick_replies(hass: HomeAssistant, connection, msg) -> None:
+    """The doorbell's quick-reply list (`GET /api/sequences?quick=1`, api.py), read fresh.
+
+    Read straight from the doorbell over the LAN on every call, never from the VPS and never
+    cached here - the doorbell is the only place this list can change (§1.18.2), and Home
+    Assistant already has an authenticated LAN session open (`sesion`). No credential reaches the
+    card: only `id`/`label`/`steps` per item, same as the doorbell already restricts `?quick=1` to.
+    """
+    entry_data = _find_entry_data(hass, msg["device_id"])
+    if entry_data is None:
+        connection.send_error(
+            msg["id"], "not_found", "Doorbell not configured on this Home Assistant instance"
+        )
+        return
+
+    session = entry_data.get("sesion")
+    if session is None:
+        connection.send_error(msg["id"], "unreachable", "Doorbell still being set up")
+        return
+
+    try:
+        quick_replies = await api.async_list_quick_replies(
+            session, entry_data[CONF_DEVICE_ID], entry_data[CONF_CREDENTIAL]
+        )
+    except api.AuthenticationError as err:
+        connection.send_error(msg["id"], "auth_error", str(err))
+        return
+    except api.DoorbellApiError as err:
+        connection.send_error(msg["id"], "unreachable", str(err))
+        return
+
+    connection.send_result(msg["id"], {"quick_replies": quick_replies})
