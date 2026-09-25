@@ -50,6 +50,11 @@
       "panel_firmware": {
         "name": "Firmware do painel"
       }
+    },
+    "switch": {
+      "rec": {
+        "name": "Gravação manual"
+      }
     }
   }
 }

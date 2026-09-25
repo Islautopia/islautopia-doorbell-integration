@@ -50,6 +50,11 @@
       "panel_firmware": {
         "name": "Panel-Firmware"
       }
+    },
+    "switch": {
+      "rec": {
+        "name": "Manuelle Aufnahme"
+      }
     }
   }
 }

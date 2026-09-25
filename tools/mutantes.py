@@ -48,6 +48,12 @@ MUTANTES = [
      'f"{base}/api/unpair_app", data={"slot": str(slots[0])}', 'f"{base}/api/unpair_app", data={"label": label}'),
     ("a language loses an entity name", PKG + "translations/de.json",
      '"name": "Tür öffnen"', '"nombre": "Tür öffnen"'),
+    ("a REC ended by the doorbell itself never frees the slot", PKG + "rec_session.py",
+     "                        asyncio.create_task(self.stop())\n                        return\n",
+     "                        return\n"),
+    ("the REC switch shows on without checking the doorbell's own rec_state", PKG + "switch.py",
+     "        return self._session is not None and self._session.recording",
+     "        return self._session is not None"),
 ]
 
 

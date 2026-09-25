@@ -158,6 +158,11 @@
       "panel_firmware": {
         "name": "Panel firmware"
       }
+    },
+    "switch": {
+      "rec": {
+        "name": "Manual recording"
+      }
     }
   },
   "services": {

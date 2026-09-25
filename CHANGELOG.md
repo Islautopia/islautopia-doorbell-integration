@@ -6,6 +6,27 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.7.2] — 2026-09-25
+
+### Added
+
+- **A manual-recording (REC) switch.** Pressing it starts a recording on the doorbell exactly like
+  the apps' REC button (`rec_start`, API_CONTRACT.md §1.4-quater); turning it off, or the doorbell
+  itself ending the recording (the 10-minute cap, another admin, a ring taking the slot for a
+  call), stops it (`rec_stop`).
+
+### Fixed
+
+- **A manual recording started from Home Assistant stopped after a fraction of a second.** REC
+  rides the same signalling session as a quick reply, and that session used to close itself
+  (`bye`) right after the doorbell's first reply — and API_CONTRACT.md §1.4-quater rule 4 says a
+  manual recording stops the moment the session that started it ends. The switch now keeps that
+  session open for as long as the recording lasts, and its state is always the doorbell's own
+  `rec_state`, not "a session happens to be held" — a refusal (not an administrator, no usable SD
+  card, already recording something else) is reported as an error, not a silent no-op. Measured on
+  the Waveshare: a 1-2 minute REC from Home Assistant runs to completion, and the signalling slot
+  (`sig_used`) returns to 0 when it ends.
+
 ## [0.7.1] — 2026-09-25
 
 ### Fixed

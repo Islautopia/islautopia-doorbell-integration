@@ -50,6 +50,11 @@
       "panel_firmware": {
         "name": "Firmware du panneau"
       }
+    },
+    "switch": {
+      "rec": {
+        "name": "Enregistrement manuel"
+      }
     }
   }
 }

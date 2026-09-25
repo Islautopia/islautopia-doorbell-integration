@@ -61,7 +61,7 @@ from .websocket_api import async_register_websocket_commands
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[str] = ["binary_sensor", "button", "event", "number", "select", "sensor"]
+PLATFORMS: list[str] = ["binary_sensor", "button", "event", "number", "select", "sensor", "switch"]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:

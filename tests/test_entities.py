@@ -45,7 +45,7 @@ async def test_every_entity_has_a_translation_key_and_english_name(hass):
     entry = await _montar(hass)
     reg = er.async_get(hass)
     entidades = er.async_entries_for_config_entry(reg, entry.entry_id)
-    assert len(entidades) == 11
+    assert len(entidades) == 12
     en = json.loads((RAIZ / "translations" / "en.json").read_text(encoding="utf-8"))["entity"]
     for e in entidades:
         assert e.translation_key, e.entity_id

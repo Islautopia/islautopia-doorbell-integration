@@ -50,6 +50,11 @@
       "panel_firmware": {
         "name": "面板固件"
       }
+    },
+    "switch": {
+      "rec": {
+        "name": "手动录制"
+      }
     }
   }
 }
