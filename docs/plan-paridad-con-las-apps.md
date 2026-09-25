@@ -494,3 +494,41 @@ Released and installed by HACS on the home Home Assistant (one HA restart, 13:25
 - Pausing a live call when the view is left relies on `live_pause` releasing the talk floor and the
   card asking for it again on return; covered by the simulation, **not** tried with a real call
   (Ermita is off limits and the Waveshare had other viewers during the session).
+
+### Phase 0 follow-up (2026-09-25): integration 0.7.2 — REC now holds its session
+
+The gap this section's own VERIFIED block already named: "REC needs a held session — not
+implemented." Iñaki's decision: hold it, don't add a firmware route.
+
+- **What changed**: a new `switch` entity (`switch.py`, backed by `rec_session.py`) that opens the
+  signalling SSE, sends `rec_start` on the first `offer`, and — unlike `signal_client.async_orden`
+  (quick replies/sequences) — does **not** say `bye` after the first reply. It keeps reading the
+  same session and only closes it (`rec_stop` if still recording, then `bye`) when the user turns
+  it off, OR when the doorbell pushes `rec_state:false` on its own (10-minute cap, another admin,
+  a ring taking the slot for a call) — nothing here waits for someone to notice and flip a switch.
+  `async_will_remove_from_hass` closes any open session on unload/reload, so an HA restart never
+  leaks a signalling slot.
+- **Why `is_on` reads the session's `recording`, never "is a session held"**: holding the session
+  is the mechanism, not the fact reported. A first version of the test suite let a mutant survive
+  precisely here — the fake test double flipped `recording` and `closed` in the same call, hiding
+  the exact window (`recording:false`, session still open) a switch reading "a session is held"
+  would get wrong. Fixed by splitting the fake into two steps, matching what the real
+  `rec_session.py` actually does (`rec_state` push, THEN its own later `stop()`).
+- **VERIFIED on the Waveshare**: a 1-2 minute REC started from Home Assistant ran to completion —
+  the recording did not stop after a fraction of a second the way a one-shot `rec_start` would.
+  `/api/debug/video_drop` → `sig_used` returned to `0` once the recording (and with it, the held
+  session) ended.
+- **Tests**: 6 new tests directly against `RecSession` with a fake doorbell (accepted, admin
+  stopping it from Home Assistant, the doorbell ending it on its own, `admin_required` refusal, no
+  answer at all, stop-before-start/stop-twice as no-ops) + 5 against the `switch` entity's plumbing
+  (mirrors real state, turn on/off, device-initiated end, refusal never leaves it "on", unload
+  closes an open session). 2 mutants added to `tools/mutantes.py`; both killed after the fake-double
+  fix above. Environment note: this real sandbox's newest available `homeassistant` package
+  (2025.1.4, real PyPI) predates a module path (`homeassistant.helpers.service_info.zeroconf`)
+  this project's `config_flow.py` already used before this change — pre-existing, unrelated to
+  this work, confirmed by reproducing the same collection error against the untouched v0.7.1 tree.
+  Full suite run with a local test-only shim for that one import (never committed) inside a Linux
+  container (`docker run python:3.12-slim`, matching this file's own conftest.py instructions):
+  31/31 passed, one pre-existing/unrelated teardown assertion in `test_credential_stays_server_side.py`
+  (a lingering-thread check, also reproduced against untouched v0.7.1 — not this change).
+- Released as **v0.7.2** from `main`, HACS-published on Iñaki's home Home Assistant.
