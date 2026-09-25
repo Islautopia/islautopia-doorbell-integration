@@ -74,6 +74,7 @@ async def test_recording_urls_carry_no_credential_nor_cloud_name(hass):
     assert CREDENTIAL not in play.url
     assert "islautopia.com" not in play.url
     assert play.url.startswith("/api/islautopia_doorbell/recording/")
+    assert "authSig=" in play.url      # the player gets it as is: unsigned was a 401 on HA 2026.9
 
 
 async def test_recording_view_needs_auth_and_adds_the_credential_server_side(hass, hass_client, hass_client_no_auth):

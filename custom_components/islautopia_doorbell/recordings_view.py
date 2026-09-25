@@ -44,6 +44,9 @@ RECORDINGS_URL = "/api/islautopia_doorbell/recording"
 # outlive a browsing session. Playback URLs are signed by Home Assistant itself when it resolves the
 # media (media_source signs relative URLs), so they do not use this.
 _THUMB_TTL = timedelta(hours=12)
+# Long enough to watch and seek a recording (minutes long) after opening it; short enough that a
+# copied URL stops working the same day.
+_VIDEO_TTL = timedelta(hours=2)
 
 _STREAM_TIMEOUT = aiohttp.ClientTimeout(total=None, connect=10, sock_read=60)
 _FORWARD_HEADERS = ("Content-Type", "Content-Length", "Content-Range", "Accept-Ranges")
@@ -62,6 +65,13 @@ def recording_path(device_id: str, filename: str, kind: str = "video") -> str:
 @callback
 def signed_thumbnail_url(hass: HomeAssistant, device_id: str, filename: str) -> str:
     return async_sign_path(hass, recording_path(device_id, filename, "thumb"), _THUMB_TTL)
+
+
+@callback
+def signed_video_url(hass: HomeAssistant, device_id: str, filename: str) -> str:
+    """Signed playback URL. ⚠️ Signed HERE: the media_source resolve result reaches the player as
+    is (measured on HA 2026.9.3: an unsigned path came back 401 to the player)."""
+    return async_sign_path(hass, recording_path(device_id, filename, "video"), _VIDEO_TTL)
 
 
 def _entry_data(hass: HomeAssistant, device_id: str) -> dict | None:

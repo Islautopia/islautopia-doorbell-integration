@@ -26,7 +26,7 @@ MUTANTES = [
      '            "device_id": device_id,\n            "live_timeout_entity"',
      '            "device_id": device_id,\n            "credential": entry_data["credential"],\n            "live_timeout_entity"'),
     ("playback URL points the browser at the doorbell with ?token=", PKG + "media_source.py",
-     "        return PlayMedia(recording_path(device_id, filename), \"video/mp4\")",
+     "        return PlayMedia(signed_video_url(self.hass, device_id, filename), \"video/mp4\")",
      "        return PlayMedia(api.recording_url(device_id, doorbell[CONF_CREDENTIAL], filename), \"video/mp4\")"),
     ("recordings view without auth", PKG + "recordings_view.py",
      "    requires_auth = True", "    requires_auth = False"),

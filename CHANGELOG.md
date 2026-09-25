@@ -6,6 +6,45 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.7.0] — 2026-09-25
+
+### Changed — Home Assistant is a local client
+
+- **The integration never talks to the doorbell through the internet any more.** No cloud relay,
+  no TURN credentials, and no DNS lookup of the doorbell's cloud name: requests go to the doorbell's
+  address on your network, and the certificate is still validated against the doorbell's name.
+  **Home Assistant must be on the same network as the doorbell (or a routed VLAN).**
+- **Setup checks it and says so.** The doorbell must answer at its IP on port 80 and on its secure
+  port with a valid certificate; otherwise setup stops with one clear message and configures
+  nothing. If a pairing succeeds but its credential then fails, it is undone on the doorbell.
+- **New option "Doorbell address"** to change the IP when the doorbell moves (zeroconf still updates
+  it automatically when it can see the doorbell).
+- **New entries use a pairing name of their own** ("Home Assistant <your location name>"), so a
+  second Home Assistant paired by the same administrator no longer takes over the first one's
+  access. Existing entries keep theirs.
+
+### Fixed — the pairing credential reached every user's browser
+
+- `get_connection_info` no longer returns the credential, and recordings in the media browser are
+  served through Home Assistant (signed URLs, range requests for seeking) instead of a direct URL
+  to the doorbell carrying `?token=<credential>`.
+- Playing a recording failed on current firmware: the doorbell answers `HEAD` with 405. The probe
+  is now a one-byte ranged request.
+- The media browser shows the doorbell's name instead of the pairing name.
+
+### Added
+
+- **Live view timeout** (`number`, seconds, default 120, `0` = never): after that long without
+  anyone touching it, the Lovelace card pauses the live view and frees the doorbell's slot, like the
+  apps do in the background. Never during a call; a tap or a new ring resumes. An automation can
+  change it.
+- Actions **`islautopia_doorbell.play_sequence`** and **`islautopia_doorbell.play_audio`**: play a
+  sequence or a quick reply at the street, over the same signalling messages the apps use.
+- Entity names in English with translations (English, Spanish, Portuguese, German, French,
+  Russian, Chinese, Hindi, Arabic). Existing entity ids do not change. **The mode `select` now
+  reports stable states** (`normal`, `away`, `do_not_disturb`, `custom`) shown translated;
+  automations that compared it with the old Spanish labels must use the new values.
+
 ## [0.6.2] — 2026-09-16
 
 ### Fixed

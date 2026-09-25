@@ -39,8 +39,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
 from . import api
-from .const import CONF_CREDENTIAL, CONF_DEVICE_ID, CONF_LABEL, DOMAIN
-from .recordings_view import recording_path, signed_thumbnail_url
+from .const import CONF_CREDENTIAL, CONF_DEVICE_ID, DOMAIN
+from .recordings_view import signed_thumbnail_url, signed_video_url
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -85,7 +85,11 @@ class DoorbellMediaSource(MediaSource):
         for entry in self.hass.config_entries.async_entries(DOMAIN):
             data = stored.get(entry.entry_id)
             if isinstance(data, dict) and data.get(CONF_DEVICE_ID):
-                found.append({**data, "title": entry.title})
+                # The doorbell's own name (`dname`) when known: a manually added doorbell's entry
+                # title is its device id, which says nothing to the person browsing.
+                coord = data.get("coordinator")
+                titulo = (coord.nombre_portero if coord is not None else None) or entry.title
+                found.append({**data, "title": titulo})
         return found
 
     def _doorbell_by_id(self, device_id: str) -> dict:
@@ -127,7 +131,9 @@ class DoorbellMediaSource(MediaSource):
                     identifier=d[CONF_DEVICE_ID],
                     media_class=MediaClass.DIRECTORY,
                     media_content_type=MediaClass.VIDEO,
-                    title=d.get(CONF_LABEL) or d.get("title") or d[CONF_DEVICE_ID],
+                    # The doorbell's name (the entry title), not the pairing label: since 0.7.0
+                    # the label is "Home Assistant <location>", which names this HA, not the door.
+                    title=d.get("title") or d[CONF_DEVICE_ID],
                     can_play=False,
                     can_expand=True,
                 )
@@ -162,7 +168,7 @@ class DoorbellMediaSource(MediaSource):
         total = listing.get("total", len(items))
         capped = listing.get("capped", False)
 
-        title = doorbell.get(CONF_LABEL) or doorbell.get("title") or device_id
+        title = doorbell.get("title") or device_id
         if capped:
             # The firmware itself could not sort past its own ceiling; the oldest are unreachable
             # by any page. Never let this read as a complete list.
@@ -207,8 +213,8 @@ class DoorbellMediaSource(MediaSource):
     async def async_resolve_media(self, item: MediaSourceItem) -> PlayMedia:
         """Hand back a Home Assistant URL for the MP4 (recordings_view.py), never the doorbell's.
 
-        The URL is relative and unsigned: media_source signs it for the user who asked. The bytes
-        come from the doorbell over the LAN with the credential added server-side.
+        The URL is a signed Home Assistant path (recordings_view.py). The bytes come from the
+        doorbell over the LAN with the credential added server-side.
 
         A 403 here means this pairing was made from a non-admin session, which the firmware allows
         to list and watch but not to download. It must fail with an explanation, not a silently
@@ -239,7 +245,7 @@ class DoorbellMediaSource(MediaSource):
         except api.DoorbellApiError as err:
             raise Unresolvable(str(err)) from err
 
-        return PlayMedia(recording_path(device_id, filename), "video/mp4")
+        return PlayMedia(signed_video_url(self.hass, device_id, filename), "video/mp4")
 
 
 def _recording_title(rec: dict) -> str:

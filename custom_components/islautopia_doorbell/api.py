@@ -236,7 +236,10 @@ class NotAllowedError(DoorbellApiError):
 async def async_check_recording_playable(
     session: aiohttp.ClientSession, device_id: str, credential: str, filename: str
 ) -> None:
-    """HEAD the recording so a failure surfaces as a sentence instead of a dead player.
+    """Probe the recording so a failure surfaces as a sentence instead of a dead player.
+
+    ⚠️ A one-byte ranged GET, not HEAD: the doorbell answers HEAD on /api/recording with 405
+    (measured on 0.100.0, 2026-09-25), which made every recording "unplayable".
 
     Costs one LAN round trip and turns the commonest failure - a pairing made from a non-admin
     session, which may list and watch but not download - into something the user can act on.
@@ -244,7 +247,7 @@ async def async_check_recording_playable(
     """
     url = recording_url(device_id, credential, filename)
     try:
-        async with session.head(url, timeout=_TIMEOUT) as resp:
+        async with session.get(url, headers={"Range": "bytes=0-0"}, timeout=_TIMEOUT) as resp:
             if resp.status == 403:
                 raise NotAllowedError("admin_required")
             if resp.status == 401:
@@ -252,7 +255,7 @@ async def async_check_recording_playable(
             if resp.status == 404:
                 raise DoorbellApiError("That recording no longer exists on the doorbell")
             if resp.status not in (200, 206):
-                raise DoorbellApiError(f"HEAD recording -> HTTP {resp.status}")
+                raise DoorbellApiError(f"GET recording -> HTTP {resp.status}")
     except aiohttp.ClientError as err:
         raise DoorbellApiError(f"Could not reach the doorbell: {err}") from err
 
