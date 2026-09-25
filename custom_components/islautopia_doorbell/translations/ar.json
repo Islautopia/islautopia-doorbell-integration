@@ -1,0 +1,55 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "visitor": {
+        "name": "زائر"
+      },
+      "package": {
+        "name": "طرد عند الباب"
+      },
+      "street_panel": {
+        "name": "لوحة الشارع"
+      },
+      "fingerprint_reader": {
+        "name": "قارئ البصمات"
+      }
+    },
+    "button": {
+      "open_door": {
+        "name": "فتح الباب"
+      }
+    },
+    "event": {
+      "events": {
+        "name": "الأحداث"
+      }
+    },
+    "number": {
+      "live_view_timeout": {
+        "name": "مهلة العرض المباشر"
+      }
+    },
+    "select": {
+      "mode": {
+        "name": "الوضع",
+        "state": {
+          "normal": "عادي",
+          "away": "خارج المنزل",
+          "do_not_disturb": "عدم الإزعاج",
+          "custom": "مخصص"
+        }
+      }
+    },
+    "sensor": {
+      "viewers": {
+        "name": "المشاهدون"
+      },
+      "firmware_version": {
+        "name": "إصدار البرنامج الثابت"
+      },
+      "panel_firmware": {
+        "name": "البرنامج الثابت للوحة"
+      }
+    }
+  }
+}

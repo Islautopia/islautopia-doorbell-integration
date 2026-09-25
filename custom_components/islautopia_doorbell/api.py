@@ -1,18 +1,16 @@
-"""Thin async HTTP client for pairing and TURN credentials.
+"""Thin async HTTP client for the doorbell's own API, over the LAN only.
 
-Deliberately NOT a general REST client for the doorbell's local dashboard API
-(`/api/get_states`, `/api/firmware_info`, etc.) - this integration doesn't poll the doorbell at
-all, see ARCHITECTURE.md §3 for why. Everything here is either:
+Every function here takes the per-entry session built by net.crear_sesion(), whose resolver maps
+the doorbell's certificate name to its stored LAN address and to nothing else (no DNS, no relay —
+Phase 0 of the parity plan, 2026-09-25). The URLs carry `<device_id>.doorbell.islautopia.com`
+only so that TLS validates against the name the certificate is issued for.
 
-  - called exactly once, during config flow pairing (async_get_device_id, async_login,
-    async_pair_app, async_logout) - see config_flow.py, or
-  - called on-demand by the card via websocket_api.py (async_get_app_turn_credentials), or
-  - called on-demand while a user is browsing recordings (async_list_recordings) - on demand
-    meaning "because someone opened the media browser", not on a timer. The no-polling rule in
-    ARCHITECTURE.md §3 stands: nothing here runs unless a user asked for it.
+⚠️ The pairing credential NEVER leaves Home Assistant's server side. Nothing in this module builds a
+URL that is handed to a browser; recordings reach the browser through recordings_view.py, which
+adds the credential server-side.
 
-See API_CONTRACT.md (IG_Doorbell repo) for the exact routes this talks to: §0 (device_id), §1.1
-(login), §1.5 (pair_app), §3.1-bis (app_turn_credentials).
+See API_CONTRACT.md (IG_Doorbell repo): §0 (device_id), §1.1 (login), §1.5 (pair_app/unpair_app),
+§1.2 (get_states/save_states/open), §1.3-bis (recordings), §4 (hass).
 """
 from __future__ import annotations
 
@@ -22,7 +20,7 @@ from urllib.parse import quote
 
 import aiohttp
 
-from .const import DOORBELL_HOSTNAME_SUFFIX, RELAY_HOST, REQUEST_TIMEOUT
+from .const import DOORBELL_HOSTNAME_SUFFIX, REQUEST_TIMEOUT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,15 +28,19 @@ _TIMEOUT = aiohttp.ClientTimeout(total=REQUEST_TIMEOUT)
 
 
 class DoorbellApiError(Exception):
-    """Base error talking to a doorbell or the relay."""
+    """Base error talking to a doorbell."""
 
 
 class AuthenticationError(DoorbellApiError):
-    """Wrong email/password, or a pair_app/app_turn_credentials credential was rejected."""
+    """Wrong email/password, or the pairing credential was rejected."""
 
 
 class DeviceNotPairedError(DoorbellApiError):
     """The doorbell itself is not registered with the cloud yet (409 device_not_paired)."""
+
+
+class LabelInUseError(DoorbellApiError):
+    """409 label_already_used: another user of this doorbell already has a client with that name."""
 
 
 class CloudAuthorizeFailedError(DoorbellApiError):
@@ -52,7 +54,7 @@ class PairResult:
 
 
 def doorbell_hostname(device_id: str) -> str:
-    """Public hostname that resolves to the doorbell's own LAN IP (real Let's Encrypt cert)."""
+    """The name the doorbell's certificate is issued for. Used for TLS only, never resolved."""
     return f"{device_id}.{DOORBELL_HOSTNAME_SUFFIX}"
 
 
@@ -109,6 +111,9 @@ async def async_pair_app(
     url = f"https://{doorbell_hostname(device_id)}:8443/api/pair_app"
     async with session.post(url, data={"label": label}, timeout=_TIMEOUT) as resp:
         if resp.status == 409:
+            cuerpo = await resp.json(content_type=None)
+            if isinstance(cuerpo, dict) and cuerpo.get("error") == "label_already_used":
+                raise LabelInUseError(cuerpo.get("label") or label)
             raise DeviceNotPairedError(
                 "The doorbell is not paired with the cloud yet - wait for it to finish its own "
                 "registration and try again"
@@ -133,13 +138,44 @@ async def async_logout(session: aiohttp.ClientSession, device_id: str) -> None:
         _LOGGER.debug("Best-effort logout failed for %s (non-blocking)", device_id)
 
 
-def recording_url(device_id: str, credential: str, filename: str) -> str:
-    """Direct URL to a recording's MP4, authenticated with the pairing credential.
+async def async_unpair_app(session: aiohttp.ClientSession, device_id: str, label: str) -> bool:
+    """POST /api/unpair_app by label (§1.5) with the admin session cookie on `session`.
 
-    The token travels in the query string rather than a header because this URL is handed to a
-    <video> element / the media player, which cannot set headers. That is the same trade-off the
-    firmware already makes for WebRTC signalling (contract §1.4): EventSource cannot set headers
-    either. The credential is scoped to one doorbell and revocable from the cloud admin panel.
+    Used to undo a pairing when a later setup step fails, so a failed setup leaves nothing
+    configured on the doorbell. Best effort: returns False instead of raising.
+    """
+    url = f"https://{doorbell_hostname(device_id)}:8443/api/unpair_app"
+    try:
+        async with session.post(url, data={"label": label}, timeout=_TIMEOUT) as resp:
+            return resp.status == 200
+    except (aiohttp.ClientError, OSError, TimeoutError):
+        return False
+
+
+async def async_check_tls(session: aiohttp.ClientSession, device_id: str) -> None:
+    """GET https://<name>:8443/api/device_id through the LAN mapping, certificate validated.
+
+    §0: this route exists on both ports, needs no session and has no side effect. Raises
+    DoorbellApiError if the doorbell cannot be reached over TLS at its LAN address, or answers
+    with another id.
+    """
+    url = f"https://{doorbell_hostname(device_id)}:8443/api/device_id"
+    try:
+        async with session.get(url, timeout=_TIMEOUT) as resp:
+            if resp.status != 200:
+                raise DoorbellApiError(f"GET :8443/api/device_id -> HTTP {resp.status}")
+            data = await resp.json(content_type=None)
+    except (aiohttp.ClientError, OSError, TimeoutError, ValueError) as err:
+        raise DoorbellApiError(f"No TLS connection to the doorbell on the LAN: {err}") from err
+    if not isinstance(data, dict) or data.get("device_id") != device_id:
+        raise DoorbellApiError("Another device answered at that address")
+
+
+def recording_url(device_id: str, credential: str, filename: str) -> str:
+    """Doorbell URL of a recording's MP4. SERVER SIDE ONLY (recordings_view.py fetches it).
+
+    ⚠️ Never hand this to a browser: it carries the pairing credential in the query string. Until
+    0.6.x it was handed to the media player, which put the credential in every HA user's browser.
     """
     return (
         f"https://{doorbell_hostname(device_id)}:8443"
@@ -148,7 +184,7 @@ def recording_url(device_id: str, credential: str, filename: str) -> str:
 
 
 def thumbnail_url(device_id: str, credential: str, filename: str) -> str:
-    """Direct URL to a recording's JPEG thumbnail. 404 for recordings older than the feature."""
+    """Doorbell URL of a recording's thumbnail. SERVER SIDE ONLY, like recording_url()."""
     return (
         f"https://{doorbell_hostname(device_id)}:8443"
         f"/api/recording_thumb?file={quote(filename)}&token={quote(credential)}"
@@ -170,9 +206,6 @@ async def async_list_recordings(
     `capped` is the difference between "these are all your recordings" and "these are the 2000
     most recent of N", which a UI must not paper over.
 
-    Reachable only on the LAN: the relay does not proxy plain HTTP, so browsing recordings works
-    from a Home Assistant that can reach the doorbell and not otherwise. That is the local-first
-    principle working as intended, not a gap - see ARCHITECTURE.md.
     """
     url = (
         f"https://{doorbell_hostname(device_id)}:8443"
@@ -222,29 +255,6 @@ async def async_check_recording_playable(
                 raise DoorbellApiError(f"HEAD recording -> HTTP {resp.status}")
     except aiohttp.ClientError as err:
         raise DoorbellApiError(f"Could not reach the doorbell: {err}") from err
-
-
-async def async_get_app_turn_credentials(
-    session: aiohttp.ClientSession, device_id: str, credential: str
-) -> dict:
-    """GET /device/<id>/app_turn_credentials on the relay, authenticated with the pair_app
-    credential (never the device_secret, which this integration never has - contract §3.1-bis).
-
-    Called on-demand by websocket_api.py right before the card starts a new WebRTC session -
-    never cached longer than the card needs it for (TTL ~1h, server-issued).
-    """
-    url = f"https://{RELAY_HOST}/device/{device_id}/app_turn_credentials"
-    headers = {"Authorization": f"Bearer {credential}"}
-    async with session.get(url, headers=headers, timeout=_TIMEOUT) as resp:
-        if resp.status == 401:
-            raise AuthenticationError("Pairing credential is invalid or has been revoked")
-        if resp.status == 403:
-            raise DoorbellApiError("The doorbell itself is banned in the cloud")
-        if resp.status == 503:
-            raise DoorbellApiError("The cloud credential database is unavailable right now")
-        if resp.status != 200:
-            raise DoorbellApiError(f"GET app_turn_credentials -> HTTP {resp.status}")
-        return await resp.json(content_type=None)
 
 
 # ==================================================================================================

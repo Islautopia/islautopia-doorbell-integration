@@ -52,8 +52,7 @@ async def async_setup_entry(
 class DoorbellEventos(DoorbellEntity, EventEntity):
     """Todo lo que ocurre en la puerta, en una entidad."""
 
-    _attr_translation_key = "eventos"
-    _attr_name = "Eventos"
+    _attr_translation_key = "events"
     _attr_icon = "mdi:bell-ring-outline"
     _attr_event_types = TIPOS_CONOCIDOS
 

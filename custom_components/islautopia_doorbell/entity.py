@@ -46,7 +46,11 @@ class DoorbellEntity(CoordinatorEntity[DoorbellCoordinator]):
             model=f"IG Doorbell {datos.get('hw_version', '')}".strip(),
             name=self.coordinator.nombre_portero,
             sw_version=datos.get("fw_version"),
-            configuration_url=f"https://{self.coordinator.device_id}.doorbell.islautopia.com:8443/",
+            # The doorbell's own dashboard at its LAN address. Not the cloud hostname: following
+            # that link would make the browser ask our cloud's DNS where a device in the house is.
+            configuration_url=(
+                f"http://{self.coordinator.direccion}/" if self.coordinator.direccion else None
+            ),
         )
 
     @property

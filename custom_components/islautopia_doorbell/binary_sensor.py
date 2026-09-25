@@ -47,8 +47,8 @@ async def async_setup_entry(
     async_add_entities([
         VisitanteBinarySensor(c),
         PaqueteBinarySensor(c),
-        PresenciaBinarySensor(c, "panel", "Panel de calle", "mdi:tablet"),
-        PresenciaBinarySensor(c, "reader", "Lector de huellas", "mdi:fingerprint"),
+        PresenciaBinarySensor(c, "panel", "street_panel", "mdi:tablet"),
+        PresenciaBinarySensor(c, "reader", "fingerprint_reader", "mdi:fingerprint"),
     ])
 
 
@@ -77,7 +77,7 @@ class _PorEventos(DoorbellEntity, BinarySensorEntity):
 class VisitanteBinarySensor(_PorEventos):
     """Alguien en la puerta. Se apaga solo -- ver la cabecera del modulo."""
 
-    _attr_name = "Visitante"
+    _attr_translation_key = "visitor"
     _attr_device_class = BinarySensorDeviceClass.OCCUPANCY
 
     def __init__(self, coordinator: DoorbellCoordinator) -> None:
@@ -114,7 +114,7 @@ class VisitanteBinarySensor(_PorEventos):
 class PaqueteBinarySensor(_PorEventos):
     """Un paquete a la vista. SIN plazo -- ver la cabecera del modulo."""
 
-    _attr_name = "Paquete en la puerta"
+    _attr_translation_key = "package"
     _attr_icon = "mdi:package-variant-closed"
 
     def __init__(self, coordinator: DoorbellCoordinator) -> None:
@@ -147,10 +147,10 @@ class PresenciaBinarySensor(DoorbellEntity, BinarySensorEntity):
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, coordinator: DoorbellCoordinator, campo: str, nombre: str, icono: str) -> None:
+    def __init__(self, coordinator: DoorbellCoordinator, campo: str, clave_traduccion: str, icono: str) -> None:
         super().__init__(coordinator, campo)
         self._campo = campo
-        self._attr_name = nombre
+        self._attr_translation_key = clave_traduccion
         self._attr_icon = icono
 
     @property

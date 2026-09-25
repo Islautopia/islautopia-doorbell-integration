@@ -61,6 +61,7 @@ Once paired you get, without configuring anything:
 | **Mode** | Normal, Away, Do Not Disturb, Custom — so *"Do Not Disturb at 23:00"* is a two-line automation |
 | **Open door** | a button, when your doorbell has a lock configured |
 | **Viewers** | how many people are watching right now |
+| **Live view timeout** | seconds without anyone touching the card before it pauses the live view and frees the doorbell (default 120, `0` = never). An automation can change it |
 | Firmware, street panel, fingerprint reader | diagnostics |
 
 Changing the mode needs the pairing to be an **administrator** of that doorbell. Everything else
@@ -69,17 +70,29 @@ only reads.
 ### 4. Lets the Lovelace card find your doorbell by itself
 
 If you use the [Islautopia Intercom Card](https://github.com/Islautopia/islautopia-intercom-card),
-this integration is what lets it work with nothing to copy and paste. It hands the card what a
-browser cannot obtain on its own, including the short-lived credentials needed when you are away
-from home and the video has to travel through a relay.
+this integration is what lets it work with nothing to copy and paste. It relays the card's
+signalling and its recordings to the doorbell, adding the pairing credential on the server side:
+**the credential never reaches any browser.**
+
+### 5. Actions
+
+`islautopia_doorbell.play_sequence` and `islautopia_doorbell.play_audio` play one of the doorbell's
+sequences or quick replies at the street — the same messages the apps send.
 
 ---
 
 ## What this does *not* do
 
-**Your video and audio never pass through Home Assistant.** The stream goes straight from your
-browser to the doorbell, or through a relay when you are away. Home Assistant is not in the middle,
-so it is neither a bottleneck nor another copy of your footage.
+**It never talks to the doorbell through the internet.** Home Assistant is a local client: it
+reaches the doorbell at its address on your network and nowhere else — no cloud relay, no TURN, not
+even a DNS lookup of the doorbell's cloud name. **Home Assistant must be on the same network as the
+doorbell (or a routed VLAN)**; if it cannot reach it directly, setup says so and configures nothing.
+The live view in the card therefore works wherever the browser can reach the doorbell on your
+network, and not from outside.
+
+**Your live video and audio never pass through Home Assistant.** The stream goes straight from your
+browser to the doorbell. Recordings you open in the media browser do pass through Home Assistant,
+so that the credential stays on the server.
 
 **It does not keep a session open on your doorbell.** It holds one limited credential and asks
 how things are every 30 seconds; everything that actually needs to be immediate — the ring, a
@@ -177,12 +190,9 @@ logger:
 
 ## Privacy
 
-Video and audio stay on your doorbell and travel directly to whoever is watching. Recordings live
-on the doorbell's own memory card and nowhere else.
-
-When you are away from home and a direct connection is not possible, the stream is relayed — but it
-stays encrypted end to end the whole way, so the relay passes it along without being able to read
-it or keep it.
+Video and audio stay on your doorbell and travel directly, inside your network, to whoever is
+watching. Recordings live on the doorbell's own memory card and nowhere else. Nothing this
+integration or the card does goes through our servers.
 
 ---
 

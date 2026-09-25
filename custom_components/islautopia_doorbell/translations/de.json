@@ -1,0 +1,55 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "visitor": {
+        "name": "Besucher"
+      },
+      "package": {
+        "name": "Paket an der Tür"
+      },
+      "street_panel": {
+        "name": "Außenpanel"
+      },
+      "fingerprint_reader": {
+        "name": "Fingerabdruckleser"
+      }
+    },
+    "button": {
+      "open_door": {
+        "name": "Tür öffnen"
+      }
+    },
+    "event": {
+      "events": {
+        "name": "Ereignisse"
+      }
+    },
+    "number": {
+      "live_view_timeout": {
+        "name": "Zeitlimit der Live-Ansicht"
+      }
+    },
+    "select": {
+      "mode": {
+        "name": "Modus",
+        "state": {
+          "normal": "Normal",
+          "away": "Abwesend",
+          "do_not_disturb": "Nicht stören",
+          "custom": "Benutzerdefiniert"
+        }
+      }
+    },
+    "sensor": {
+      "viewers": {
+        "name": "Zuschauer"
+      },
+      "firmware_version": {
+        "name": "Firmware-Version"
+      },
+      "panel_firmware": {
+        "name": "Panel-Firmware"
+      }
+    }
+  }
+}

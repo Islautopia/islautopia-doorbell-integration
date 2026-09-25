@@ -27,7 +27,6 @@ from datetime import timedelta
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from . import api
@@ -46,6 +45,7 @@ class DoorbellCoordinator(DataUpdateCoordinator[dict]):
         device_id: str,
         credential: str,
         sesion: aiohttp.ClientSession,
+        direccion: str | None = None,
     ) -> None:
         super().__init__(
             hass,
@@ -58,6 +58,9 @@ class DoorbellCoordinator(DataUpdateCoordinator[dict]):
         )
         self.device_id = device_id
         self.credential = credential
+        # The doorbell's LAN address (net.py). Only for display (configuration_url); requests go
+        # through the session, whose resolver already maps the name to it.
+        self.direccion = direccion
         # La sesion de ESTA entrada, con el resolutor que prueba la direccion local antes que
         # el DNS publico (net.py). No la compartida: un resolutor sobre aquella contestaria por
         # todas las integraciones de este Home Assistant.
@@ -84,7 +87,7 @@ class DoorbellCoordinator(DataUpdateCoordinator[dict]):
             # casos lo unico que se puede hacer es reemparejar, asi que se dice en vez de
             # reintentar en bucle.
             raise UpdateFailed(
-                "El portero ya no reconoce esta integracion: hay que volver a emparejarla"
+                "The doorbell no longer recognises this integration: re-pair it"
             ) from err
         except api.DoorbellApiError as err:
             raise UpdateFailed(str(err)) from err

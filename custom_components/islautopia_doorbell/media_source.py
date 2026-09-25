@@ -8,11 +8,11 @@ this for free. A bespoke panel would have to reimplement each of them, worse.
 
 Two things worth knowing before reading further.
 
-**This only works on the LAN.** The recordings live on the doorbell's SD card and are served by
-the doorbell's own HTTP server; the relay does not proxy plain HTTP, on purpose. So browsing works
-from a Home Assistant that can reach the doorbell and not otherwise. That is the local-first
-principle holding (privacy principle 2: no frame ever leaves the device), not a gap to be closed
-later by routing video through the cloud.
+**This only works on the LAN, and only through Home Assistant.** The recordings live on the
+doorbell's SD card. Home Assistant lists them and serves them to the browser through its own view
+(recordings_view.py), fetching them from the doorbell's LAN address with the pairing credential
+added server-side. The browser never sees the credential nor the doorbell's cloud hostname (Phase 0,
+2026-09-25; until 0.6.x both went to every HA user's browser).
 
 **Downloading is an admin-only action, and this integration is not necessarily an admin.** The
 firmware distinguishes listing and viewing (any paired user) from downloading and deleting (admin
@@ -36,11 +36,11 @@ from homeassistant.components.media_source import (
     Unresolvable,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 
 from . import api
 from .const import CONF_CREDENTIAL, CONF_DEVICE_ID, CONF_LABEL, DOMAIN
+from .recordings_view import recording_path, signed_thumbnail_url
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -138,10 +138,11 @@ class DoorbellMediaSource(MediaSource):
     async def _build_device_node(self, doorbell: dict) -> BrowseMediaSource:
         device_id = doorbell[CONF_DEVICE_ID]
         credential = doorbell[CONF_CREDENTIAL]
-        # Esta peticion la hace HOME ASSISTANT, asi que va por la sesion del portero: prueba su
-        # direccion local antes que el DNS publico (net.py) y el listado sigue saliendo con la
-        # linea caida. El respaldo cubre la entrada a medio cargar.
-        session = doorbell.get("sesion") or async_get_clientsession(self.hass)
+        # The doorbell's LAN session (net.py). No fallback to the shared session: that one
+        # resolves names through public DNS, which is exactly what Phase 0 removed.
+        session = doorbell.get("sesion")
+        if session is None:
+            raise MediaSourceError("The doorbell is still being set up; try again in a moment")
 
         try:
             listing = await api.async_list_recordings(
@@ -179,14 +180,14 @@ class DoorbellMediaSource(MediaSource):
             can_expand=True,
             children_media_class=MediaClass.VIDEO,
             children=[
-                self._recording_node(device_id, credential, rec)
+                self._recording_node(device_id, rec)
                 for rec in items
                 if rec.get("file")
             ],
         )
 
     def _recording_node(
-        self, device_id: str, credential: str, rec: dict
+        self, device_id: str, rec: dict
     ) -> BrowseMediaSource:
         filename = rec["file"]
         return BrowseMediaSource(
@@ -197,67 +198,48 @@ class DoorbellMediaSource(MediaSource):
             title=_recording_title(rec),
             can_play=True,
             can_expand=False,
-            thumbnail=api.thumbnail_url(device_id, credential, filename),
+            # A signed Home Assistant URL: no credential, no cloud hostname (recordings_view.py).
+            thumbnail=signed_thumbnail_url(self.hass, device_id, filename),
         )
 
     # -- play ------------------------------------------------------------------------------
 
     async def async_resolve_media(self, item: MediaSourceItem) -> PlayMedia:
-        """Hand back a direct URL to the MP4 on the doorbell.
+        """Hand back a Home Assistant URL for the MP4 (recordings_view.py), never the doorbell's.
 
-        No proxying through Home Assistant: the doorbell serves byte ranges already (needed for
-        seeking), it is on the same LAN as whoever is watching, and relaying multi-megabyte files
-        through HA would add nothing but a bottleneck.
+        The URL is relative and unsigned: media_source signs it for the user who asked. The bytes
+        come from the doorbell over the LAN with the credential added server-side.
 
         A 403 here means this pairing was made from a non-admin session, which the firmware allows
-        to list and watch but not to download. Playing in the media browser IS the download path,
-        so it fails - and it must fail with an explanation, not a silently dead player.
+        to list and watch but not to download. It must fail with an explanation, not a silently
+        dead player - hence the probe first.
         """
         if not item.identifier or "/" not in item.identifier:
             raise Unresolvable("Malformed recording reference")
 
         device_id, filename = item.identifier.split("/", 1)
         doorbell = self._doorbell_by_id(device_id)
-        url = api.recording_url(device_id, doorbell[CONF_CREDENTIAL], filename)
-
-        # Probe before handing the URL over. A HEAD costs one round trip on the LAN and turns the
-        # commonest failure - a user-role pairing - into a sentence the user can act on, instead
-        # of a player that opens and shows nothing.
-        #
-        # ⚠️ Y esta va POR LA SESION COMPARTIDA a proposito, no por la del portero. Lo que se
-        # entrega debajo es una URL para el NAVEGADOR del usuario, que resuelve por su cuenta y no
-        # sabe nada de la direccion local que este proceso tiene guardada. Sondear por un camino
-        # mejor que el que va a usar quien reproduce convertiria esta comprobacion en una que
-        # contesta "adelante" justo cuando el reproductor no va a poder: sin internet, la sonda
-        # saldria bien por la red local y el video no cargaria, sin nada que lo explicara.
-        #
-        # Asi que la sonda comparte camino con el navegador y falla cuando el fallara -- que es lo
-        # unico que la hace valer. La otra mitad, que el navegador NO deberia necesitar DNS publico
-        # para ver un video de un aparato que tiene al lado, es una decision de producto abierta:
-        # cuesta que Home Assistant haga de intermediario, y el docstring de arriba explica por que
-        # se decidio no hacerlo.
-        session = async_get_clientsession(self.hass)
+        session = doorbell.get("sesion")
+        if session is None:
+            raise Unresolvable("The doorbell is still being set up; try again in a moment")
         try:
-            async with session.head(url, timeout=api._TIMEOUT) as resp:
-                if resp.status == 403:
-                    raise Unresolvable(
-                        "This Home Assistant is paired as a regular user, which can watch "
-                        "recordings but not download them. Re-pair from an administrator "
-                        "account of the doorbell to play them here."
-                    )
-                if resp.status == 401:
-                    raise Unresolvable(
-                        "The doorbell rejected this pairing credential. Re-pair it from "
-                        "Settings > Devices & services."
-                    )
-                if resp.status == 404:
-                    raise Unresolvable("That recording no longer exists on the doorbell.")
-        except Unresolvable:
-            raise
-        except Exception as err:  # noqa: BLE001 - network shape varies, message is what matters
-            raise Unresolvable(f"Could not reach the doorbell: {err}") from err
+            await api.async_check_recording_playable(
+                session, device_id, doorbell[CONF_CREDENTIAL], filename
+            )
+        except api.NotAllowedError as err:
+            raise Unresolvable(
+                "This Home Assistant is paired as a regular user, which can watch recordings but "
+                "not download them. Re-pair from an administrator account of the doorbell."
+            ) from err
+        except api.AuthenticationError as err:
+            raise Unresolvable(
+                "The doorbell rejected this pairing credential. Re-pair it from "
+                "Settings > Devices & services."
+            ) from err
+        except api.DoorbellApiError as err:
+            raise Unresolvable(str(err)) from err
 
-        return PlayMedia(url, "video/mp4")
+        return PlayMedia(recording_path(device_id, filename), "video/mp4")
 
 
 def _recording_title(rec: dict) -> str:

@@ -1,0 +1,55 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "visitor": {
+        "name": "Посетитель"
+      },
+      "package": {
+        "name": "Посылка у двери"
+      },
+      "street_panel": {
+        "name": "Уличная панель"
+      },
+      "fingerprint_reader": {
+        "name": "Считыватель отпечатков"
+      }
+    },
+    "button": {
+      "open_door": {
+        "name": "Открыть дверь"
+      }
+    },
+    "event": {
+      "events": {
+        "name": "События"
+      }
+    },
+    "number": {
+      "live_view_timeout": {
+        "name": "Тайм-аут живого просмотра"
+      }
+    },
+    "select": {
+      "mode": {
+        "name": "Режим",
+        "state": {
+          "normal": "Обычный",
+          "away": "Нет дома",
+          "do_not_disturb": "Не беспокоить",
+          "custom": "Пользовательский"
+        }
+      }
+    },
+    "sensor": {
+      "viewers": {
+        "name": "Зрители"
+      },
+      "firmware_version": {
+        "name": "Версия прошивки"
+      },
+      "panel_firmware": {
+        "name": "Прошивка панели"
+      }
+    }
+  }
+}

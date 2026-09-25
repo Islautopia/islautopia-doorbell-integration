@@ -40,12 +40,20 @@ CONF_ENTIDADES = "entidades"
 # ⚠️ El 2 se llamaba "Noche" y el contrato lo nombraba de las dos formas, lo que llevaba a que cada
 # cliente eligiera una. Unificado a **"No molestar"**, que describe lo que hace en vez de cuándo se
 # supone que se usa. El valor numérico NO cambia: sigue siendo 2, así que no hay nada que migrar.
+#
+# ⚠️ Los valores son CLAVES de traduccion (2026-09-25), no textos: Home Assistant traduce el estado de
+# un `select` con `translation_key`, asi que lo que lee el dueno sale en su idioma y lo que guarda
+# una automatizacion es estable. Hasta la 0.6.x el estado era el texto en espanol ("Ausente").
 MODOS: dict[int, str] = {
-    0: "Normal",
-    1: "Ausente",
-    2: "No molestar",
-    3: "Custom",
+    0: "normal",
+    1: "away",
+    2: "do_not_disturb",
+    3: "custom",
 }
+
+# El tiempo de espera de la vista en vivo (entidad `number`, lo aplica la card). Ver number.py.
+LIVE_TIMEOUT_DEFAULT_S = 120
+LIVE_TIMEOUT_MAX_S = 3600
 
 # --- Config entry data keys -----------------------------------------------------------------
 CONF_DEVICE_ID = "device_id"
@@ -76,10 +84,13 @@ DEFAULT_PAIR_LABEL = "Home Assistant"
 # always works as the real fallback, regardless of network segmentation.
 #
 # --- HTTP -------------------------------------------------------------------------------------
-REQUEST_TIMEOUT = 8  # seconds - these are one-shot REST calls (pairing, TURN creds), not streams
+REQUEST_TIMEOUT = 8  # seconds - one-shot REST calls to the doorbell, not streams
 
-# --- Relay / cloud (API_CONTRACT.md §3) -------------------------------------------------------
-RELAY_HOST = "relay.doorbell.islautopia.com"
+# --- The doorbell's certificate name (API_CONTRACT.md §0) -------------------------------------
+# ⚠️ ONLY the name the doorbell's TLS certificate is issued for. It is used for SNI and certificate
+# validation and is NEVER resolved: the socket always goes to the LAN address this integration
+# stored (net.py). There is deliberately no relay host here any more (2026-09-25, Phase 0): Home
+# Assistant is a LOCAL client and never reaches the doorbell through the VPS, not even as a fallback.
 DOORBELL_HOSTNAME_SUFFIX = "doorbell.islautopia.com"
 
 # --- `hass_action` dispatch table (§4) --------------------------------------------------------

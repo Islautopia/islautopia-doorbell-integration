@@ -10,9 +10,11 @@ address.
 
 That combination is exactly the shape of a DNS-rebinding attack, and iCloud Private Relay blocks
 it on purpose. Nearly every iPhone has Private Relay on by default, and the Home Assistant
-companion app is where most people open a dashboard on a phone. So the local path was failing for
-the largest single group of users, and falling back to the cloud relay — slower, and routing media
-through a server in Germany for two devices sitting in the same house.
+companion app is where most people open a dashboard on a phone.
+
+**Since Phase 0 (2026-09-25) this proxy is the card's ONLY signalling path.** The direct path to the
+public hostname and the cloud relay were removed from the card: Home Assistant is a local client,
+and nothing of it goes through the VPS.
 
 Home Assistant is already an origin the browser has resolved and trusts. Proxying the signalling
 through it removes the hostname, the certificate and Private Relay from the problem in one move.
@@ -64,7 +66,6 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.components.http.auth import async_sign_path
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import doorbell_hostname
 from .const import CONF_CREDENTIAL, CONF_DEVICE_ID, DOMAIN
@@ -132,10 +133,11 @@ class DoorbellSignalProxyView(HomeAssistantView):
             f"https://{doorbell_hostname(device_id)}:8443"
             f"/webrtc/signal?token={data[CONF_CREDENTIAL]}"
         )
-        # La sesion de este portero: prueba su direccion local antes que el DNS publico
-        # (net.py). Sin esto, la card se queda sin video, sin audio y sin abrir la puerta en
-        # cuanto se cae la linea -- con el portero en el mismo conmutador.
-        session = data.get("sesion") or async_get_clientsession(hass)
+        # The doorbell's LAN session (net.py), and no fallback: the shared session resolves the
+        # doorbell's name through public DNS, which Phase 0 removed (2026-09-25).
+        session = data.get("sesion")
+        if session is None:
+            return web.Response(status=503, text="Doorbell still being set up")
 
         try:
             upstream = await session.get(url, timeout=_SSE_TIMEOUT)
@@ -198,10 +200,11 @@ class DoorbellSignalProxyView(HomeAssistantView):
             f"https://{doorbell_hostname(device_id)}:8443"
             f"/webrtc/signal/post?token={data[CONF_CREDENTIAL]}"
         )
-        # La sesion de este portero: prueba su direccion local antes que el DNS publico
-        # (net.py). Sin esto, la card se queda sin video, sin audio y sin abrir la puerta en
-        # cuanto se cae la linea -- con el portero en el mismo conmutador.
-        session = data.get("sesion") or async_get_clientsession(hass)
+        # The doorbell's LAN session (net.py), and no fallback: the shared session resolves the
+        # doorbell's name through public DNS, which Phase 0 removed (2026-09-25).
+        session = data.get("sesion")
+        if session is None:
+            return web.Response(status=503, text="Doorbell still being set up")
 
         try:
             async with session.post(

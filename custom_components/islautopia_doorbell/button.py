@@ -50,26 +50,23 @@ async def async_setup_entry(
 class AbrirPuertaButton(DoorbellEntity, ButtonEntity):
     """Abre la puerta."""
 
-    _attr_name = "Abrir puerta"
+    _attr_translation_key = "open_door"
     _attr_icon = "mdi:door-open"
 
     def __init__(self, coordinator: DoorbellCoordinator) -> None:
         super().__init__(coordinator, "abrir")
 
     async def async_press(self) -> None:
-        # La sesion de este portero: prueba su direccion local antes que el DNS publico
-        # (net.py), asi que esto sigue funcionando con la linea caida.
+        # The doorbell's LAN session (net.py): works with the internet down, never via the VPS.
         sesion = self.coordinator.sesion
         try:
             await api.async_open_door(sesion, self.coordinator.device_id, self.coordinator.credential)
         except api.NoLockConfiguredError as err:
             # Se puede llegar aqui aunque la entidad exista: `door_m` pudo cambiar desde el ultimo
             # sondeo. Se dice lo que pasa, no un codigo (§1.0 punto 5).
-            raise HomeAssistantError(
-                "Ese portero ya no tiene cerradura configurada"
-            ) from err
+            raise HomeAssistantError("That doorbell no longer has a lock configured") from err
         except api.DoorbellApiError as err:
             # ⚠️ Un fallo se PROPAGA, nunca se traga. Hay alguien esperando fuera, y un boton que
             # se pulsa y no dice nada se lee como que la puerta se abrio (§1.8: un tiempo agotado
             # es un tiempo agotado, nunca un "abierta").
-            raise HomeAssistantError(f"No se pudo abrir la puerta: {err}") from err
+            raise HomeAssistantError(f"Could not open the door: {err}") from err

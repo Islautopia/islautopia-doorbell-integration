@@ -3,9 +3,9 @@
     "step": {
       "user": {
         "title": "Add Islautopia Doorbell",
-        "description": "Enter the doorbell's local IP or hostname (skip this if it already showed up as a discovered device below).",
+        "description": "Enter the doorbell's IP address on your local network (skip this if it already showed up as a discovered device). Home Assistant talks to the doorbell only over the local network, never through the internet.",
         "data": {
-          "host": "Local IP or hostname"
+          "host": "Doorbell IP address"
         }
       },
       "zeroconf_confirm": {
@@ -14,7 +14,7 @@
       },
       "pair": {
         "title": "Pair with {name}",
-        "description": "Enter the administrator email and password you already created on the doorbell itself (app or web dashboard, /api/setup). Used once to obtain an access credential - never stored.",
+        "description": "Enter the administrator email and password you already created on the doorbell itself (app or web dashboard). Used once to obtain an access credential - never stored.",
         "data": {
           "email": "Administrator email",
           "password": "Password"
@@ -22,15 +22,21 @@
       }
     },
     "error": {
-      "cannot_connect": "Could not reach the doorbell - check the IP/hostname and that it's on the same network",
-      "not_a_doorbell": "The device responded but doesn't look like an Islautopia Doorbell",
+      "not_on_lan": "Home Assistant must be on the same network as the doorbell (or a routed VLAN). No direct connection to {host} was possible.",
+      "other_device": "Another device answered at that address, not this doorbell.",
+      "no_tls": "The doorbell answered at {host} but not on its secure port with a valid certificate. A doorbell that has never been online has no certificate yet and cannot be added.",
+      "pair_verify_failed": "Pairing worked but the new credential was rejected over the local network. The pairing was undone on the doorbell; nothing was configured. Try again.",
       "invalid_auth": "Wrong administrator email or password",
-      "device_not_paired": "The doorbell itself isn't registered with the cloud yet - wait a moment and try again",
-      "cloud_authorize_failed": "The cloud rejected the registration - try again later"
+      "label_in_use": "Another user of this doorbell already has a client named like this Home Assistant. Change the Home Assistant name (Settings > System > General) and try again.",
+      "device_not_paired": "The doorbell itself isn't registered yet - wait a moment and try again",
+      "cloud_authorize_failed": "The doorbell could not register this pairing - try again later"
     },
     "abort": {
       "already_configured": "This doorbell is already configured",
-      "no_device_id": "The mDNS announcement didn't include a valid device_id"
+      "no_device_id": "The mDNS announcement didn't include a valid device_id",
+      "not_on_lan": "Home Assistant must be on the same network as the doorbell (or a routed VLAN). No direct connection to {host} was possible.",
+      "other_device": "Another device answered at that address, not this doorbell.",
+      "no_tls": "The doorbell answered at {host} but not on its secure port with a valid certificate. A doorbell that has never been online has no certificate yet and cannot be added."
     }
   },
   "options": {
@@ -39,6 +45,7 @@
         "title": "Islautopia Doorbell",
         "menu_options": {
           "entidades": "Entities the doorbell can act on",
+          "direccion": "Doorbell address",
           "reemparejar": "Re-pair"
         }
       },
@@ -49,9 +56,16 @@
           "entidades": "Entities"
         }
       },
+      "direccion": {
+        "title": "Doorbell address",
+        "description": "The doorbell's IP address on your local network. Change it if the doorbell moved (new IP or VLAN). Home Assistant only reaches the doorbell at this address.",
+        "data": {
+          "host": "Doorbell IP address"
+        }
+      },
       "reemparejar": {
         "title": "Re-pair",
-        "description": "Use this if the remote access credential was revoked from the cloud admin panel. Enter the doorbell's administrator email/password again.",
+        "description": "Use this if the access credential was revoked. Enter the doorbell's administrator email/password again.",
         "data": {
           "email": "Administrator email",
           "password": "Password"
@@ -59,11 +73,121 @@
       }
     },
     "error": {
-      "cannot_connect": "Could not reach the doorbell",
+      "not_on_lan": "Home Assistant must be on the same network as the doorbell (or a routed VLAN). No direct connection to {host} was possible.",
+      "other_device": "Another device answered at that address, not this doorbell.",
+      "no_tls": "The doorbell answered at {host} but not on its secure port with a valid certificate.",
+      "pair_verify_failed": "Pairing worked but the new credential was rejected over the local network. The pairing was undone on the doorbell.",
       "invalid_auth": "Wrong administrator email or password",
-      "device_not_paired": "The doorbell itself isn't registered with the cloud yet",
-      "cloud_authorize_failed": "The cloud rejected the registration",
+      "device_not_paired": "The doorbell itself isn't registered yet",
+      "cloud_authorize_failed": "The doorbell could not register this pairing",
       "demasiadas": "Too many entities - pick {max} at most"
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "visitor": {
+        "name": "Visitor"
+      },
+      "package": {
+        "name": "Package at the door"
+      },
+      "street_panel": {
+        "name": "Street panel"
+      },
+      "fingerprint_reader": {
+        "name": "Fingerprint reader"
+      }
+    },
+    "button": {
+      "open_door": {
+        "name": "Open door"
+      }
+    },
+    "event": {
+      "events": {
+        "name": "Events",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "ring": "Ring",
+              "visitor": "Visitor",
+              "package": "Package",
+              "person_with_package": "Person with package",
+              "package_gone": "Package gone",
+              "visitor_message": "Visitor message",
+              "door_opened": "Door opened",
+              "storage_problem": "Storage problem",
+              "unexpected_reboot": "Unexpected reboot",
+              "client_paired": "App paired",
+              "user_added": "User added",
+              "user_revoked": "User revoked",
+              "login_failed": "Login failed",
+              "mode_changed": "Mode changed",
+              "ring_suppressed": "Ring silenced",
+              "viewer_joined": "Viewer joined",
+              "key_denied": "Key denied",
+              "key_locked": "Key locked"
+            }
+          }
+        }
+      }
+    },
+    "number": {
+      "live_view_timeout": {
+        "name": "Live view timeout"
+      }
+    },
+    "select": {
+      "mode": {
+        "name": "Mode",
+        "state": {
+          "normal": "Normal",
+          "away": "Away",
+          "do_not_disturb": "Do not disturb",
+          "custom": "Custom"
+        }
+      }
+    },
+    "sensor": {
+      "viewers": {
+        "name": "Viewers"
+      },
+      "firmware_version": {
+        "name": "Firmware version"
+      },
+      "panel_firmware": {
+        "name": "Panel firmware"
+      }
+    }
+  },
+  "services": {
+    "play_sequence": {
+      "name": "Play sequence",
+      "description": "Run one of the doorbell's sequences (a quick reply that can speak, turn on a light or extend the recording).",
+      "fields": {
+        "device_id": {
+          "name": "Doorbell",
+          "description": "The doorbell."
+        },
+        "seq_id": {
+          "name": "Sequence id",
+          "description": "Id of the sequence on the doorbell."
+        }
+      }
+    },
+    "play_audio": {
+      "name": "Play quick reply",
+      "description": "Play the audio stored in a quick-reply slot through the doorbell's speaker.",
+      "fields": {
+        "device_id": {
+          "name": "Doorbell",
+          "description": "The doorbell."
+        },
+        "audio_slot": {
+          "name": "Slot",
+          "description": "Quick-reply slot, 1-10."
+        }
+      }
     }
   }
 }

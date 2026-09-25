@@ -6,9 +6,9 @@ integration does NOT do:
   1. Receive what the doorbell has to say, over a webhook, and turn it into entities and events -
      webhook.py plus the entity platforms. This replaced MQTT on 2026-08-24.
   2. Ask the doorbell how it is, so those entities have state - coordinator.py.
-  3. Credential broker for the Lovelace card (pairing done once in config_flow.py, TURN
-     credentials served on demand) - websocket_api.py - and relaying its signalling so the card
-     never has to reach the doorbell's public hostname - signal_proxy.py.
+  3. Server side of the Lovelace card: relays its signalling (signal_proxy.py) and its recordings
+     (recordings_view.py) so the pairing credential never reaches a browser, and tells it which
+     entities to read (websocket_api.py). LAN only: nothing here talks to the VPS (net.py).
   4. Config flow itself (Zeroconf discovery + manual entry, no YAML) - config_flow.py.
 
 ## Why this integration owns the entities now
@@ -31,17 +31,17 @@ otherwise end up with two disconnected devices for one physical doorbell.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import socket
 from ipaddress import ip_address, ip_network
 from urllib.parse import urlparse
 
-import aiohttp
 
 from homeassistant.components import network
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.network import NoURLAvailableError, get_url
 
 from . import api, net, webhook
@@ -51,20 +51,25 @@ from .const import (
     CONF_ENTIDADES,
     CONF_HOST_HINT,
     DOMAIN,
+    DOORBELL_HOSTNAME_SUFFIX,
 )
 from .coordinator import DoorbellCoordinator
+from .recordings_view import async_register_recordings_view
+from .services import async_register_services
 from .signal_proxy import async_register_signal_proxy
 from .websocket_api import async_register_websocket_commands
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[str] = ["binary_sensor", "button", "event", "select", "sensor"]
+PLATFORMS: list[str] = ["binary_sensor", "button", "event", "number", "select", "sensor"]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Register integration-wide resources once, regardless of how many entries get added."""
     async_register_websocket_commands(hass)
     async_register_signal_proxy(hass)
+    async_register_recordings_view(hass)
+    async_register_services(hass)
     return True
 
 
@@ -116,77 +121,36 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     device_id = entry.data[CONF_DEVICE_ID]
 
-    # A donde conectar para hablar con ESTE portero. La URL sigue llevando su hostname publico,
-    # asi que el certificado se valida contra el igual que siempre; lo unico que esto cambia es la
-    # direccion a la que se abre el socket, y con ella que Home Assistant deje de necesitar DNS
-    # publico para alcanzar un aparato que tiene en la misma red. El porque entero, en net.py.
-    #
-    # Una direccion nueva -- zeroconf, o el usuario cambiandola-- llega como una actualizacion de
-    # la entrada, y `_async_update_listener` recarga la integracion entera: se cierra esta sesion y
-    # se crea otra con el mapeo nuevo. No hace falta que nada mute lo de aqui en caliente.
-    # Una direccion guardada envejece: el portero de casa cambio de VLAN al montarse en la calle y
-    # la suya dejo de existir (2026-08-24). Asi que no se da por buena -- se COMPRUEBA, y si no lo
-    # es se aprende la que toca preguntandole al nombre publico. El porque entero, en net.py.
+    # WHERE this doorbell lives: its LAN address, and nothing else (net.py). There is no longer a
+    # public-DNS fallback to "learn" a new address from (Phase 0, 2026-09-25): a moved doorbell is
+    # found again by zeroconf, or the user sets the address in the options flow.
     hostname = api.doorbell_hostname(device_id)
-    guardada = entry.data.get(CONF_HOST_HINT) or entry.options.get(CONF_HOST_HINT)
+    direccion = await _direccion_lan(hass, entry)
 
-    # Sesion desnuda para el sondeo: sin resolutor, porque lo que se esta decidiendo AQUI es que
-    # tiene que llevar dentro. Se cierra pase lo que pase.
-    sondeo = aiohttp.ClientSession()
-    try:
-        buena, contesto = await net.averiguar_local(sondeo, device_id, [guardada, hostname])
-    finally:
-        await sondeo.close()
-
-    if buena:
-        # Guarda: aqui solo entra una DIRECCION. La primera version llego a guardar el hostname
-        # -- el mapeo quedaba apuntando un nombre a si mismo y todo parecia ir bien, porque caia
-        # al DNS igual que antes. Un valor equivocado que funciona es peor que un fallo.
-        try:
-            ip_address(buena)
-        except ValueError:
-            _LOGGER.warning(
-                "Descartada '%s' como direccion local de %s: no es una direccion. Se seguira por "
-                "DNS publico. Esto es un fallo de esta integracion, no de la instalacion.",
-                buena, device_id,
-            )
-            buena = None
-
-    mapeo = {}
-    if buena:
-        mapeo[hostname] = buena
-        if buena != guardada:
-            _LOGGER.info(
-                "El portero %s esta ahora en %s (antes %s). Se guarda, asi que un corte de "
-                "internet ya no le quita el acceso a esta casa.",
-                device_id, buena, guardada or "sin direccion guardada",
-            )
-            # Persistir dispara `_async_update_listener`, o sea una recarga. No hay bucle: la
-            # pasada siguiente encuentra la direccion ya buena y no vuelve a escribir.
-            hass.config_entries.async_update_entry(
-                entry, data={**entry.data, CONF_HOST_HINT: buena}
-            )
-    elif contesto:
-        # Contesto y no supe sacarle la direccion: eso NO es un portero apagado, es un fallo
-        # nuestro, y sale a gritos para que no vuelva a pasar desapercibido -- la version anterior
-        # se lo trago y guardo el nombre como si fuera una direccion.
-        _LOGGER.warning(
-            "%s contesta en '%s' y no he podido averiguar su direccion. Se seguira por DNS "
-            "publico, o sea que hara falta internet para hablar con el desde esta misma red.",
-            device_id, contesto,
-        )
-    else:
-        # Nadie contesta. No se avisa a gritos porque el caso normal es que el portero este
-        # apagado, y las entidades ya lo van a decir saliendo como no disponibles.
-        _LOGGER.debug(
-            "No he podido confirmar ninguna direccion local de %s; se ira por DNS publico",
+    mapeo = {hostname: direccion} if direccion else {}
+    if not direccion:
+        _LOGGER.error(
+            "No LAN address stored for doorbell %s. Home Assistant only talks to the doorbell over "
+            "the local network: set its address in the integration options (Doorbell address).",
             device_id,
         )
+    else:
+        sondeo = net.crear_sesion(hass, {})
+        try:
+            if not await net.es_este_portero(sondeo, direccion, device_id):
+                # Not an error by itself: the doorbell may be powered off. Said at INFO so a moved
+                # doorbell is diagnosable; the entities go unavailable, which is what it means.
+                _LOGGER.info(
+                    "Doorbell %s does not answer at %s right now (off, or moved: zeroconf or the "
+                    "options flow will update the address).", device_id, direccion,
+                )
+        finally:
+            await sondeo.close()
 
     sesion = net.crear_sesion(hass, mapeo)
 
     coordinator = DoorbellCoordinator(
-        hass, entry, device_id, entry.data[CONF_CREDENTIAL], sesion
+        hass, entry, device_id, entry.data[CONF_CREDENTIAL], sesion, direccion
     )
 
     # ⚠️ `async_refresh()` y NO `async_config_entry_first_refresh()`, y es deliberado.
@@ -216,6 +180,36 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
+
+
+async def _direccion_lan(hass: HomeAssistant, entry: ConfigEntry) -> str | None:
+    """The stored LAN address as a literal IP.
+
+    Entries created before 0.7.0 may hold a NAME the user typed. A LOCAL name is resolved once
+    through the system resolver (the home's own DNS), and the address is stored so the next setup
+    needs no lookup. A name under our cloud's domain is refused: resolving it is asking the VPS.
+    """
+    guardada = entry.data.get(CONF_HOST_HINT) or entry.options.get(CONF_HOST_HINT)
+    if not guardada or net.es_direccion(guardada):
+        return guardada or None
+    if guardada.lower().rstrip(".").endswith(DOORBELL_HOSTNAME_SUFFIX):
+        _LOGGER.error(
+            "The stored address of %s is the cloud hostname %s. Home Assistant no longer resolves "
+            "it (LAN only): set the doorbell's IP in the integration options.",
+            entry.data[CONF_DEVICE_ID], guardada,
+        )
+        return None
+    try:
+        info = await asyncio.get_running_loop().getaddrinfo(
+            guardada, 80, family=socket.AF_INET, type=socket.SOCK_STREAM
+        )
+    except OSError:
+        return None
+    if not info:
+        return None
+    direccion = info[0][4][0]
+    hass.config_entries.async_update_entry(entry, data={**entry.data, CONF_HOST_HINT: direccion})
+    return direccion
 
 
 async def _async_configurar_portero(
@@ -437,7 +431,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """
     mapeo = {}
     pista = entry.data.get(CONF_HOST_HINT) or entry.options.get(CONF_HOST_HINT)
-    if pista:
+    if net.es_direccion(pista):
         mapeo[api.doorbell_hostname(entry.data[CONF_DEVICE_ID])] = pista
     sesion = net.crear_sesion(hass, mapeo)
     try:

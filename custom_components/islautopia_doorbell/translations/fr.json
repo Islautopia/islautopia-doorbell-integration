@@ -1,0 +1,55 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "visitor": {
+        "name": "Visiteur"
+      },
+      "package": {
+        "name": "Colis devant la porte"
+      },
+      "street_panel": {
+        "name": "Panneau de rue"
+      },
+      "fingerprint_reader": {
+        "name": "Lecteur d'empreintes"
+      }
+    },
+    "button": {
+      "open_door": {
+        "name": "Ouvrir la porte"
+      }
+    },
+    "event": {
+      "events": {
+        "name": "Événements"
+      }
+    },
+    "number": {
+      "live_view_timeout": {
+        "name": "Délai de la vue en direct"
+      }
+    },
+    "select": {
+      "mode": {
+        "name": "Mode",
+        "state": {
+          "normal": "Normal",
+          "away": "Absent",
+          "do_not_disturb": "Ne pas déranger",
+          "custom": "Personnalisé"
+        }
+      }
+    },
+    "sensor": {
+      "viewers": {
+        "name": "Spectateurs"
+      },
+      "firmware_version": {
+        "name": "Version du firmware"
+      },
+      "panel_firmware": {
+        "name": "Firmware du panneau"
+      }
+    }
+  }
+}

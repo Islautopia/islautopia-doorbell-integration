@@ -35,9 +35,9 @@ async def async_setup_entry(
 
 
 class ModoSelect(DoorbellEntity, SelectEntity):
-    """Normal / Ausente / No molestar / Custom."""
+    """Normal / Away / Do not disturb / Custom -- states are translation keys (const.MODOS)."""
 
-    _attr_name = "Modo"
+    _attr_translation_key = "mode"
     _attr_icon = "mdi:home-clock"
     _attr_options = list(MODOS.values())
 
@@ -56,10 +56,9 @@ class ModoSelect(DoorbellEntity, SelectEntity):
     async def async_select_option(self, option: str) -> None:
         numero = next((k for k, v in MODOS.items() if v == option), None)
         if numero is None:
-            raise HomeAssistantError(f"Modo desconocido: {option}")
+            raise HomeAssistantError(f"Unknown mode: {option}")
 
-        # La sesion de este portero: prueba su direccion local antes que el DNS publico
-        # (net.py), asi que esto sigue funcionando con la linea caida.
+        # The doorbell's LAN session (net.py): works with the internet down, never via the VPS.
         sesion = self.coordinator.sesion
         try:
             # Guardado PARCIAL: solo `m`. Mandar el estado entero convertiria cualquier lectura de
@@ -69,11 +68,11 @@ class ModoSelect(DoorbellEntity, SelectEntity):
             )
         except api.NotAllowedError as err:
             raise HomeAssistantError(
-                "Este emparejamiento no es administrador de ese portero, asi que no puede cambiar "
-                "el modo. Vuelve a emparejarlo desde una sesion de administrador."
+                "This pairing is not an administrator of the doorbell, so it cannot change the "
+                "mode. Re-pair it from an administrator account."
             ) from err
         except api.DoorbellApiError as err:
-            raise HomeAssistantError(f"No se pudo cambiar el modo: {err}") from err
+            raise HomeAssistantError(f"Could not change the mode: {err}") from err
 
         # Se refresca en vez de dar por hecho el valor nuevo. El portero es el dueno del estado, y
         # asumirlo dejaria la entidad mintiendo si la escritura no llego a aplicarse.

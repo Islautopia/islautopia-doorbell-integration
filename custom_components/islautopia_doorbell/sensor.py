@@ -17,8 +17,8 @@ async def async_setup_entry(
     c: DoorbellCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     async_add_entities([
         EspectadoresSensor(c),
-        TextoSensor(c, "fw_version", "Version de firmware", "mdi:chip"),
-        TextoSensor(c, "panel_fw", "Firmware del panel", "mdi:tablet"),
+        TextoSensor(c, "fw_version", "firmware_version", "mdi:chip"),
+        TextoSensor(c, "panel_fw", "panel_firmware", "mdi:tablet"),
     ])
 
 
@@ -34,7 +34,7 @@ class EspectadoresSensor(DoorbellEntity, SensorEntity):
     vivo esta la entidad de eventos**, que llega empujada.
     """
 
-    _attr_name = "Espectadores"
+    _attr_translation_key = "viewers"
     _attr_icon = "mdi:account-eye"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
@@ -56,10 +56,10 @@ class TextoSensor(DoorbellEntity, SensorEntity):
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, coordinator: DoorbellCoordinator, campo: str, nombre: str, icono: str) -> None:
+    def __init__(self, coordinator: DoorbellCoordinator, campo: str, clave_traduccion: str, icono: str) -> None:
         super().__init__(coordinator, campo)
         self._campo = campo
-        self._attr_name = nombre
+        self._attr_translation_key = clave_traduccion
         self._attr_icon = icono
 
     @property

@@ -1,0 +1,55 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "visitor": {
+        "name": "Visitante"
+      },
+      "package": {
+        "name": "Encomenda à porta"
+      },
+      "street_panel": {
+        "name": "Painel de rua"
+      },
+      "fingerprint_reader": {
+        "name": "Leitor de impressões digitais"
+      }
+    },
+    "button": {
+      "open_door": {
+        "name": "Abrir porta"
+      }
+    },
+    "event": {
+      "events": {
+        "name": "Eventos"
+      }
+    },
+    "number": {
+      "live_view_timeout": {
+        "name": "Tempo limite da vista em direto"
+      }
+    },
+    "select": {
+      "mode": {
+        "name": "Modo",
+        "state": {
+          "normal": "Normal",
+          "away": "Ausente",
+          "do_not_disturb": "Não incomodar",
+          "custom": "Personalizado"
+        }
+      }
+    },
+    "sensor": {
+      "viewers": {
+        "name": "Espectadores"
+      },
+      "firmware_version": {
+        "name": "Versão do firmware"
+      },
+      "panel_firmware": {
+        "name": "Firmware do painel"
+      }
+    }
+  }
+}
