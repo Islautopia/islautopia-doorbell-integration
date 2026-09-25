@@ -36,10 +36,12 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import (
+    CONF_DEVICE_ID,
+    CONF_ENTIDADES,
     DOMAIN,
     DOMAIN_CLOSE_SERVICE,
     DOMAIN_OPEN_SERVICE,
-    FALLBACK_SERVICE,
+    DOMINIOS_PERMITIDOS,
     SIGNAL_EVENTO,
     WEBHOOK_MARCA,
 )
@@ -63,45 +65,68 @@ def webhook_id_de(device_id: str) -> str:
     return f"islautopia_doorbell_{device_id}"
 
 
-async def _accionar_entidad(hass: HomeAssistant, entity_id: str, encender: bool) -> None:
-    """`hass_action`: el portero pide encender o apagar una entidad de Home Assistant (§4).
+def _lista_de(hass: HomeAssistant, webhook_id: str) -> list[str] | None:
+    """La lista de entidades de la entrada DUENA de este webhook, o None si no hay entrada.
 
-    Es lo que hacia `videoportero/door/action` por MQTT, y **no es solo la puerta**: un paso de
-    secuencia puede accionar cualquier entidad (§1.18.0).
+    ⚠️ Se busca por el webhook por el que llego la orden, NO por el `device_id` del sobre: el sobre
+    lo escribe quien llama, el webhook lo registramos nosotros. Asi un portero solo puede mover las
+    entidades que se le dieron A EL.
+    """
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if webhook_id_de(entry.data.get(CONF_DEVICE_ID, "")) == webhook_id:
+            return list(entry.options.get(CONF_ENTIDADES) or [])
+    return None
+
+
+async def _accionar_entidad(
+    hass: HomeAssistant, webhook_id: str, entity_id: str, encender: bool
+) -> tuple[bool, str | None]:
+    """`hass_action`: el portero pide encender o apagar una entidad (contrato 4).
+
+    Devuelve `(hecho, error)`, y eso viaja de vuelta en la respuesta del webhook: el portero la lee
+    para decir si la puerta se abrio DE VERDAD (0.100.4). Por eso el servicio se llama BLOQUEANTE y
+    ANTES de contestar.
+
+    ⚠️ DEFENSA EN LOS DOS LADOS: el portero ya no manda una entidad que no este en su lista, y esto
+    lo vuelve a comprobar contra la lista de ESTA integracion. Un firmware antiguo, uno con un fallo,
+    o alguien en la LAN que conozca la URL del webhook no pueden mover otra cosa.
     """
     dominio = entity_id.split(".", 1)[0] if "." in entity_id else ""
-    tabla = DOMAIN_OPEN_SERVICE if encender else DOMAIN_CLOSE_SERVICE
-    par = tabla.get(dominio)
+    lista = _lista_de(hass, webhook_id)
+    if lista is None or entity_id not in lista:
+        _LOGGER.warning(
+            "El portero pide %s %s, que NO esta en la lista de entidades de esta integracion: "
+            "no se hace nada", "encender" if encender else "apagar", entity_id,
+        )
+        return False, "not_listed"
+    if dominio not in DOMINIOS_PERMITIDOS:
+        _LOGGER.warning("%s no es de un dominio que se encienda y se apague: no se hace nada",
+                        entity_id)
+        return False, "bad_domain"
 
-    if par is None:
-        if encender:
-            # Un hueco de la tabla de apertura SI es un hueco: se grita para que se vea, en vez de
-            # dejar un no-op silencioso.
-            par = FALLBACK_SERVICE
-            _LOGGER.warning(
-                "Sin servicio de apertura para el dominio '%s' (%s): se usa %s.%s. "
-                "Anade el dominio a DOMAIN_OPEN_SERVICE en const.py",
-                dominio, entity_id, par[0], par[1],
-            )
-        else:
-            # Un hueco de CIERRE es legitimo y no se grita: un boton no se "despulsa", y una escena
-            # o un script son acciones de una sola vez sin estado opuesto al que volver. Forzarlos
-            # con un servicio inventado seria peor que no hacer nada.
-            _LOGGER.debug("El dominio '%s' no tiene un cierre natural: %s se deja como esta",
-                          dominio, entity_id)
-            return
+    estado = hass.states.get(entity_id)
+    if estado is None:
+        _LOGGER.warning("El portero pide %s, que no existe en Home Assistant", entity_id)
+        return False, "entity_missing"
+    if estado.state == "unavailable":
+        # Llamar al servicio sobre una entidad no disponible no da error: simplemente no pasa
+        # nada. Contestar «hecho» ahi es el falso exito que esto existe para evitar.
+        _LOGGER.warning("El portero pide %s, que no esta disponible ahora mismo", entity_id)
+        return False, "entity_unavailable"
 
-    servicio_dominio, servicio = par
+    servicio_dominio, servicio = (DOMAIN_OPEN_SERVICE if encender else DOMAIN_CLOSE_SERVICE)[dominio]
     _LOGGER.info("El portero pide %s sobre %s -> %s.%s",
                  "encender" if encender else "apagar", entity_id, servicio_dominio, servicio)
-    await hass.services.async_call(
-        servicio_dominio, servicio, {"entity_id": entity_id},
-        # ⚠️ BLOQUEANTE A PROPOSITO. El portero espera nuestra respuesta HTTP, asi que ejecutar el
-        # servicio ANTES de contestar hace que su `200` signifique «hecho» y no «recibido». Es la
-        # mejora concreta que MQTT no permitia: con `door_m=1` el portero contestaba `opened` sin
-        # tener ni idea, que es el falso exito que §1.8 prohibe en el boton que abre a la calle.
-        blocking=True,
-    )
+    try:
+        await hass.services.async_call(
+            servicio_dominio, servicio, {"entity_id": entity_id},
+            # ⚠️ BLOQUEANTE A PROPOSITO: el `ok` de la respuesta significa «hecho», no «recibido».
+            blocking=True,
+        )
+    except Exception:  # noqa: BLE001 - el motivo va al registro; al portero, solo que fallo
+        _LOGGER.exception("No se pudo accionar %s", entity_id)
+        return False, "service_failed"
+    return True, None
 
 
 async def _manejar(hass: HomeAssistant, webhook_id: str, request: web.Request) -> web.Response:
@@ -118,24 +143,27 @@ async def _manejar(hass: HomeAssistant, webhook_id: str, request: web.Request) -
     tipo = sobre.get("type")
 
     if tipo == "action" and sobre.get("ev") == "hass_action":
+        # La respuesta a una ORDEN dice si se hizo (contrato 4): `ok` y, si no, `error`. El
+        # portero anterior a la 0.100.4 no la lee y le basta la marca; el nuevo la usa para
+        # contestar `open_result` con la verdad.
         d = sobre.get("d") or {}
         entidad = d.get("entity")
-        if entidad:
-            try:
-                await _accionar_entidad(hass, entidad, bool(d.get("on")))
-            except Exception:  # noqa: BLE001 - nunca dejar caer el handler: el portero se quedaria
-                _LOGGER.exception("No se pudo accionar %s", entidad)
-        else:
+        if not entidad or not isinstance(entidad, str):
             _LOGGER.warning("hass_action sin entidad, se ignora")
-    else:
-        # Un evento de §1.16. Se reparte por el despachador interno y lo recogen las entidades.
-        #
-        # NO se filtra por `ev` aqui a proposito: un evento que este firmware no conozca todavia
-        # debe llegar igual a la entidad de eventos, que es donde el usuario lo vera. Filtrar aqui
-        # significaria que una funcion nueva del portero es invisible hasta que se actualice esta
-        # integracion, y eso es exactamente lo que hace que una integracion se quede vieja sola.
-        async_dispatcher_send(hass, SIGNAL_EVENTO.format(device_id=device_id), sobre)
+            return web.json_response({WEBHOOK_MARCA: 1, "ok": False, "error": "no_entity"})
+        hecho, error = await _accionar_entidad(hass, webhook_id, entidad, bool(d.get("on")))
+        cuerpo: dict[str, Any] = {WEBHOOK_MARCA: 1, "ok": hecho}
+        if error:
+            cuerpo["error"] = error
+        return web.json_response(cuerpo)
 
+    # Un evento de §1.16. Se reparte por el despachador interno y lo recogen las entidades.
+    #
+    # NO se filtra por `ev` aqui a proposito: un evento que este firmware no conozca todavia
+    # debe llegar igual a la entidad de eventos, que es donde el usuario lo vera. Filtrar aqui
+    # significaria que una funcion nueva del portero es invisible hasta que se actualice esta
+    # integracion, y eso es exactamente lo que hace que una integracion se quede vieja sola.
+    async_dispatcher_send(hass, SIGNAL_EVENTO.format(device_id=device_id), sobre)
     return web.json_response({WEBHOOK_MARCA: 1})
 
 

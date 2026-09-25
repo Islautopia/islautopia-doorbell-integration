@@ -6,6 +6,35 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.7.6] — 2026-09-25
+
+Needs doorbell firmware **0.100.4** for the doorbell-side half; with older firmware the
+integration-side half still applies (contract §4, "LA LISTA BLANCA").
+
+### Changed
+
+- **The entities the doorbell may act on are a white list of at most 5 on/off entities.** The
+  options step uses HA's native entity selector (type part of the name, tick), limited to
+  `switch`, `light`, `input_boolean`, `fan`, `siren` and `lock` (was: up to 24, also `button`,
+  `scene`, `script`, `cover`). In a lock, "on" is **open** (`lock.unlock`) and "off" is **close**
+  (`lock.lock`). The list is pushed to the doorbell with each entity's `domain`; a stored list
+  from 0.7.5 is pushed trimmed to its valid part, and the log says what was left out.
+- **The integration only acts on entities of its own list** - the list of the entry that owns
+  the webhook the order came through. Anything else is refused and nothing is called.
+- **The webhook answer to an order says whether it happened**: `{"igd":1,"ok":true}` or
+  `{"igd":1,"ok":false,"error":"not_listed|bad_domain|entity_missing|entity_unavailable|service_failed"}`.
+  Firmware 0.100.4 uses it to answer "door opened" only when Home Assistant really did it.
+
+### Added
+
+- **The list keeps itself up to date**: renaming an entity (or its device) pushes the new name;
+  a changed `entity_id` is replaced; a deleted entity leaves the list.
+- **Updating does not leave the door shut**: if the doorbell opens through HA (`door_m=1`) with an
+  entity that is not in the list, it is added once (if its type is still accepted); if it is not,
+  a persistent notification says the door will not open until another entity is picked.
+
+Tests: `tests/test_hass_action.py`.
+
 ## [0.7.5] — 2026-09-25
 
 ### Added

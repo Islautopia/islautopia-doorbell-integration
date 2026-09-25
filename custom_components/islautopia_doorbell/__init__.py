@@ -38,10 +38,12 @@ from ipaddress import ip_address, ip_network
 from urllib.parse import urlparse
 
 
-from homeassistant.components import network
+from homeassistant.components import network, persistent_notification
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.helpers.network import NoURLAvailableError, get_url
 
 from . import api, net, webhook
@@ -51,7 +53,9 @@ from .const import (
     CONF_ENTIDADES,
     CONF_HOST_HINT,
     DOMAIN,
+    DOMINIOS_PERMITIDOS,
     DOORBELL_HOSTNAME_SUFFIX,
+    MAX_ENTIDADES,
 )
 from .coordinator import DoorbellCoordinator
 from .recordings_view import async_register_recordings_view
@@ -174,8 +178,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "sesion": sesion,
     }
 
+    _adoptar_entidad_de_la_puerta(hass, entry, coordinator)
     if not await _async_configurar_portero(hass, entry, coordinator, primera_vez=True):
         _programar_reintento(hass, entry, coordinator)
+    _vigilar_entidades(hass, entry, coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
@@ -236,8 +242,13 @@ async def _async_configurar_portero(
         return True
 
     url_webhook = f"{base.rstrip('/')}/api/webhook/{webhook.webhook_id_de(coordinator.device_id)}"
-    entidades = entry.options.get(CONF_ENTIDADES) or []
-    lista = [{"id": e, "name": _nombre_visible(hass, e)} for e in entidades]
+    entidades = _entidades_validas(entry.options.get(CONF_ENTIDADES) or [], coordinator.device_id)
+    # `domain` viaja aunque el portero lo pueda derivar del id: lo comprueba contra el id, y asi un
+    # desacuerdo se ve en vez de elegir uno en silencio (contrato 4).
+    lista = [
+        {"id": e, "name": _nombre_visible(hass, e), "domain": e.split(".", 1)[0]}
+        for e in entidades
+    ]
 
     try:
         await api.async_set_hass_config(
@@ -270,11 +281,163 @@ async def _async_configurar_portero(
             )
         return False
 
+    _NOMBRES_EMPUJADOS[entry.entry_id] = {e["id"]: e["name"] for e in lista}
     _LOGGER.info(
         "Webhook configurado en %s: %s (%d entidad(es) accionables)",
         coordinator.device_id, url_webhook, len(lista),
     )
     return True
+
+
+# Lo ultimo que se le dijo a cada portero de cada entidad: su nombre visible. Sirve para no volver a
+# empujar la lista por cada cambio de ESTADO de una luz -- solo cuando cambia lo que el portero
+# guarda.
+_NOMBRES_EMPUJADOS: dict[str, dict[str, str]] = {}
+
+
+def _entidades_validas(entidades: list[str], device_id: str) -> list[str]:
+    """La lista tal como se le puede dar al portero: dominios permitidos, sin repetir, hasta 5.
+
+    ⚠️ Una lista guardada por la 0.7.5 puede traer 24 entidades, o un `button`: el portero la
+    rechazaria ENTERA (`too_many_entities`, `bad_entity_domain`) y con ella la URL del webhook, que
+    viaja en la misma peticion -- o sea que actualizar la integracion dejaria la casa sin avisos. Se
+    manda la parte valida y SE DICE en el registro; el formulario de opciones ya solo deja elegir
+    lo valido.
+    """
+    validas: list[str] = []
+    for e in entidades:
+        if e.split(".", 1)[0] in DOMINIOS_PERMITIDOS and e not in validas:
+            validas.append(e)
+    fuera = [e for e in entidades if e not in validas]
+    if len(validas) > MAX_ENTIDADES:
+        fuera += validas[MAX_ENTIDADES:]
+        validas = validas[:MAX_ENTIDADES]
+    if fuera:
+        _LOGGER.warning(
+            "%s: estas entidades NO se le dan al portero (solo se admiten %s, y %d como maximo): "
+            "%s. Revisa las opciones de la integracion.",
+            device_id, ", ".join(DOMINIOS_PERMITIDOS), MAX_ENTIDADES, ", ".join(fuera),
+        )
+    return validas
+
+
+def _adoptar_entidad_de_la_puerta(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: DoorbellCoordinator
+) -> None:
+    """Una sola vez al actualizar: la entidad con la que YA se abre la puerta entra en la lista.
+
+    ⚠️ SIN ESTO, ACTUALIZAR A LA 0.7.6 DEJA LA PUERTA SIN ABRIR. Hasta la 0.7.5 `ha_e` se escribia a
+    mano en el portero y no tenia por que estar en la lista de esta integracion (que en muchas
+    instalaciones esta vacia). Desde la 0.7.6 esta integracion solo acciona entidades de su lista,
+    asi que la orden de abrir se rechazaria (`not_listed`) sin que el dueno hubiera tocado nada.
+
+    Adoptarla no amplia nada: es la entidad que el administrador ya eligio para la puerta. Se hace
+    ANTES de registrar el oyente de opciones (por eso no recarga) y se dice en el registro. Si su
+    dominio ya no se admite, NO se adopta: se avisa con una notificacion persistente, porque la
+    puerta va a dejar de abrir y el dueno tiene que saberlo antes de estar delante de ella.
+
+    Mismo destino que el oyente de opciones: se elimina el dia que ninguna instalacion venga de la
+    0.7.5.
+    """
+    datos = coordinator.data or {}
+    ha_e = datos.get("ha_e") or ""
+    if datos.get("door_m") != 1 or not ha_e:
+        return
+    actuales = list(entry.options.get(CONF_ENTIDADES) or [])
+    if ha_e in actuales:
+        return
+    if ha_e.split(".", 1)[0] not in DOMINIOS_PERMITIDOS:
+        _LOGGER.error(
+            "La puerta de %s se abre con %s, y ese tipo de entidad ya no se admite (solo %s). "
+            "La puerta NO se abrira por Home Assistant hasta que se elija otra.",
+            coordinator.device_id, ha_e, ", ".join(DOMINIOS_PERMITIDOS),
+        )
+        persistent_notification.async_create(
+            hass,
+            f"The door of doorbell {coordinator.device_id} opens with `{ha_e}`, and that kind of "
+            f"entity is no longer accepted (only {', '.join(DOMINIOS_PERMITIDOS)}). The door will "
+            "NOT open through Home Assistant until another entity is picked in the integration "
+            "options and then in the doorbell's door settings.",
+            title="IG Doorbell: door entity not accepted",
+            notification_id=f"{DOMAIN}_{coordinator.device_id}_ha_e",
+        )
+        return
+    validas = [e for e in actuales if e.split(".", 1)[0] in DOMINIOS_PERMITIDOS]
+    if len(validas) >= MAX_ENTIDADES:
+        _LOGGER.error(
+            "La puerta de %s se abre con %s, que no esta en la lista de entidades y la lista ya "
+            "tiene %d: la puerta NO se abrira por Home Assistant hasta que se anada.",
+            coordinator.device_id, ha_e, MAX_ENTIDADES,
+        )
+        return
+    hass.config_entries.async_update_entry(
+        entry, options={**entry.options, CONF_ENTIDADES: [*actuales, ha_e]}
+    )
+    _LOGGER.warning(
+        "%s: la entidad con la que se abre la puerta (%s) se ha anadido a la lista de entidades "
+        "que puede accionar el portero, para que siga abriendo con la 0.7.6.",
+        coordinator.device_id, ha_e,
+    )
+
+
+def _vigilar_entidades(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: DoorbellCoordinator
+) -> None:
+    """Mantiene al dia la lista del portero cuando las entidades cambian EN Home Assistant.
+
+    - **Cambia el nombre visible** (el usuario la renombra, o renombra el dispositivo): se vuelve a
+      empujar la lista, para que el desplegable de las apps diga lo mismo que HA.
+    - **Cambia el `entity_id`**: se sustituye en las opciones, y la recarga lo empuja.
+    - **Se borra**: se quita de las opciones, y la recarga lo empuja. El portero marca entonces lo
+      que la usaba (`ha_e_ok: false`, `not_listed` en el paso) en vez de fallar en silencio.
+    """
+    entidades = _entidades_validas(entry.options.get(CONF_ENTIDADES) or [], coordinator.device_id)
+    pendiente: list = []
+
+    @callback
+    def _reempujar_pronto() -> None:
+        # Un renombrado de dispositivo cambia varias entidades a la vez: se agrupa en un envio.
+        if pendiente:
+            return
+
+        async def _ya(_ahora) -> None:
+            pendiente.clear()
+            if not await _async_configurar_portero(hass, entry, coordinator):
+                _programar_reintento(hass, entry, coordinator)
+
+        pendiente.append(async_call_later(hass, 2, _ya))
+
+    @callback
+    def _estado(event: Event) -> None:
+        eid = event.data["entity_id"]
+        nuevo = event.data.get("new_state")
+        nombre = (nuevo.attributes.get("friendly_name") if nuevo else None) or eid
+        if nombre != _NOMBRES_EMPUJADOS.get(entry.entry_id, {}).get(eid):
+            _reempujar_pronto()
+
+    @callback
+    def _registro(event: Event) -> None:
+        accion = event.data.get("action")
+        eid = event.data.get("entity_id")
+        actuales = list(entry.options.get(CONF_ENTIDADES) or [])
+        if accion == "remove" and eid in actuales:
+            actuales.remove(eid)
+            _LOGGER.warning("%s se ha borrado de Home Assistant: sale de la lista del portero %s",
+                            eid, coordinator.device_id)
+        elif accion == "update" and event.data.get("old_entity_id") in actuales:
+            actuales[actuales.index(event.data["old_entity_id"])] = eid
+        else:
+            return
+        # Cambiar las opciones dispara la recarga (`_async_update_listener`), que vuelve a empujar
+        # la lista y a vigilar las entidades nuevas. Un solo camino, no dos.
+        hass.config_entries.async_update_entry(
+            entry, options={**entry.options, CONF_ENTIDADES: actuales}
+        )
+
+    if entidades:
+        entry.async_on_unload(async_track_state_change_event(hass, entidades, _estado))
+    entry.async_on_unload(hass.bus.async_listen(er.EVENT_ENTITY_REGISTRY_UPDATED, _registro))
+    entry.async_on_unload(lambda: pendiente and pendiente.pop()())
 
 
 # Redes internas de contenedores que Home Assistant OS / Supervised crea para si mismo. Una

@@ -44,7 +44,7 @@ from .const import (
     CONF_LABEL,
     DEFAULT_PAIR_LABEL,
     DOMAIN,
-    DOMAIN_OPEN_SERVICE,
+    DOMINIOS_PERMITIDOS,
     DOORBELL_HOSTNAME_SUFFIX,
     MAX_ENTIDADES,
 )
@@ -308,16 +308,22 @@ class IslautopiaDoorbellOptionsFlow(config_entries.OptionsFlow):
                 opciones[CONF_ENTIDADES] = elegidas
                 return self.async_create_entry(title="", data=opciones)
 
-        actuales = self._entry.options.get(CONF_ENTIDADES) or []
+        # Solo las que siguen siendo validas: una lista guardada por la 0.7.5 puede traer un
+        # `button` o una `scene`, que ya no se propagan (const.py, DOMINIOS_PERMITIDOS). Mostrarlas
+        # marcadas haria creer que el portero las tiene.
+        actuales = [
+            e for e in (self._entry.options.get(CONF_ENTIDADES) or [])
+            if e.split(".", 1)[0] in DOMINIOS_PERMITIDOS
+        ][:MAX_ENTIDADES]
         return self.async_show_form(
             step_id="entidades",
             data_schema=vol.Schema(
                 {
                     vol.Optional(CONF_ENTIDADES, default=actuales): selector.EntitySelector(
                         selector.EntitySelectorConfig(
-                            # Solo los dominios que el portero sabe accionar de verdad
-                            # (DOMAIN_OPEN_SERVICE en const.py).
-                            domain=sorted(DOMAIN_OPEN_SERVICE),
+                            # Solo lo que se enciende y se apaga (const.py, DOMINIOS_PERMITIDOS).
+                            # El usuario escribe parte del nombre y marca: es el selector nativo.
+                            domain=list(DOMINIOS_PERMITIDOS),
                             multiple=True,
                         )
                     )

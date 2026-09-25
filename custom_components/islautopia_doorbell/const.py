@@ -30,10 +30,11 @@ SIGNAL_EVENTO = "islautopia_doorbell_evento_{device_id}"
 INTERVALO_SONDEO = 30
 
 # --- Entidades de Home Assistant que el portero puede accionar (§4) ---------------------------
-# ⚠️ 24 NO es un límite de memoria: caben cientos en el almacén del portero. Es **cuántas caben en
-# un desplegable sin que aquello sea un catálogo**, el mismo criterio que las 20 respuestas rápidas
-# de §1.18.2. El portero rechaza con `400 too_many_entities` en vez de recortar.
-MAX_ENTIDADES = 24
+# ⚠️ 5 (Inaki, 2026-09-25: «hasta 5»), y no es un limite de memoria: esta lista es la LISTA BLANCA
+# de lo que el portero puede mover en la casa -- la puerta y los pasos `hass` solo pueden apuntar
+# a una de estas. Una lista blanca corta se revisa de un vistazo. Hasta la 0.7.5 eran 24. El
+# portero rechaza con `400 too_many_entities` en vez de recortar.
+MAX_ENTIDADES = 5
 CONF_ENTIDADES = "entidades"
 
 # --- El modo del portero (§1.2, campo `m`) ----------------------------------------------------
@@ -93,45 +94,34 @@ REQUEST_TIMEOUT = 8  # seconds - one-shot REST calls to the doorbell, not stream
 # Assistant is a LOCAL client and never reaches the doorbell through the VPS, not even as a fallback.
 DOORBELL_HOSTNAME_SUFFIX = "doorbell.islautopia.com"
 
-# --- `hass_action` dispatch table (§4) --------------------------------------------------------
-# Era la tabla de `videoportero/door/action` por MQTT y no ha cambiado de forma: lo que cambia es el
-# transporte. Y no es solo la puerta -- un paso de secuencia puede accionar cualquier entidad.
-# entity_id domain -> (service domain, service name). Extend this table, don't special-case
-# individual entities - see webhook.py.
+# --- What the doorbell may act on, and how (contract 4) -------------------------------------
+# ⚠️ ONLY THINGS THAT TURN ON AND OFF (Inaki, 2026-09-25). The same list lives in the firmware
+# (`hass_domain_allowed`, main/hass.c) and each side checks its own half: the doorbell refuses to
+# store anything else, and this integration refuses to act on anything else.
+#
+# Left out on purpose, and it is not an oversight:
+# - `button`, `scene`, `script` (accepted up to 0.7.5): they have no opposite state, so the door's
+#   automatic close after `dur` seconds and a sequence step with `on: false` would mean nothing -
+#   a setting that silently does nothing is the failure this project keeps hunting.
+# - `cover`: a blind has positions in between and "open" takes a while; it is not a switch.
+#
+# In a LOCK, "on" means OPEN (`lock.unlock`) and "off" means CLOSE (`lock.lock`). Everything else
+# maps to `turn_on` / `turn_off` of its own domain.
+DOMINIOS_PERMITIDOS: tuple[str, ...] = ("fan", "input_boolean", "light", "lock", "siren", "switch")
+
 DOMAIN_OPEN_SERVICE: dict[str, tuple[str, str]] = {
     "lock": ("lock", "unlock"),
-    "cover": ("cover", "open_cover"),
     "light": ("light", "turn_on"),
     "switch": ("switch", "turn_on"),
-    "button": ("button", "press"),
     "input_boolean": ("input_boolean", "turn_on"),
-    "script": ("script", "turn_on"),
-    "scene": ("scene", "turn_on"),
+    "fan": ("fan", "turn_on"),
+    "siren": ("siren", "turn_on"),
 }
-# Best-effort for any domain not in the table above - logged loudly so the gap is visible
-# instead of a silent no-op. See webhook.py.
-FALLBACK_SERVICE: tuple[str, str] = ("homeassistant", "turn_on")
-
-# Symmetric "close" table, added 2026-07-11 after a real bug: the firmware
-# (main/hardtask.c::open_door(), fixed the same day) now publishes a "close" action
-# ({"action":"close","entity_id":"<same ha_e>"}) (hoy `hass_action` por el webhook, contrato §4) automatically
-# `open_duration_s` seconds after "open", in door_m=1 (Home Assistant) mode - symmetric with what
-# the physical relay (door_m=0) has always done. Before this table existed, webhook.py
-# discarded any action != "open" outright, so the light/switch/lock/cover the user configured as
-# `ha_e` would open and then just... stay open forever, no error, no warning: a real production
-# bug ("the light turns on but never turns itself off"), not a missing feature request.
-#
-# Deliberately NOT a mirror of DOMAIN_OPEN_SERVICE with every domain filled in: "button" and
-# "scene" (and, by the same reasoning, "script") don't have a natural "close" - a button doesn't
-# "unpress", a scene/script is a one-shot action with no defined opposite state to return to.
-# Forcing them into this table with a made-up fallback would be worse than doing nothing - see
-# webhook.py, where a "close" for a domain missing here is a silent DEBUG no-op, not the
-# loud WARNING that a missing "open" mapping gets (an "open" gap is a real hole to fill; a
-# "close" gap for one of these three is a legitimate property of the domain, not a hole).
 DOMAIN_CLOSE_SERVICE: dict[str, tuple[str, str]] = {
     "lock": ("lock", "lock"),
-    "cover": ("cover", "close_cover"),
     "light": ("light", "turn_off"),
     "switch": ("switch", "turn_off"),
     "input_boolean": ("input_boolean", "turn_off"),
+    "fan": ("fan", "turn_off"),
+    "siren": ("siren", "turn_off"),
 }
