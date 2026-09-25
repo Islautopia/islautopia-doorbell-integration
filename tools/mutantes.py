@@ -44,6 +44,8 @@ MUTANTES = [
      '    _attr_translation_key = "open_door"\n', '    _attr_name = "Abrir puerta"\n'),
     ("signalling command leaves the slot to the 20 s reaper", PKG + "signal_client.py",
      '                await _post({"type": "bye", "slot": slot})', "                pass"),
+    ("undo by label (404 with spaces on the firmware)", PKG + "api.py",
+     'f"{base}/api/unpair_app", data={"slot": str(slots[0])}', 'f"{base}/api/unpair_app", data={"label": label}'),
     ("a language loses an entity name", PKG + "translations/de.json",
      '"name": "Tür öffnen"', '"nombre": "Tür öffnen"'),
 ]

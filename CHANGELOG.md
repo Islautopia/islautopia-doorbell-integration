@@ -6,6 +6,15 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.7.1] — 2026-09-25
+
+### Fixed
+
+- **Undoing a failed pairing left it alive on the doorbell.** The undo asked the doorbell to remove
+  the pairing by its name, and the doorbell (firmware 0.100.0) answers "not found" to any name with
+  a space in it — every Home Assistant pairing name has one. It now looks the pairing up and removes
+  it by its slot. Measured on the doorbell: the pairing is gone afterwards.
+
 ## [0.7.0] — 2026-09-25
 
 ### Changed — Home Assistant is a local client

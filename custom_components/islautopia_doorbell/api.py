@@ -139,16 +139,31 @@ async def async_logout(session: aiohttp.ClientSession, device_id: str) -> None:
 
 
 async def async_unpair_app(session: aiohttp.ClientSession, device_id: str, label: str) -> bool:
-    """POST /api/unpair_app by label (§1.5) with the admin session cookie on `session`.
+    """Undo a pairing (§1.5) with the admin session cookie on `session`, found by its label.
 
     Used to undo a pairing when a later setup step fails, so a failed setup leaves nothing
     configured on the doorbell. Best effort: returns False instead of raising.
+
+    ⚠️ By SLOT, looked up in `paired_apps`, and not `unpair_app?label=`: on firmware 0.100.0 an
+    unpair by label that contains a space answers 404 whatever the encoding ('+' or '%20'),
+    measured 2026-09-25 -- and every Home Assistant label has a space. The label route would have
+    reported "not found" and left the pairing alive, which is exactly what this exists to prevent.
     """
-    url = f"https://{doorbell_hostname(device_id)}:8443/api/unpair_app"
+    base = f"https://{doorbell_hostname(device_id)}:8443"
     try:
-        async with session.post(url, data={"label": label}, timeout=_TIMEOUT) as resp:
+        async with session.get(f"{base}/api/paired_apps", timeout=_TIMEOUT) as resp:
+            if resp.status != 200:
+                return False
+            datos = await resp.json(content_type=None)
+        apps = datos.get("apps", []) if isinstance(datos, dict) else []
+        slots = [a.get("slot") for a in apps if isinstance(a, dict) and a.get("label") == label]
+        if len(slots) != 1 or not isinstance(slots[0], int):
+            return False
+        async with session.post(
+            f"{base}/api/unpair_app", data={"slot": str(slots[0])}, timeout=_TIMEOUT
+        ) as resp:
             return resp.status == 200
-    except (aiohttp.ClientError, OSError, TimeoutError):
+    except (aiohttp.ClientError, OSError, TimeoutError, ValueError):
         return False
 
 

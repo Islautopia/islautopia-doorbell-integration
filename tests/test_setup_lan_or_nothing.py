@@ -112,3 +112,32 @@ async def test_pairing_session_maps_only_the_doorbell_name_to_the_lan_ip(hass):
         res, err = await config_flow._async_pair(hass, DEVICE_ID, LAN_IP, "a", "b", "Home Assistant X")
     assert err == "invalid_auth"
     assert vistos == {f"{DEVICE_ID}.doorbell.islautopia.com": LAN_IP}
+
+
+async def test_undo_goes_by_slot_because_labels_with_spaces_404():
+    """Measured on 0.100.0: unpair_app by a label with a space answers 404. Undo must use the slot."""
+    enviados = []
+
+    class _R:
+        def __init__(self, status, datos=None):
+            self.status, self._d = status, datos
+
+        async def json(self, content_type=None):
+            return self._d
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+    class _S:
+        def get(self, url, **kw):
+            return _R(200, {"apps": [{"slot": 2, "label": "iPhone"}, {"slot": 5, "label": "Home Assistant Casa"}]})
+
+        def post(self, url, data=None, **kw):
+            enviados.append((url.rsplit("/", 1)[-1], data))
+            return _R(200)
+
+    assert await api.async_unpair_app(_S(), DEVICE_ID, "Home Assistant Casa")
+    assert enviados == [("unpair_app", {"slot": "5"})]
