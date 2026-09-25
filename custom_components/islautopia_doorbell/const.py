@@ -66,6 +66,18 @@ CONF_LABEL = "label"
 # HA instance that pairs with a given doorbell is identifiable in the cloud admin panel.
 DEFAULT_PAIR_LABEL = "Home Assistant"
 
+
+def nombre_generico(device_id: str) -> str:
+    """El nombre a mostrar cuando el portero no tiene `dname` configurado (§0-bis).
+
+    ⚠️ NUNCA el id a secas (Inaki, 2026-09-26): «el nombre del portero si es util, el id
+    despista mucho» -- buscando donde configurar sus entidades no reconocio la entrada porque
+    se llamaba igual que su device_id. Mismo formato que sintetiza el propio firmware para su
+    instancia mDNS cuando nadie ha bautizado el portero (API_CONTRACT.md, mDNS/Zeroconf,
+    "IG Doorbell <device_id>"), para que el generico sea el mismo en todos los clientes.
+    """
+    return f"IG Doorbell {device_id}"
+
 # --- Zeroconf (API_CONTRACT.md §0-bis) ------------------------------------------------------
 # Only used for the OPTIONAL pairing-discovery step in config_flow.py (async_step_zeroconf) -
 # HA Core matches this against manifest.json's own "zeroconf": ["_igdoorbell._tcp.local."]

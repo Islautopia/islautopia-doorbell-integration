@@ -6,6 +6,28 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.7.7] — 2026-09-26
+
+### Fixed
+
+- **The config entry and the device are now named after the doorbell, never its bare
+  `device_id`.** A doorbell paired manually (no zeroconf discovery) used to keep its `device_id`
+  as the entry title forever (e.g. `f9b31fc3bb64bc26`) - confusing when looking for it under
+  Settings > Devices & services. The title and the device name now track the doorbell's own
+  `dname` and self-correct automatically, both right away on upgrade (existing entries fix
+  themselves on the first start of this version) and later if the name is changed on the doorbell
+  itself. A doorbell with no name configured falls back to `IG Doorbell <device_id>` - the same
+  generic the firmware itself uses for its mDNS instance name - never the id alone.
+- Only the device's `name` is touched, never `name_by_user` (a manual rename in Home Assistant is
+  left alone) nor any `entity_id` (only the visible name changes, entities keep their identity).
+
+### Added
+
+- The "Entities the doorbell can act on" options step (title, description, field and the
+  too-many-entities error) is now translated into all the languages this integration ships:
+  Arabic, German, French, Hindi, Portuguese, Russian and Simplified Chinese (Spanish and English
+  already had it).
+
 ## [0.7.6] — 2026-09-25
 
 Needs doorbell firmware **0.100.4** for the doorbell-side half; with older firmware the

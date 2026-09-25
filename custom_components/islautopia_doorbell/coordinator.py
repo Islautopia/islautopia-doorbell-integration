@@ -30,7 +30,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from . import api
-from .const import DOMAIN, INTERVALO_SONDEO
+from .const import DOMAIN, INTERVALO_SONDEO, nombre_generico
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -127,12 +127,14 @@ class DoorbellCoordinator(DataUpdateCoordinator[dict]):
 
     @property
     def nombre_portero(self) -> str:
-        """`dname`, y si el portero no tiene nombre, su `device_id`.
+        """`dname`, y si el portero no tiene nombre, el generico del propio firmware.
 
         Vacio significa «nadie lo ha bautizado», no un nombre (§1.4-ter): machacar con eso lo que
-        el cliente ya tenia lo dejaria peor que antes.
+        el cliente ya tenia lo dejaria peor que antes. Y el generico -- nunca el id a secas
+        (Inaki, 2026-09-26) -- es el mismo que usa el firmware para su instancia mDNS cuando
+        tampoco el tiene nombre, ver `nombre_generico`.
         """
-        return (self.data or {}).get("dname") or self.device_id
+        return (self.data or {}).get("dname") or nombre_generico(self.device_id)
 
     @property
     def role(self) -> str:

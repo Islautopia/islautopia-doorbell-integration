@@ -1,4 +1,23 @@
 {
+  "options": {
+    "step": {
+      "init": {
+        "menu_options": {
+          "entidades": "Entitäten, die die Türklingel steuern kann"
+        }
+      },
+      "entidades": {
+        "title": "Entitäten, die die Türklingel steuern kann",
+        "description": "Wähle die Entitäten aus, die die Türklingel steuern darf – um die Tür zu öffnen oder in einem Schritt einer ihrer Abläufe. Nur diese werden in den Apps angeboten. Bis zu {max}.",
+        "data": {
+          "entidades": "Entitäten"
+        }
+      }
+    },
+    "error": {
+      "demasiadas": "Zu viele Entitäten – wähle höchstens {max} aus"
+    }
+  },
   "entity": {
     "binary_sensor": {
       "visitor": {

@@ -169,6 +169,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # funcionando.
     await coordinator.async_refresh()
 
+    # ⚠️ AQUI y no mas abajo: el oyente de actualizaciones (linea de mas abajo,
+    # `entry.add_update_listener`) todavia no esta registrado, asi que esta primera correccion NO
+    # dispara una recarga (Inaki, 2026-09-26: "el nombre del portero si es util, el id despista
+    # mucho"). Corrige sola cualquier entrada vieja que se llame por su device_id -- la de Ermita
+    # entre ellas -- en cuanto arranca esta version, sin esperar a que el nombre del portero
+    # cambie. Ver `_sincronizar_nombre`.
+    _sincronizar_nombre(hass, entry, coordinator)
+
     webhook_id = await webhook.async_registrar(hass, device_id, coordinator.nombre_portero)
 
     hass.data[DOMAIN][entry.entry_id] = {
@@ -182,6 +190,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not await _async_configurar_portero(hass, entry, coordinator, primera_vez=True):
         _programar_reintento(hass, entry, coordinator)
     _vigilar_entidades(hass, entry, coordinator)
+    _vigilar_nombre(hass, entry, coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
@@ -378,6 +387,54 @@ def _adoptar_entidad_de_la_puerta(
         "que puede accionar el portero, para que siga abriendo con la 0.7.6.",
         coordinator.device_id, ha_e,
     )
+
+
+def _sincronizar_nombre(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: DoorbellCoordinator
+) -> None:
+    """El titulo de la entrada y el nombre del dispositivo siguen al nombre del portero (`dname`).
+
+    Iñaki, 2026-09-26: *"el nombre del portero si es util, el id despista mucho"* -- buscando
+    donde configurar sus entidades no reconocio la entrada de Ermita porque en Ajustes >
+    Dispositivos y servicios se llamaba `f9b31fc3bb64bc26` (su `device_id`), no "Ermita" ni nada
+    parecido. `coordinator.nombre_portero` ya resuelve `dname` (o el generico del firmware si no
+    hay uno, nunca el id a secas - const.py), asi que solo hace falta empujarlo a los dos sitios
+    que Home Assistant muestra por separado.
+
+    Solo toca `name` en el registro de dispositivo, NUNCA `name_by_user`: si el propio Iñaki
+    renombra el dispositivo a mano en Home Assistant, eso se guarda aparte y HA lo sigue
+    mostrando por encima de esto (es el mecanismo nativo para "el usuario ya lo dijo, no lo
+    machaques"). Y no toca ningun `entity_id`: solo el nombre visible del dispositivo cambia, que
+    es de donde las entidades con `has_entity_name` componen su nombre visible en cada lectura --
+    no hay que tocarlas una a una.
+    """
+    nombre = coordinator.nombre_portero
+    if entry.title != nombre:
+        hass.config_entries.async_update_entry(entry, title=nombre)
+
+    registro = dr.async_get(hass)
+    dispositivo = registro.async_get_device(identifiers={(DOMAIN, coordinator.device_id)})
+    if dispositivo is not None and dispositivo.name != nombre:
+        registro.async_update_device(dispositivo.id, name=nombre)
+
+
+def _vigilar_nombre(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: DoorbellCoordinator
+) -> None:
+    """Vuelve a comprobar el nombre del portero en cada sondeo, para pillar un cambio posterior.
+
+    ⚠️ Esto se llama DESPUES de registrar `entry.add_update_listener` (mas abajo en
+    `async_setup_entry`), asi que aqui si un cambio de nombre real recarga la entrada -- igual que
+    un cambio de opciones. No es un efecto secundario que haya que evitar: es el mismo patron que
+    `_vigilar_entidades` ya usa para las entidades, y `async_update_entry` no hace nada (ni
+    dispara la recarga) si el nombre no ha cambiado desde la ultima vez.
+    """
+
+    @callback
+    def _al_actualizar() -> None:
+        _sincronizar_nombre(hass, entry, coordinator)
+
+    entry.async_on_unload(coordinator.async_add_listener(_al_actualizar))
 
 
 def _vigilar_entidades(

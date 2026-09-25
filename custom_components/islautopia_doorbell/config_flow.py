@@ -47,6 +47,7 @@ from .const import (
     DOMINIOS_PERMITIDOS,
     DOORBELL_HOSTNAME_SUFFIX,
     MAX_ENTIDADES,
+    nombre_generico,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -216,7 +217,9 @@ class IslautopiaDoorbellConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         self._device_id = device_id
         self._host_hint = discovery_info.host
-        self._name_hint = discovery_info.properties.get("name") or device_id
+        # El TXT `name` puede venir vacio (§0-bis, el portero sin `dname` configurado): nunca el
+        # id a secas como respaldo (Inaki, 2026-09-26) - el mismo generico que el propio firmware.
+        self._name_hint = discovery_info.properties.get("name") or nombre_generico(device_id)
 
         self.context["title_placeholders"] = {"name": self._name_hint}
         return await self.async_step_zeroconf_confirm()
@@ -228,7 +231,9 @@ class IslautopiaDoorbellConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_pair()
         return self.async_show_form(
             step_id="zeroconf_confirm",
-            description_placeholders={"name": self._name_hint or self._device_id or ""},
+            description_placeholders={
+                "name": self._name_hint or nombre_generico(self._device_id or ""),
+            },
         )
 
     async def async_step_pair(self, user_input: dict[str, Any] | None = None) -> FlowResult:
@@ -245,8 +250,12 @@ class IslautopiaDoorbellConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = error
             else:
                 assert result is not None
+                # El titulo real (si el portero tiene `dname`) lo corrige `_sincronizar_nombre`
+                # en __init__.py en cuanto arranca la entrada, con el primer `get_states`. Este es
+                # solo el titulo de partida - y nunca el id a secas (Inaki, 2026-09-26), por si se
+                # llega a ver antes de esa primera correccion (alta manual, sin pista de zeroconf).
                 return self.async_create_entry(
-                    title=self._name_hint or result.device_id,
+                    title=self._name_hint or nombre_generico(result.device_id),
                     data={
                         CONF_DEVICE_ID: result.device_id,
                         CONF_CREDENTIAL: result.credential,
