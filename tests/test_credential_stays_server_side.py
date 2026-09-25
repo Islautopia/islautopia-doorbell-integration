@@ -20,14 +20,23 @@ from custom_components.islautopia_doorbell.const import (
 from .conftest import CREDENTIAL, DEVICE_ID, LAN_IP
 
 
-def _entrada(hass):
+class _FakeCoordinator:
+    """Stands in for DoorbellCoordinator - only `.role` matters to these tests."""
+
+    def __init__(self, role: str) -> None:
+        self.role = role
+
+
+def _entrada(hass, role: str = "admin"):
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id=DEVICE_ID,
         data={CONF_DEVICE_ID: DEVICE_ID, CONF_CREDENTIAL: CREDENTIAL, CONF_HOST_HINT: LAN_IP},
     )
     entry.add_to_hass(hass)
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {**entry.data, "sesion": object()}
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
+        **entry.data, "sesion": object(), "coordinator": _FakeCoordinator(role),
+    }
     return entry
 
 
@@ -51,6 +60,47 @@ async def test_get_connection_info_carries_no_credential(hass, hass_ws_client):
                         "device_id": DEVICE_ID})
     msg = await ws.receive_json()
     assert not msg["success"]          # the command no longer exists
+
+
+async def test_get_connection_info_reports_the_pairings_role_not_the_ha_user(hass, hass_ws_client):
+    """Iñaki, 2026-09-25: what the card may show is decided by the role the doorbell gave THIS
+    integration's credential when it was paired, never by whichever Home Assistant account is
+    looking at a dashboard. A kiosk/guest HA user (not an HA admin) must still see `role: "admin"`
+    when the pairing itself is an administrator of the doorbell - this test's `hass_ws_client`
+    authenticates with an ordinary non-admin HA user by default, and the result still says "admin"
+    because it comes from the coordinator, never from `hass.user.is_admin`.
+    """
+    await async_setup_component(hass, "http", {})
+    _entrada(hass, role="admin")
+    websocket_api.async_register_websocket_commands(hass)
+    ws = await hass_ws_client(hass)
+    await ws.send_json({"id": 1, "type": "islautopia_doorbell/get_connection_info",
+                        "device_id": DEVICE_ID})
+    msg = await ws.receive_json()
+    assert msg["success"], msg
+    assert msg["result"]["role"] == "admin"
+
+
+async def test_get_connection_info_role_falls_back_to_unknown_without_a_coordinator(
+    hass, hass_ws_client
+):
+    """A test (or an early race during setup) that has no coordinator yet must not crash, and must
+    fail CLOSED - "unknown" is never drawn as admin (contract §3.3-ter)."""
+    await async_setup_component(hass, "http", {})
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=DEVICE_ID,
+        data={CONF_DEVICE_ID: DEVICE_ID, CONF_CREDENTIAL: CREDENTIAL, CONF_HOST_HINT: LAN_IP},
+    )
+    entry.add_to_hass(hass)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {**entry.data, "sesion": object()}
+    websocket_api.async_register_websocket_commands(hass)
+    ws = await hass_ws_client(hass)
+    await ws.send_json({"id": 1, "type": "islautopia_doorbell/get_connection_info",
+                        "device_id": DEVICE_ID})
+    msg = await ws.receive_json()
+    assert msg["success"], msg
+    assert msg["result"]["role"] == "unknown"
 
 
 async def test_recording_urls_carry_no_credential_nor_cloud_name(hass):

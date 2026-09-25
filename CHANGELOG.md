@@ -6,6 +6,21 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.7.3] — 2026-09-25
+
+### Fixed
+
+- **What the card could show was decided by the wrong account.** `get_connection_info` now
+  reports this pairing's own role on the doorbell ("admin"/"user"/"unknown", the same value the
+  doorbell resolves for `session_info.role`, API_CONTRACT.md §3.3-ter) alongside the entities the
+  card reads. Until now nothing here exposed a role at all, so the card fell back to
+  `hass.user.is_admin` — the account of whoever is looking at *this* Home Assistant dashboard,
+  which is not the account this integration paired with. A kiosk tablet signed in as a
+  non-administrator hid the REC switch even when the integration itself was paired as an
+  administrator of the doorbell. Read via `GET /api/whoami?token=...`, which resolves the role
+  straight from the pairing credential without a dashboard session; refreshed on the same slow
+  cadence as `firmware_info` (it does not change on its own).
+
 ## [0.7.2] — 2026-09-25
 
 ### Added

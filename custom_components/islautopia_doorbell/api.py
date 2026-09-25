@@ -311,6 +311,41 @@ async def async_get_states(
         raise DoorbellApiError(f"Could not reach the doorbell: {err}") from err
 
 
+async def async_get_role(
+    session: aiohttp.ClientSession, device_id: str, credential: str
+) -> str:
+    """GET /api/whoami?token=... (contract §1.6) - this pairing's role, straight from the doorbell.
+
+    ⚠️ Iñaki, 2026-09-25: what a client shows must be decided by the role the doorbell gave THIS
+    integration's credential when it was paired (admin/user), never by whichever Home Assistant
+    user happens to be looking at a dashboard - the Kiosko tablet's account is not an HA admin and
+    used to hide REC for that reason alone, even when the integration itself was paired as an
+    admin. `hass.user.is_admin` answers a different question and must not gate a doorbell control.
+
+    `/api/whoami` normally answers from the dashboard session cookie, but it ALSO resolves the
+    role straight from a bare `?token=` with no session at all (the contract's §1.6 note on why
+    that route does not belong on the token-only-fails list) - the same `paired_app_role[]` lookup
+    the doorbell already does to fill `session_info.role` for a live signalling session
+    (§3.3-ter). `email` comes back empty over `?token=` (whoami cannot resolve identity from a
+    token, only role); irrelevant here; the card never sees accounts, only a role.
+
+    Never raises for a role the doorbell does not recognise - matches the contract's own
+    `"unknown"` (an older pairing made before roles existed) by falling back to it, so a stale or
+    unexpected response degrades to "hide the control" rather than to an exception that would take
+    down the whole coordinator refresh over a single optional field.
+    """
+    url = f"https://{doorbell_hostname(device_id)}:8443/api/whoami?token={quote(credential)}"
+    try:
+        async with session.get(url, timeout=_TIMEOUT) as resp:
+            if resp.status != 200:
+                return "unknown"
+            data = await resp.json(content_type=None)
+    except (aiohttp.ClientError, ValueError):
+        return "unknown"
+    role = data.get("role") if isinstance(data, dict) else None
+    return role if role in ("admin", "user") else "unknown"
+
+
 async def async_get_firmware_info(
     session: aiohttp.ClientSession, device_id: str, credential: str
 ) -> dict:

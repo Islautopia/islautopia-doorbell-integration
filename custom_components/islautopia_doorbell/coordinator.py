@@ -71,6 +71,13 @@ class DoorbellCoordinator(DataUpdateCoordinator[dict]):
         # cero. O sea que la actualizacion se nota sin tener que preguntarla a menudo.
         self._ciclos_hasta_firmware = 0
         self._firmware: dict = {}
+        # El rol de ESTA credencial en el portero ("admin"/"user"/"unknown", §3.3-ter) - de ahi
+        # sale lo que la card puede enseñar (REC, hass_todo_en_la_integracion), nunca de si quien
+        # mira el dashboard es administrador de HOME ASSISTANT. Misma cadencia que firmware_info:
+        # no cambia solo, asi que preguntarlo cada 30 s seria una peticion de mas contra un aparato
+        # que atiende de una en una.
+        self._ciclos_hasta_role = 0
+        self._role = "unknown"
 
     @property
     def sesion(self) -> aiohttp.ClientSession:
@@ -105,6 +112,12 @@ class DoorbellCoordinator(DataUpdateCoordinator[dict]):
         else:
             self._ciclos_hasta_firmware -= 1
 
+        if self._ciclos_hasta_role <= 0:
+            self._role = await api.async_get_role(self._sesion, self.device_id, self.credential)
+            self._ciclos_hasta_role = 20     # ~10 minutos, igual que firmware_info
+        else:
+            self._ciclos_hasta_role -= 1
+
         # Se mezclan en un solo diccionario para que las entidades no tengan que saber de cual de
         # las dos rutas sale cada campo. `get_states` manda: si algun dia las dos devolvieran la
         # misma clave, la de estado es la que se refresca cada 30 s.
@@ -120,6 +133,16 @@ class DoorbellCoordinator(DataUpdateCoordinator[dict]):
         el cliente ya tenia lo dejaria peor que antes.
         """
         return (self.data or {}).get("dname") or self.device_id
+
+    @property
+    def role(self) -> str:
+        """"admin" / "user" / "unknown" - this pairing's role on the doorbell (§3.3-ter).
+
+        What the card is allowed to show (get_connection_info, websocket_api.py) - not a live
+        signalling field, refreshed on the same slow cadence as firmware_info, but the SAME
+        `paired_app_role[]` lookup the doorbell does for `session_info.role`.
+        """
+        return self._role
 
     @property
     def tiene_cerradura(self) -> bool:

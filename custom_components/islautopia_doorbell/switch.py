@@ -46,8 +46,12 @@ async def async_setup_entry(
 
 class ManualRecordingSwitch(DoorbellEntity, SwitchEntity):
     """REC. Admin-only on the doorbell's side (§1.4-quater) - reactive here, like play_audio/
-    play_sequence (services.py): the doorbell's own `admin_required` becomes a HomeAssistantError
-    instead of being pre-guessed from a role this integration does not otherwise track.
+    play_sequence (services.py): the doorbell's own `admin_required` becomes a HomeAssistantError.
+
+    The coordinator DOES track this pairing's role now (`DoorbellCoordinator.role`, since
+    2026-09-25) so the card can decide whether to show the switch at all - see
+    `websocket_api.get_connection_info`. This entity itself still does not pre-guess: the doorbell
+    remains the one thing that enforces the rule, this is reactive on purpose.
     """
 
     _attr_translation_key = "rec"

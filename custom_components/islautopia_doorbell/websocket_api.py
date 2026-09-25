@@ -70,9 +70,15 @@ def _find_entry_data(hass: HomeAssistant, device_id: str) -> dict | None:
 )
 @websocket_api.async_response
 async def websocket_get_connection_info(hass: HomeAssistant, connection, msg) -> None:
-    """What the card needs besides signalling: which entities of this doorbell to read.
+    """What the card needs besides signalling: which entities to read, and this pairing's role.
 
     ⚠️ No credential and no relay URL here, on purpose (module docstring). A test asserts it.
+
+    `role` (Iñaki, 2026-09-25): "admin"/"user"/"unknown", the SAME value the doorbell resolves for
+    `session_info.role` (API_CONTRACT.md §3.3-ter) - what the role the doorbell gave THIS
+    integration's pairing credential, not whichever Home Assistant user is looking at the
+    dashboard right now. Falls back to "unknown" (never drawn as admin) when the coordinator has
+    not been set up yet, e.g. in a test that stubs entry_data without one.
     """
     entry_data = _find_entry_data(hass, msg["device_id"])
     if entry_data is None:
@@ -82,11 +88,13 @@ async def websocket_get_connection_info(hass: HomeAssistant, connection, msg) ->
         return
 
     device_id = entry_data[CONF_DEVICE_ID]
+    coordinator = entry_data.get("coordinator")
     registro = er.async_get(hass)
     connection.send_result(
         msg["id"],
         {
             "device_id": device_id,
+            "role": coordinator.role if coordinator is not None else "unknown",
             "live_timeout_entity": registro.async_get_entity_id(
                 "number", DOMAIN, f"{device_id}_live_timeout"
             ),

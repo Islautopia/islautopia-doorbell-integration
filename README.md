@@ -65,7 +65,9 @@ Once paired you get, without configuring anything:
 | Firmware, street panel, fingerprint reader | diagnostics |
 
 Changing the mode needs the pairing to be an **administrator** of that doorbell. Everything else
-only reads.
+only reads. The Lovelace card's REC button follows the same rule — it is shown only when *this*
+pairing is an administrator of the doorbell, regardless of which Home Assistant account is looking
+at the dashboard.
 
 ### 4. Lets the Lovelace card find your doorbell by itself
 
