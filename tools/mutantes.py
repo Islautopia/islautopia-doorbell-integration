@@ -62,6 +62,14 @@ MUTANTES = [
      "        await self.coordinator.async_request_refresh()"),
     ("mode select accepts a change the doorbell silently dropped", PKG + "select.py",
      "        if not aplicado:", "        if False:"),
+    ("the card is served but never added to the frontend pages (needs a Lovelace resource again)",
+     PKG + "card.py", "    add_extra_js_url(hass, url)\n", "    pass\n"),
+    ("the card URL loses its cache-busting hash", PKG + "card.py",
+     '    url = f"{CARD_URL}?v={digest}"', "    url = CARD_URL"),
+    ("the card route tells browsers to keep a month-old copy", PKG + "card.py",
+     "StaticPathConfig(CARD_URL, str(CARD_PATH), False)", "StaticPathConfig(CARD_URL, str(CARD_PATH), True)"),
+    ("setup no longer registers the card", PKG + "__init__.py",
+     "    await async_register_card(hass)\n", ""),
 ]
 
 

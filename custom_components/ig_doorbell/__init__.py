@@ -57,6 +57,7 @@ from .const import (
     DOORBELL_HOSTNAME_SUFFIX,
     MAX_ENTIDADES,
 )
+from .card import async_register_card
 from .coordinator import DoorbellCoordinator
 from .recordings_view import async_register_recordings_view
 from .services import async_register_services
@@ -70,6 +71,7 @@ PLATFORMS: list[str] = ["binary_sensor", "button", "event", "number", "select", 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Register integration-wide resources once, regardless of how many entries get added."""
+    await async_register_card(hass)
     async_register_websocket_commands(hass)
     async_register_signal_proxy(hass)
     async_register_recordings_view(hass)
