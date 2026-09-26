@@ -157,6 +157,30 @@ locally and sends only a CSR; the VPS runs `acme.sh --signcsr --csr <file> --dns
 (DNS-01 is unchanged) and returns only the certificate. The key then never leaves the
 HA. Renewals re-send the stored CSR (or a new one with a rotated key).
 
+### 2c. Inside Iñaki's real HA OS (2026.9.0), app stopped, 2026-09-26
+
+`ig_https_poc` installed by the coordinator (one line in configuration.yaml), HA restarted by Iñaki.
+
+- Listener up 1.88 s after `EVENT_HOMEASSISTANT_STARTED` (includes fetching the already
+  issued Let's Encrypt cert from the VPS with the app's identity read from `/ssl`);
+  `async_setup` itself 0.0002 s (`integration/setup_info`), so startup is not delayed.
+  The only log entry from the PoC is its own status line: no errors, no blocking-call reports.
+- Local SANs taken from HA's network adapters: `127.0.0.1`, `192.168.42.138`.
+- Handshakes: bare IP and `homeassistant.local` → local leaf, valid against the CA
+  downloaded from the `:8099` portal (fingerprint equals the one logged); public name →
+  Let's Encrypt `YE1`, valid against the **system** trust store; unknown name → local.
+  Negatives: bare IP vs system store FAIL; public name vs local CA FAIL.
+- Chrome: `http://ip:8123` → not secure, no `mediaDevices`. `https://ip:8443` (local CA
+  trusted) and `https://<id>.ha.doorbell.islautopia.com:8443` (**no flags at all**) →
+  `isSecureContext` true, mic granted, frontend + WebSocket up, 3302 states. Untrusted
+  local CA → `ERR_CERT_AUTHORITY_INVALID`.
+- Coexistence, identical before and after: `:8123` 200; XFF from an untrusted address 400;
+  through Iñaki's own reverse proxy 200.
+- **Not measurable there**: which client IP HA sees. The failed-login log line and bans
+  only exist with `ip_ban_enabled: true`, and that HA has it off (checked in HA's
+  `http/server.py`: the ban middleware is only installed when enabled). Covered by the
+  scratch-HA test (2b) with the same code and HA version.
+
 ## Measured vs assumed
 
 Measured: all tables above. **Assumed / not measured**: running in a real HA OS
