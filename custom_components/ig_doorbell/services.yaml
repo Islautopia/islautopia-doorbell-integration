@@ -1,0 +1,28 @@
+play_sequence:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: ig_doorbell
+    seq_id:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 9999
+          mode: box
+play_audio:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: ig_doorbell
+    audio_slot:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 10
+          mode: box

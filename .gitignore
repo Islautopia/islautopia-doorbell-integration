@@ -8,3 +8,9 @@ venv/
 *.egg-info/
 .vscode/
 .idea/
+
+# Card benches (tests/card): dependencies, and screenshots of real doorbell cameras, which never
+# go into this PUBLIC repo (privacy principle: no image leaves the device). They stay local.
+tests/card/node_modules/
+tests/card/**/*.png
+tests/card/real_ha_1_10_0/console.log.txt

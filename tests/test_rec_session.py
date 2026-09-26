@@ -1,7 +1,7 @@
 """REC has to stay recording after the session that started it would normally have said `bye`.
 
 API_CONTRACT.md §1.4-quater rule 4: a manual recording stops the moment the session that pressed
-REC ends. Found on the Waveshare (fw 0.100.0, 2026-09-25): `signal_client.async_orden` always says
+REC ends. Found on the Waveshare (fw 0.100.0, 2026-09-25): `signal_client.async_send_command` always says
 `bye` right after the first reply, so a `rec_start` sent that way recorded for a fraction of a
 second. `RecSession` (rec_session.py) is the fix: it keeps the SSE open and only says `bye` when
 the RECORDING itself is over - by the user, or by the doorbell.
@@ -17,21 +17,21 @@ import json
 
 import pytest
 
-from custom_components.islautopia_doorbell.rec_session import RecSession, RecSessionError
+from custom_components.ig_doorbell.rec_session import RecSession, RecSessionError
 
 from .conftest import CREDENTIAL, DEVICE_ID
 
 
 class _FakeDoorbell:
-    def __init__(self, respuestas: dict[str, dict | None]):
+    def __init__(self, responses: dict[str, dict | None]):
         self.posts: list[dict] = []
-        self.cola: asyncio.Queue = asyncio.Queue()
-        self.respuestas = respuestas
-        self.cerrada = False
+        self.queue: asyncio.Queue = asyncio.Queue()
+        self.responses = responses
+        self.closed = False
 
     async def get(self, url, **kw):
         assert url.startswith(f"https://{DEVICE_ID}.doorbell.islautopia.com:8443/webrtc/signal?token=")
-        await self.cola.put({"type": "offer", "slot": 5, "sdp": "v=0"})
+        await self.queue.put({"type": "offer", "slot": 5, "sdp": "v=0"})
         fake = self
 
         class _Resp:
@@ -42,13 +42,13 @@ class _FakeDoorbell:
                     return self_inner
 
                 async def __anext__(self_inner):
-                    msg = await fake.cola.get()
+                    msg = await fake.queue.get()
                     return b"data: " + json.dumps(msg).encode() + b"\n"
 
             content = content()
 
             def close(self_inner):
-                fake.cerrada = True
+                fake.closed = True
 
         return _Resp()
 
@@ -61,9 +61,9 @@ class _FakeDoorbell:
             status = 200
 
             async def __aenter__(self_inner):
-                respuesta = fake.respuestas.get(msg["type"])
-                if respuesta is not None:
-                    await fake.cola.put(respuesta)
+                response_type = fake.responses.get(msg["type"])
+                if response_type is not None:
+                    await fake.queue.put(response_type)
                 return self_inner
 
             async def __aexit__(self_inner, *a):
@@ -71,14 +71,14 @@ class _FakeDoorbell:
 
         return _Ctx()
 
-    async def empujar(self, msg: dict) -> None:
+    async def push(self, msg: dict) -> None:
         """Something the doorbell pushes on its own, unprompted by a POST of ours."""
-        await self.cola.put(msg)
+        await self.queue.put(msg)
 
 
-async def _esperar(evento: asyncio.Event) -> None:
-    await asyncio.wait_for(evento.wait(), 1)
-    evento.clear()
+async def _wait_for(event_: asyncio.Event) -> None:
+    await asyncio.wait_for(event_.wait(), 1)
+    event_.clear()
 
 
 async def test_rec_start_accepted_holds_the_session_open():
@@ -95,7 +95,7 @@ async def test_rec_start_accepted_holds_the_session_open():
     assert fake.posts[0] == {"type": "rec_start", "slot": 5}
     # The whole point: unlike a quick reply/sequence, no `bye` yet - the slot is still held.
     assert not any(p["type"] == "bye" for p in fake.posts)
-    assert not fake.cerrada
+    assert not fake.closed
 
     await session.stop()
 
@@ -114,7 +114,7 @@ async def test_admin_stops_it_from_home_assistant_sends_rec_stop_then_bye():
     assert fake.posts[-1] == {"type": "bye", "slot": 5}
     assert session.recording is False
     assert session.closed
-    assert fake.cerrada
+    assert fake.closed
 
 
 async def test_the_doorbell_ending_it_on_its_own_frees_the_slot_without_being_told():
@@ -124,23 +124,23 @@ async def test_the_doorbell_ending_it_on_its_own_frees_the_slot_without_being_to
         "rec_start": {"type": "rec_state", "slot": 5, "recording": True, "kind": "manual",
                        "origin": "manual", "sd_available": True},
     })
-    evento = asyncio.Event()
-    session = RecSession(fake, DEVICE_ID, CREDENTIAL, evento.set)
+    event_ = asyncio.Event()
+    session = RecSession(fake, DEVICE_ID, CREDENTIAL, event_.set)
     await session.start()
-    evento.clear()
+    event_.clear()
 
-    await fake.empujar({"type": "rec_state", "slot": 5, "recording": False, "kind": None,
+    await fake.push({"type": "rec_state", "slot": 5, "recording": False, "kind": None,
                          "origin": None, "sd_available": True})
 
-    await _esperar(evento)   # the rec_state push itself: recording flips to False at once
+    await _wait_for(event_)   # the rec_state push itself: recording flips to False at once
     assert session.recording is False
-    await _esperar(evento)   # the session's own stop(): closed becomes True, bye is sent
+    await _wait_for(event_)   # the session's own stop(): closed becomes True, bye is sent
 
     assert session.closed
     assert fake.posts[-1] == {"type": "bye", "slot": 5}
     # Not "rec_stop": the doorbell already stopped it, nothing to ask it to stop again.
     assert not any(p["type"] == "rec_stop" for p in fake.posts)
-    assert fake.cerrada
+    assert fake.closed
 
 
 async def test_admin_required_refusal_still_frees_the_slot():
@@ -162,7 +162,7 @@ async def test_no_answer_at_all_times_out_and_still_says_bye():
     session = RecSession(fake, DEVICE_ID, CREDENTIAL, lambda: None)
 
     with pytest.raises(RecSessionError):
-        await session.start(plazo=0.3)
+        await session.start(timeout_s=0.3)
 
     assert fake.posts[-1] == {"type": "bye", "slot": 5}
     assert session.closed

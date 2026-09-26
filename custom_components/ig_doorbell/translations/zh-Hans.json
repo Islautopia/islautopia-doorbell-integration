@@ -1,0 +1,79 @@
+{
+  "options": {
+    "step": {
+      "init": {
+        "menu_options": {
+          "entities": "门铃可以操作的实体"
+        }
+      },
+      "entities": {
+        "title": "门铃可以操作的实体",
+        "description": "选择您希望门铃可以操作的实体——用于开门，或用于其某个序列中的一个步骤。应用中只会提供这些实体。最多 {max} 个。",
+        "data": {
+          "entities": "实体"
+        }
+      }
+    },
+    "error": {
+      "too_many": "实体过多——最多选择 {max} 个"
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "visitor": {
+        "name": "访客"
+      },
+      "package": {
+        "name": "门口有包裹"
+      },
+      "street_panel": {
+        "name": "室外面板"
+      },
+      "fingerprint_reader": {
+        "name": "指纹识别器"
+      }
+    },
+    "button": {
+      "open_door": {
+        "name": "开门"
+      }
+    },
+    "event": {
+      "events": {
+        "name": "事件"
+      }
+    },
+    "number": {
+      "live_view_timeout": {
+        "name": "实时画面超时"
+      }
+    },
+    "select": {
+      "mode": {
+        "name": "模式",
+        "state": {
+          "normal": "正常",
+          "away": "外出",
+          "do_not_disturb": "勿扰",
+          "custom": "自定义"
+        }
+      }
+    },
+    "sensor": {
+      "viewers": {
+        "name": "观看者"
+      },
+      "firmware_version": {
+        "name": "固件版本"
+      },
+      "panel_firmware": {
+        "name": "面板固件"
+      }
+    },
+    "switch": {
+      "rec": {
+        "name": "手动录制"
+      }
+    }
+  }
+}

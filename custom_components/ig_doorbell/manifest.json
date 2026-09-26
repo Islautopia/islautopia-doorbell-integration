@@ -1,0 +1,22 @@
+{
+  "domain": "ig_doorbell",
+  "name": "Islautopia Garage Doorbell",
+  "after_dependencies": [
+    "frontend"
+  ],
+  "codeowners": [
+    "@Islautopia"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "http",
+    "network"
+  ],
+  "documentation": "https://github.com/Islautopia/ig-doorbell-hass",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/Islautopia/ig-doorbell-hass/issues",
+  "version": "1.0.0",
+  "zeroconf": [
+    "_igdoorbell._tcp.local."
+  ]
+}

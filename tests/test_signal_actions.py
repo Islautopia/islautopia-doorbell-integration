@@ -10,22 +10,22 @@ import json
 
 import pytest
 
-from custom_components.islautopia_doorbell import signal_client
+from custom_components.ig_doorbell import signal_client
 
 from .conftest import CREDENTIAL, DEVICE_ID
 
 
 class _FakeDoorbell:
-    def __init__(self, respuesta: dict | None):
+    def __init__(self, response_type: dict | None):
         self.posts: list[dict] = []
-        self.cola: asyncio.Queue = asyncio.Queue()
-        self.respuesta = respuesta
-        self.cerrada = False
+        self.queue: asyncio.Queue = asyncio.Queue()
+        self.response_type = response_type
+        self.closed = False
 
     # -- SSE --------------------------------------------------------------------------------
     async def get(self, url, **kw):
         assert url.startswith(f"https://{DEVICE_ID}.doorbell.islautopia.com:8443/webrtc/signal?token=")
-        await self.cola.put({"type": "offer", "slot": 5, "sdp": "v=0"})
+        await self.queue.put({"type": "offer", "slot": 5, "sdp": "v=0"})
         fake = self
 
         class _Resp:
@@ -36,13 +36,13 @@ class _FakeDoorbell:
                     return self_inner
 
                 async def __anext__(self_inner):
-                    msg = await fake.cola.get()
+                    msg = await fake.queue.get()
                     return b"data: " + json.dumps(msg).encode() + b"\n"
 
             content = content()
 
             def close(self_inner):
-                fake.cerrada = True
+                fake.closed = True
 
         return _Resp()
 
@@ -56,8 +56,8 @@ class _FakeDoorbell:
             status = 200
 
             async def __aenter__(self_inner):
-                if msg["type"] != "bye" and fake.respuesta is not None:
-                    await fake.cola.put(fake.respuesta)
+                if msg["type"] != "bye" and fake.response_type is not None:
+                    await fake.queue.put(fake.response_type)
                 return self_inner
 
             async def __aexit__(self_inner, *a):
@@ -68,21 +68,21 @@ class _FakeDoorbell:
 
 async def test_sequence_goes_with_the_slot_and_the_session_is_closed():
     fake = _FakeDoorbell({"type": "play_sequence_result", "slot": 5, "status": "playing"})
-    r = await signal_client.async_orden(
+    r = await signal_client.async_send_command(
         fake, DEVICE_ID, CREDENTIAL, {"type": "play_sequence", "seq_id": 3}, "play_sequence_result"
     )
     assert r["status"] == "playing"
     assert fake.posts[0] == {"type": "play_sequence", "seq_id": 3, "slot": 5}
     assert fake.posts[-1] == {"type": "bye", "slot": 5}
-    assert fake.cerrada
+    assert fake.closed
 
 
 async def test_no_answer_still_says_bye():
     fake = _FakeDoorbell(None)
     with pytest.raises(signal_client.SignalError):
-        await signal_client.async_orden(
+        await signal_client.async_send_command(
             fake, DEVICE_ID, CREDENTIAL, {"type": "play_audio", "audio_slot": 1},
-            "play_audio_result", plazo=0.3,
+            "play_audio_result", timeout_s=0.3,
         )
     assert fake.posts[-1] == {"type": "bye", "slot": 5}
-    assert fake.cerrada
+    assert fake.closed

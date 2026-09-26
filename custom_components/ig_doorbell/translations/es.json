@@ -1,0 +1,198 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Añadir IG Doorbell",
+        "description": "Introduce la dirección IP del videoportero en tu red local (omite esto si ya aparece como dispositivo descubierto). Home Assistant habla con el videoportero solo por la red local, nunca por internet.",
+        "data": {
+          "host": "Dirección IP del videoportero"
+        }
+      },
+      "zeroconf_confirm": {
+        "title": "Videoportero encontrado en la red",
+        "description": "Se ha encontrado {name} por mDNS. Continúa para emparejarlo."
+      },
+      "pair": {
+        "title": "Emparejar con {name}",
+        "description": "Introduce el correo y la contraseña de administrador que ya creaste en el propio videoportero (app o panel web). Se usan una sola vez para obtener una credencial de acceso; no se guardan.",
+        "data": {
+          "email": "Correo del administrador",
+          "password": "Contraseña"
+        }
+      }
+    },
+    "error": {
+      "not_on_lan": "Home Assistant tiene que estar en la misma red que el videoportero (o en una VLAN enrutada). No ha sido posible conectar directamente con {host}.",
+      "other_device": "En esa dirección ha contestado otro aparato, no este videoportero.",
+      "no_tls": "El videoportero contestó en {host}, pero no en su puerto seguro con un certificado válido. Un videoportero que nunca ha tenido internet aún no tiene certificado y no se puede añadir.",
+      "pair_verify_failed": "El emparejamiento funcionó, pero la credencial nueva fue rechazada por la red local. Se deshizo el emparejamiento en el videoportero; no se ha configurado nada. Inténtalo de nuevo.",
+      "invalid_auth": "Correo o contraseña de administrador incorrectos",
+      "label_in_use": "Otro usuario de este videoportero ya tiene un cliente con el nombre de este Home Assistant. Cambia el nombre de Home Assistant (Ajustes > Sistema > General) e inténtalo de nuevo.",
+      "device_not_paired": "El propio videoportero aún no está registrado: espera un momento e inténtalo de nuevo",
+      "cloud_authorize_failed": "El videoportero no pudo registrar este emparejamiento: inténtalo más tarde"
+    },
+    "abort": {
+      "already_configured": "Este videoportero ya está configurado",
+      "no_device_id": "El anuncio mDNS no incluía un device_id válido",
+      "not_on_lan": "Home Assistant tiene que estar en la misma red que el videoportero (o en una VLAN enrutada). No ha sido posible conectar directamente con {host}.",
+      "other_device": "En esa dirección ha contestado otro aparato, no este videoportero.",
+      "no_tls": "El videoportero contestó en {host}, pero no en su puerto seguro con un certificado válido. Un videoportero que nunca ha tenido internet aún no tiene certificado y no se puede añadir."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "IG Doorbell",
+        "menu_options": {
+          "entities": "Entidades que puede accionar el videoportero",
+          "address": "Dirección del videoportero",
+          "repair": "Volver a emparejar"
+        }
+      },
+      "entities": {
+        "title": "Entidades que puede accionar el videoportero",
+        "description": "Elige las entidades que quieres poder accionar desde el videoportero: para abrir la puerta, o desde un paso de una de sus secuencias. Solo estas se ofrecen en las apps. Hasta {max}.",
+        "data": {
+          "entities": "Entidades"
+        }
+      },
+      "address": {
+        "title": "Dirección del videoportero",
+        "description": "La dirección IP del videoportero en tu red local. Cámbiala si el videoportero se ha movido (IP o VLAN nueva). Home Assistant solo llega al videoportero en esta dirección.",
+        "data": {
+          "host": "Dirección IP del videoportero"
+        }
+      },
+      "repair": {
+        "title": "Volver a emparejar",
+        "description": "Usa esto si se revocó la credencial de acceso. Vuelve a introducir el correo y la contraseña del administrador del videoportero.",
+        "data": {
+          "email": "Correo del administrador",
+          "password": "Contraseña"
+        }
+      }
+    },
+    "error": {
+      "not_on_lan": "Home Assistant tiene que estar en la misma red que el videoportero (o en una VLAN enrutada). No ha sido posible conectar directamente con {host}.",
+      "other_device": "En esa dirección ha contestado otro aparato, no este videoportero.",
+      "invalid_auth": "Correo o contraseña de administrador incorrectos",
+      "no_tls": "El videoportero contestó en {host}, pero no en su puerto seguro con un certificado válido.",
+      "pair_verify_failed": "El emparejamiento funcionó, pero la credencial nueva fue rechazada por la red local. Se deshizo el emparejamiento en el videoportero.",
+      "device_not_paired": "El propio videoportero aún no está registrado",
+      "cloud_authorize_failed": "El videoportero no pudo registrar este emparejamiento",
+      "too_many": "Demasiadas entidades: elige {max} como máximo"
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "visitor": {
+        "name": "Visitante"
+      },
+      "package": {
+        "name": "Paquete en la puerta"
+      },
+      "street_panel": {
+        "name": "Panel de calle"
+      },
+      "fingerprint_reader": {
+        "name": "Lector de huellas"
+      }
+    },
+    "button": {
+      "open_door": {
+        "name": "Abrir puerta"
+      }
+    },
+    "event": {
+      "events": {
+        "name": "Eventos",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "ring": "Timbre",
+              "visitor": "Visitante",
+              "package": "Paquete",
+              "person_with_package": "Persona con paquete",
+              "package_gone": "Paquete retirado",
+              "visitor_message": "Mensaje del visitante",
+              "door_opened": "Puerta abierta",
+              "storage_problem": "Problema de almacenamiento",
+              "unexpected_reboot": "Reinicio inesperado",
+              "client_paired": "App emparejada",
+              "user_added": "Usuario añadido",
+              "user_revoked": "Usuario revocado",
+              "login_failed": "Inicio de sesión fallido",
+              "mode_changed": "Modo cambiado",
+              "ring_suppressed": "Timbre silenciado",
+              "viewer_joined": "Espectador conectado",
+              "key_denied": "Llave denegada",
+              "key_locked": "Llave bloqueada"
+            }
+          }
+        }
+      }
+    },
+    "number": {
+      "live_view_timeout": {
+        "name": "Tiempo de espera de la vista en vivo"
+      }
+    },
+    "select": {
+      "mode": {
+        "name": "Modo",
+        "state": {
+          "normal": "Normal",
+          "away": "Ausente",
+          "do_not_disturb": "No molestar",
+          "custom": "Personalizado"
+        }
+      }
+    },
+    "sensor": {
+      "viewers": {
+        "name": "Espectadores"
+      },
+      "firmware_version": {
+        "name": "Versión de firmware"
+      },
+      "panel_firmware": {
+        "name": "Firmware del panel"
+      }
+    },
+    "switch": {
+      "rec": {
+        "name": "Grabación manual"
+      }
+    }
+  },
+  "services": {
+    "play_sequence": {
+      "name": "Reproducir secuencia",
+      "description": "Lanza una de las secuencias del videoportero (una respuesta rápida que puede hablar, encender una luz o alargar la grabación).",
+      "fields": {
+        "device_id": {
+          "name": "Videoportero",
+          "description": "El videoportero."
+        },
+        "seq_id": {
+          "name": "Id de la secuencia",
+          "description": "Id de la secuencia en el videoportero."
+        }
+      }
+    },
+    "play_audio": {
+      "name": "Reproducir respuesta rápida",
+      "description": "Reproduce por el altavoz del videoportero el audio guardado en una ranura de respuesta rápida.",
+      "fields": {
+        "device_id": {
+          "name": "Videoportero",
+          "description": "El videoportero."
+        },
+        "audio_slot": {
+          "name": "Ranura",
+          "description": "Ranura de respuesta rápida, 1-10."
+        }
+      }
+    }
+  }
+}

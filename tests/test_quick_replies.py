@@ -14,8 +14,8 @@ from homeassistant.setup import async_setup_component
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.islautopia_doorbell import api, websocket_api
-from custom_components.islautopia_doorbell.const import CONF_CREDENTIAL, CONF_DEVICE_ID, DOMAIN
+from custom_components.ig_doorbell import api, websocket_api
+from custom_components.ig_doorbell.const import CONF_CREDENTIAL, CONF_DEVICE_ID, DOMAIN
 
 from .conftest import CREDENTIAL, DEVICE_ID
 
@@ -69,7 +69,7 @@ async def test_async_list_quick_replies_tolerates_a_missing_or_malformed_key():
         assert await api.async_list_quick_replies(fake, DEVICE_ID, CREDENTIAL) == []
 
 
-def _entrada(hass):
+def _entry(hass):
     entry = MockConfigEntry(
         domain=DOMAIN, unique_id=DEVICE_ID,
         data={CONF_DEVICE_ID: DEVICE_ID, CONF_CREDENTIAL: CREDENTIAL},
@@ -80,8 +80,8 @@ def _entrada(hass):
 
 async def test_ws_get_quick_replies_returns_the_list_and_no_credential(hass, hass_ws_client, monkeypatch):
     await async_setup_component(hass, "http", {})
-    entry = _entrada(hass)
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {**entry.data, "sesion": object()}
+    entry = _entry(hass)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {**entry.data, "session": object()}
 
     body = [{"id": 7, "label": "Un momento, por favor", "steps": 1}]
 
@@ -93,7 +93,7 @@ async def test_ws_get_quick_replies_returns_the_list_and_no_credential(hass, has
     monkeypatch.setattr(api, "async_list_quick_replies", _fake_list)
     websocket_api.async_register_websocket_commands(hass)
     ws = await hass_ws_client(hass)
-    await ws.send_json({"id": 1, "type": "islautopia_doorbell/get_quick_replies",
+    await ws.send_json({"id": 1, "type": "ig_doorbell/get_quick_replies",
                         "device_id": DEVICE_ID})
     msg = await ws.receive_json()
     assert msg["success"], msg
@@ -105,7 +105,7 @@ async def test_ws_get_quick_replies_not_found_for_unknown_device(hass, hass_ws_c
     await async_setup_component(hass, "http", {})
     websocket_api.async_register_websocket_commands(hass)
     ws = await hass_ws_client(hass)
-    await ws.send_json({"id": 1, "type": "islautopia_doorbell/get_quick_replies",
+    await ws.send_json({"id": 1, "type": "ig_doorbell/get_quick_replies",
                         "device_id": "no-existe"})
     msg = await ws.receive_json()
     assert not msg["success"]
@@ -114,8 +114,8 @@ async def test_ws_get_quick_replies_not_found_for_unknown_device(hass, hass_ws_c
 
 async def test_ws_get_quick_replies_surfaces_an_unreachable_doorbell(hass, hass_ws_client, monkeypatch):
     await async_setup_component(hass, "http", {})
-    entry = _entrada(hass)
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {**entry.data, "sesion": object()}
+    entry = _entry(hass)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {**entry.data, "session": object()}
 
     async def _boom(session, device_id, credential):
         raise api.DoorbellApiError("no route to host")
@@ -123,7 +123,7 @@ async def test_ws_get_quick_replies_surfaces_an_unreachable_doorbell(hass, hass_
     monkeypatch.setattr(api, "async_list_quick_replies", _boom)
     websocket_api.async_register_websocket_commands(hass)
     ws = await hass_ws_client(hass)
-    await ws.send_json({"id": 1, "type": "islautopia_doorbell/get_quick_replies",
+    await ws.send_json({"id": 1, "type": "ig_doorbell/get_quick_replies",
                         "device_id": DEVICE_ID})
     msg = await ws.receive_json()
     assert not msg["success"]
