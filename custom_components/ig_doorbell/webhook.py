@@ -62,7 +62,7 @@ def webhook_id_de(device_id: str) -> str:
     reconfigurar el portero cada vez que se perdiera, que es peor negocio para lo que hay en juego:
     lo que se puede hacer por aqui es contarle cosas a Home Assistant, no mandarle nada al portero.
     """
-    return f"islautopia_doorbell_{device_id}"
+    return f"ig_doorbell_{device_id}"
 
 
 def _lista_de(hass: HomeAssistant, webhook_id: str) -> list[str] | None:

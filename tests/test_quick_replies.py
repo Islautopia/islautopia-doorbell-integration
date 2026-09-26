@@ -14,8 +14,8 @@ from homeassistant.setup import async_setup_component
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.islautopia_doorbell import api, websocket_api
-from custom_components.islautopia_doorbell.const import CONF_CREDENTIAL, CONF_DEVICE_ID, DOMAIN
+from custom_components.ig_doorbell import api, websocket_api
+from custom_components.ig_doorbell.const import CONF_CREDENTIAL, CONF_DEVICE_ID, DOMAIN
 
 from .conftest import CREDENTIAL, DEVICE_ID
 
@@ -93,7 +93,7 @@ async def test_ws_get_quick_replies_returns_the_list_and_no_credential(hass, has
     monkeypatch.setattr(api, "async_list_quick_replies", _fake_list)
     websocket_api.async_register_websocket_commands(hass)
     ws = await hass_ws_client(hass)
-    await ws.send_json({"id": 1, "type": "islautopia_doorbell/get_quick_replies",
+    await ws.send_json({"id": 1, "type": "ig_doorbell/get_quick_replies",
                         "device_id": DEVICE_ID})
     msg = await ws.receive_json()
     assert msg["success"], msg
@@ -105,7 +105,7 @@ async def test_ws_get_quick_replies_not_found_for_unknown_device(hass, hass_ws_c
     await async_setup_component(hass, "http", {})
     websocket_api.async_register_websocket_commands(hass)
     ws = await hass_ws_client(hass)
-    await ws.send_json({"id": 1, "type": "islautopia_doorbell/get_quick_replies",
+    await ws.send_json({"id": 1, "type": "ig_doorbell/get_quick_replies",
                         "device_id": "no-existe"})
     msg = await ws.receive_json()
     assert not msg["success"]
@@ -123,7 +123,7 @@ async def test_ws_get_quick_replies_surfaces_an_unreachable_doorbell(hass, hass_
     monkeypatch.setattr(api, "async_list_quick_replies", _boom)
     websocket_api.async_register_websocket_commands(hass)
     ws = await hass_ws_client(hass)
-    await ws.send_json({"id": 1, "type": "islautopia_doorbell/get_quick_replies",
+    await ws.send_json({"id": 1, "type": "ig_doorbell/get_quick_replies",
                         "device_id": DEVICE_ID})
     msg = await ws.receive_json()
     assert not msg["success"]

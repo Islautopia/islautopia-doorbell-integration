@@ -16,7 +16,7 @@ import sys
 import tempfile
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
-PKG = "custom_components/islautopia_doorbell/"
+PKG = "custom_components/ig_doorbell/"
 
 MUTANTES = [
     ("resolver falls back to DNS", PKG + "net.py",
@@ -66,6 +66,15 @@ MUTANTES = [
 
 
 def main() -> int:
+    # NEGATIVE CONTROL FIRST: the unmutated suite must be green, or a "killed" mutant proves
+    # nothing (on 2026-09-26 a harness error in the first test made all 17 look killed).
+    r = subprocess.run([sys.executable, "-m", "pytest", "tests", "-q", "-p", "no:cacheprovider"],
+                       cwd=RAIZ, capture_output=True, text=True)
+    if r.returncode != 0:
+        print("ABORT: the unmutated suite is not green - mutants would be meaningless")
+        print(r.stdout[-2000:])
+        return 2
+    print("unmutated suite: green")
     vivos = []
     for nombre, fichero, ancla, cambio in MUTANTES:
         with tempfile.TemporaryDirectory() as tmp:

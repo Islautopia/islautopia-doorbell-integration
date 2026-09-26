@@ -17,7 +17,7 @@ import json
 
 import pytest
 
-from custom_components.islautopia_doorbell.rec_session import RecSession, RecSessionError
+from custom_components.ig_doorbell.rec_session import RecSession, RecSessionError
 
 from .conftest import CREDENTIAL, DEVICE_ID
 

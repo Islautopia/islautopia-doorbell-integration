@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, patch
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResultType
 
-from custom_components.islautopia_doorbell import api, config_flow
-from custom_components.islautopia_doorbell.const import CONF_HOST_HINT, DOMAIN
+from custom_components.ig_doorbell import api, config_flow
+from custom_components.ig_doorbell.const import CONF_HOST_HINT, DOMAIN
 
 from .conftest import CREDENTIAL, DEVICE_ID, LAN_IP
 
@@ -86,7 +86,7 @@ async def test_happy_path_stores_the_ip_and_the_credential(hass):
          patch.object(api, "async_get_states", AsyncMock(return_value={})), \
          patch.object(api, "async_unpair_app", AsyncMock()) as unpair, \
          patch.object(api, "async_logout", AsyncMock()), \
-         patch("custom_components.islautopia_doorbell.async_setup_entry", AsyncMock(return_value=True)):
+         patch("custom_components.ig_doorbell.async_setup_entry", AsyncMock(return_value=True)):
         r = await hass.config_entries.flow.async_configure(
             r["flow_id"], {"email": "a@b.c", "password": "p"}
         )

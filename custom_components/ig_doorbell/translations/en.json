@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Add Islautopia Doorbell",
+        "title": "Add IG Doorbell",
         "description": "Enter the doorbell's IP address on your local network (skip this if it already showed up as a discovered device). Home Assistant talks to the doorbell only over the local network, never through the internet.",
         "data": {
           "host": "Doorbell IP address"
@@ -42,7 +42,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "Islautopia Doorbell",
+        "title": "IG Doorbell",
         "menu_options": {
           "entidades": "Entities the doorbell can act on",
           "direccion": "Doorbell address",

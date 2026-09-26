@@ -72,7 +72,7 @@ from .const import CONF_CREDENTIAL, CONF_DEVICE_ID, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-SIGNAL_PROXY_URL = "/api/islautopia_doorbell/signal"
+SIGNAL_PROXY_URL = "/api/ig_doorbell/signal"
 
 # How long a signed URL stays usable. Long enough to cover a slow page load or a user who opens a
 # dashboard and walks away before the card mounts; short enough that a URL leaking into a log or a
@@ -118,7 +118,7 @@ class DoorbellSignalProxyView(HomeAssistantView):
     """GET streams the doorbell's SSE to the card; POST forwards the card's replies to it."""
 
     url = f"{SIGNAL_PROXY_URL}/{{device_id}}"
-    name = "api:islautopia_doorbell:signal"
+    name = "api:ig_doorbell:signal"
     # Signed paths satisfy this without an Authorization header, which EventSource cannot send.
     requires_auth = True
 

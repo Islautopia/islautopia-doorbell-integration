@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from custom_components.islautopia_doorbell import signal_client
+from custom_components.ig_doorbell import signal_client
 
 from .conftest import CREDENTIAL, DEVICE_ID
 

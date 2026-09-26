@@ -1,11 +1,11 @@
-"""Constants for the Islautopia Doorbell integration.
+"""Constants for the IG Doorbell integration.
 
 See ARCHITECTURE.md (repo root) for the design this implements, and
 API_CONTRACT.md in the IG_Doorbell firmware repo for the interface these values come from.
 """
 from __future__ import annotations
 
-DOMAIN = "islautopia_doorbell"
+DOMAIN = "ig_doorbell"
 
 # --- Webhook (API_CONTRACT.md §4) -----------------------------------------------------------
 # ⚠️ LA MARCA QUE DEVUELVE NUESTRO HANDLER, y no es decorativa: Home Assistant contesta `200` a un
@@ -17,7 +17,7 @@ DOMAIN = "islautopia_doorbell"
 WEBHOOK_MARCA = "igd"
 
 # Señal interna: un sobre del portero, del webhook a las entidades. Una por portero.
-SIGNAL_EVENTO = "islautopia_doorbell_evento_{device_id}"
+SIGNAL_EVENTO = "ig_doorbell_evento_{device_id}"
 
 # Cada cuánto se le pregunta al portero por su estado. Sustituye al LWT de MQTT: si `get_states`
 # falla, las entidades pasan a no disponibles, y eso sale gratis en vez de necesitar un mensaje

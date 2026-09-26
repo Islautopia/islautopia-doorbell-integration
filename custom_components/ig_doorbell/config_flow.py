@@ -1,4 +1,4 @@
-"""Config flow for the Islautopia Doorbell integration.
+"""Config flow for the IG Doorbell integration.
 
 Two ways in:
   - Zeroconf discovery (`_igdoorbell._tcp.local.`, the same service the app/dashboard already
@@ -159,7 +159,7 @@ async def _async_pair(
 
 
 class IslautopiaDoorbellConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for a single Islautopia Doorbell."""
+    """Handle a config flow for a single IG Doorbell."""
 
     VERSION = 1
 

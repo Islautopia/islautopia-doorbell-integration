@@ -12,8 +12,8 @@ from homeassistant.setup import async_setup_component
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.islautopia_doorbell import media_source, websocket_api
-from custom_components.islautopia_doorbell.const import (
+from custom_components.ig_doorbell import media_source, websocket_api
+from custom_components.ig_doorbell.const import (
     CONF_CREDENTIAL, CONF_DEVICE_ID, CONF_HOST_HINT, DOMAIN,
 )
 
@@ -46,7 +46,7 @@ async def test_get_connection_info_carries_no_credential(hass, hass_ws_client):
     _entrada(hass)
     websocket_api.async_register_websocket_commands(hass)
     ws = await hass_ws_client(hass)
-    await ws.send_json({"id": 1, "type": "islautopia_doorbell/get_connection_info",
+    await ws.send_json({"id": 1, "type": "ig_doorbell/get_connection_info",
                         "device_id": DEVICE_ID})
     msg = await ws.receive_json()
     assert msg["success"], msg
@@ -57,7 +57,7 @@ async def test_get_connection_info_carries_no_credential(hass, hass_ws_client):
     assert msg["result"]["device_id"] == DEVICE_ID
     assert "live_timeout_entity" in msg["result"]
 
-    await ws.send_json({"id": 2, "type": "islautopia_doorbell/get_turn_credentials",
+    await ws.send_json({"id": 2, "type": "ig_doorbell/get_turn_credentials",
                         "device_id": DEVICE_ID})
     msg = await ws.receive_json()
     assert not msg["success"]          # the command no longer exists
@@ -75,7 +75,7 @@ async def test_get_connection_info_reports_the_pairings_role_not_the_ha_user(has
     _entrada(hass, role="admin")
     websocket_api.async_register_websocket_commands(hass)
     ws = await hass_ws_client(hass)
-    await ws.send_json({"id": 1, "type": "islautopia_doorbell/get_connection_info",
+    await ws.send_json({"id": 1, "type": "ig_doorbell/get_connection_info",
                         "device_id": DEVICE_ID})
     msg = await ws.receive_json()
     assert msg["success"], msg
@@ -97,7 +97,7 @@ async def test_get_connection_info_role_falls_back_to_unknown_without_a_coordina
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {**entry.data, "sesion": object()}
     websocket_api.async_register_websocket_commands(hass)
     ws = await hass_ws_client(hass)
-    await ws.send_json({"id": 1, "type": "islautopia_doorbell/get_connection_info",
+    await ws.send_json({"id": 1, "type": "ig_doorbell/get_connection_info",
                         "device_id": DEVICE_ID})
     msg = await ws.receive_json()
     assert msg["success"], msg
@@ -115,7 +115,7 @@ async def test_recording_urls_carry_no_credential_nor_cloud_name(hass):
     hijo = nodo.children[0]
     assert CREDENTIAL not in hijo.thumbnail
     assert "islautopia.com" not in hijo.thumbnail
-    assert hijo.thumbnail.startswith("/api/islautopia_doorbell/recording/")
+    assert hijo.thumbnail.startswith("/api/ig_doorbell/recording/")
     assert "authSig=" in hijo.thumbnail
 
     with patch.object(media_source.api, "async_check_recording_playable", AsyncMock()):
@@ -124,7 +124,7 @@ async def test_recording_urls_carry_no_credential_nor_cloud_name(hass):
         )
     assert CREDENTIAL not in play.url
     assert "islautopia.com" not in play.url
-    assert play.url.startswith("/api/islautopia_doorbell/recording/")
+    assert play.url.startswith("/api/ig_doorbell/recording/")
     assert "authSig=" in play.url      # the player gets it as is: unsigned was a 401 on HA 2026.9
 
 
@@ -151,7 +151,7 @@ async def test_recording_view_needs_auth_and_adds_the_credential_server_side(has
             return _Resp()
 
     hass.data[DOMAIN][entry.entry_id]["sesion"] = _Sesion()
-    from custom_components.islautopia_doorbell.recordings_view import (
+    from custom_components.ig_doorbell.recordings_view import (
         async_register_recordings_view, recording_path,
     )
     async_register_recordings_view(hass)

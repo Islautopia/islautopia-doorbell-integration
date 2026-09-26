@@ -10,10 +10,10 @@ the cloud relay. The card now talks ONLY to this Home Assistant (signal_proxy.py
 recordings_view.py), which adds the credential server-side and reaches the doorbell over the LAN.
 
 Three commands:
-  - islautopia_doorbell/get_connection_info: the device id and the entity ids the card reads
+  - ig_doorbell/get_connection_info: the device id and the entity ids the card reads
     (the live-view timeout `number` and the events `event`, so a ring can wake a paused card).
-  - islautopia_doorbell/get_local_signal_url: a short-lived signed URL for the signalling proxy.
-  - islautopia_doorbell/get_quick_replies: the doorbell's quick-reply list (id + label), read
+  - ig_doorbell/get_local_signal_url: a short-lived signed URL for the signalling proxy.
+  - ig_doorbell/get_quick_replies: the doorbell's quick-reply list (id + label), read
     fresh over the LAN each time - same "card enseña, integración expone" rule as the other two.
     The card plays one with the existing `play_sequence` service (services.py); this command only
     supplies the list, never a credential.
@@ -70,7 +70,7 @@ def _find_entry_data(hass: HomeAssistant, device_id: str) -> dict | None:
 
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "islautopia_doorbell/get_connection_info",
+        vol.Required("type"): "ig_doorbell/get_connection_info",
         vol.Required("device_id"): str,
     }
 )
@@ -111,7 +111,7 @@ async def websocket_get_connection_info(hass: HomeAssistant, connection, msg) ->
 
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "islautopia_doorbell/get_local_signal_url",
+        vol.Required("type"): "ig_doorbell/get_local_signal_url",
         vol.Required("device_id"): str,
     }
 )
@@ -146,7 +146,7 @@ async def websocket_get_local_signal_url(hass: HomeAssistant, connection, msg) -
 
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "islautopia_doorbell/get_quick_replies",
+        vol.Required("type"): "ig_doorbell/get_quick_replies",
         vol.Required("device_id"): str,
     }
 )

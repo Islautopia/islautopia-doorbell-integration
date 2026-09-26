@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Añadir Islautopia Doorbell",
+        "title": "Añadir IG Doorbell",
         "description": "Introduce la dirección IP del videoportero en tu red local (omite esto si ya aparece como dispositivo descubierto). Home Assistant habla con el videoportero solo por la red local, nunca por internet.",
         "data": {
           "host": "Dirección IP del videoportero"
@@ -42,7 +42,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "Islautopia Doorbell",
+        "title": "IG Doorbell",
         "menu_options": {
           "entidades": "Entidades que puede accionar el videoportero",
           "direccion": "Dirección del videoportero",

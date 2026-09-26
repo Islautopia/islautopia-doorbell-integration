@@ -1,4 +1,4 @@
-"""The Islautopia Doorbell integration.
+"""The IG Doorbell integration.
 
 Four runtime responsibilities - see ARCHITECTURE.md §3 for the reasoning behind what this
 integration does NOT do:

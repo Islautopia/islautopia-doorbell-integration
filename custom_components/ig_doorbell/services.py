@@ -48,7 +48,7 @@ def _datos(hass: HomeAssistant, ha_device_id: str) -> dict:
         d = stored.get(entry.entry_id)
         if isinstance(d, dict) and d.get(CONF_DEVICE_ID) == ours and "sesion" in d:
             return d
-    raise ServiceValidationError(f"No Islautopia doorbell set up for device {ha_device_id}")
+    raise ServiceValidationError(f"No IG Doorbell set up for device {ha_device_id}")
 
 
 async def _orden(hass: HomeAssistant, call: ServiceCall, mensaje: dict, respuesta: str) -> None:

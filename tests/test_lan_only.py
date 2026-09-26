@@ -11,7 +11,7 @@ from unittest.mock import patch
 import aiohttp
 import pytest
 
-from custom_components.islautopia_doorbell import const, net
+from custom_components.ig_doorbell import const, net
 
 from .conftest import DEVICE_ID, LAN_IP
 

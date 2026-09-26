@@ -4,7 +4,7 @@ play_sequence:
       required: true
       selector:
         device:
-          integration: islautopia_doorbell
+          integration: ig_doorbell
     seq_id:
       required: true
       selector:
@@ -18,7 +18,7 @@ play_audio:
       required: true
       selector:
         device:
-          integration: islautopia_doorbell
+          integration: ig_doorbell
     audio_slot:
       required: true
       selector:

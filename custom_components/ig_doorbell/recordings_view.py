@@ -38,7 +38,7 @@ from .const import CONF_CREDENTIAL, CONF_DEVICE_ID, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-RECORDINGS_URL = "/api/islautopia_doorbell/recording"
+RECORDINGS_URL = "/api/ig_doorbell/recording"
 
 # Thumbnails are listed in the media browser and loaded later by <img>, so their signature must
 # outlive a browsing session. Playback URLs are signed by Home Assistant itself when it resolves the
@@ -87,7 +87,7 @@ class DoorbellRecordingView(HomeAssistantView):
     """GET a recording or its thumbnail from the doorbell, credential added here."""
 
     url = f"{RECORDINGS_URL}/{{device_id}}"
-    name = "api:islautopia_doorbell:recording"
+    name = "api:ig_doorbell:recording"
     requires_auth = True   # an HA session or a signed path; never anonymous
 
     async def get(self, request: web.Request, device_id: str) -> web.StreamResponse:

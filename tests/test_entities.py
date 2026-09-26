@@ -13,8 +13,8 @@ from homeassistant.setup import async_setup_component
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.islautopia_doorbell import api, const, net
-from custom_components.islautopia_doorbell.const import (
+from custom_components.ig_doorbell import api, const, net
+from custom_components.ig_doorbell.const import (
     CONF_CREDENTIAL, CONF_DEVICE_ID, CONF_HOST_HINT, DOMAIN,
 )
 

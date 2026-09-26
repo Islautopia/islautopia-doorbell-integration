@@ -18,8 +18,8 @@ from homeassistant.setup import async_setup_component
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.islautopia_doorbell import api, net
-from custom_components.islautopia_doorbell.const import (
+from custom_components.ig_doorbell import api, net
+from custom_components.ig_doorbell.const import (
     CONF_CREDENTIAL, CONF_DEVICE_ID, CONF_HOST_HINT, DOMAIN,
 )
 
@@ -97,7 +97,7 @@ async def test_turning_on_holds_a_session_and_reflects_its_real_state(hass):
     entry = await _montar(hass)
     ent = _rec_entity_id(hass)
 
-    with patch("custom_components.islautopia_doorbell.switch.RecSession", _FakeRecSession):
+    with patch("custom_components.ig_doorbell.switch.RecSession", _FakeRecSession):
         await hass.services.async_call("switch", "turn_on", {"entity_id": ent}, blocking=True)
 
     estado = hass.states.get(ent)
@@ -111,7 +111,7 @@ async def test_turning_off_stops_the_held_session(hass):
     entry = await _montar(hass)
     ent = _rec_entity_id(hass)
 
-    with patch("custom_components.islautopia_doorbell.switch.RecSession", _FakeRecSession):
+    with patch("custom_components.ig_doorbell.switch.RecSession", _FakeRecSession):
         await hass.services.async_call("switch", "turn_on", {"entity_id": ent}, blocking=True)
         await hass.services.async_call("switch", "turn_off", {"entity_id": ent}, blocking=True)
 
@@ -129,7 +129,7 @@ async def test_the_doorbell_ending_the_recording_turns_the_switch_off_by_itself(
     entry = await _montar(hass)
     ent = _rec_entity_id(hass)
 
-    with patch("custom_components.islautopia_doorbell.switch.RecSession", _FakeRecSession):
+    with patch("custom_components.ig_doorbell.switch.RecSession", _FakeRecSession):
         await hass.services.async_call("switch", "turn_on", {"entity_id": ent}, blocking=True)
         assert hass.states.get(ent).state == "on"
 
@@ -149,7 +149,7 @@ async def test_a_refusal_never_leaves_the_switch_on(hass):
     entry = await _montar(hass)
     ent = _rec_entity_id(hass)
 
-    with patch("custom_components.islautopia_doorbell.switch.RecSession", _FakeRecSessionRefused):
+    with patch("custom_components.ig_doorbell.switch.RecSession", _FakeRecSessionRefused):
         with pytest.raises(HomeAssistantError):
             await hass.services.async_call("switch", "turn_on", {"entity_id": ent}, blocking=True)
 
@@ -162,7 +162,7 @@ async def test_unloading_the_entry_closes_an_open_rec_session_no_leak(hass):
     entry = await _montar(hass)
     ent = _rec_entity_id(hass)
 
-    with patch("custom_components.islautopia_doorbell.switch.RecSession", _FakeRecSession):
+    with patch("custom_components.ig_doorbell.switch.RecSession", _FakeRecSession):
         await hass.services.async_call("switch", "turn_on", {"entity_id": ent}, blocking=True)
     sesion = _FakeRecSession.instancias[-1]
     assert not sesion.parada
