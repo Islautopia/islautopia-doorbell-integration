@@ -2,14 +2,14 @@
 recording lasts, so a manual recording started from Home Assistant does not stop the moment the
 integration's own session ends.
 
-## Why this exists, and why signal_client.py's `async_orden` is not enough (Iñaki, 2026-09-25)
+## Why this exists, and why signal_client.py's `async_send_command` is not enough (Iñaki, 2026-09-25)
 
 Quick replies and sequences (signal_client.py) are one-shot: open the local SSE, take the `slot`
 from the `offer`, POST the message, read the reply, say `bye` - done in under a second.
 
 REC is not one-shot. Measured on the Waveshare (fw 0.100.0, 2026-09-25) and written into
 API_CONTRACT.md §1.4-quater rule 4: **a manual recording started with `rec_start` stops the
-moment the session that pressed it ends.** `async_orden` says `bye` in its `finally` right after
+moment the session that pressed it ends.** `async_send_command` says `bye` in its `finally` right after
 the first reply, so a REC fired that way recorded for a fraction of a second and stopped. Iñaki's
 call: keep the session open for as long as the recording should run, not add a firmware route.
 
@@ -49,8 +49,8 @@ _LOGGER = logging.getLogger(__name__)
 _SSE_TIMEOUT = aiohttp.ClientTimeout(total=None, connect=8, sock_read=None)
 _POST_TIMEOUT = aiohttp.ClientTimeout(total=8)
 
-# The doorbell's own refusal reasons (§1.4-quater), same spirit as services.py's `_ERRORES`.
-_ERRORES = {
+# The doorbell's own refusal reasons (§1.4-quater), same spirit as services.py's `_ERRORS`.
+_ERRORS = {
     "admin_required": "This pairing is not an administrator of the doorbell.",
     "no_sd": "The doorbell has no usable SD card right now.",
     "busy": "The doorbell is already recording something else.",
@@ -66,12 +66,12 @@ class RecSession:
 
     def __init__(
         self,
-        sesion: aiohttp.ClientSession,
+        session: aiohttp.ClientSession,
         device_id: str,
         credential: str,
         on_update: Callable[[], None],
     ) -> None:
-        self._sesion = sesion
+        self._session = session
         self._device_id = device_id
         self._credential = credential
         self._on_update = on_update
@@ -84,7 +84,7 @@ class RecSession:
         self.sd_available: bool | None = None
         self.closed = False
 
-    async def start(self, *, plazo: float = 8.0) -> None:
+    async def start(self, *, timeout_s: float = 8.0) -> None:
         """Opens the session and sends `rec_start`; returns once the first `rec_state` (or a
         refusal) arrives. The background reader keeps running after this returns - that is what
         keeps the slot and lets a LATER `rec_state:false` close things down on its own.
@@ -92,7 +92,7 @@ class RecSession:
         base = f"https://{api.doorbell_hostname(self._device_id)}:8443"
         token = quote(self._credential)
         try:
-            self._resp = await self._sesion.get(
+            self._resp = await self._session.get(
                 f"{base}/webrtc/signal?token={token}", timeout=_SSE_TIMEOUT
             )
         except (aiohttp.ClientError, OSError, TimeoutError) as err:
@@ -102,13 +102,13 @@ class RecSession:
         if self._resp.status != 200:
             raise RecSessionError(f"signal SSE -> HTTP {self._resp.status}")
 
-        primero: asyncio.Future = asyncio.get_running_loop().create_future()
-        self._task = asyncio.create_task(self._leer(primero))
+        first_ready: asyncio.Future = asyncio.get_running_loop().create_future()
+        self._task = asyncio.create_task(self._read(first_ready))
         try:
-            await asyncio.wait_for(asyncio.shield(primero), plazo)
+            await asyncio.wait_for(asyncio.shield(first_ready), timeout_s)
         except TimeoutError as err:
             await self.stop()
-            raise RecSessionError(f"no rec_state within {plazo:.0f} s") from err
+            raise RecSessionError(f"no rec_state within {timeout_s:.0f} s") from err
         except Exception:
             await self.stop()
             raise
@@ -116,7 +116,7 @@ class RecSession:
     async def _post(self, msg: dict) -> None:
         base = f"https://{api.doorbell_hostname(self._device_id)}:8443"
         token = quote(self._credential)
-        async with self._sesion.post(
+        async with self._session.post(
             f"{base}/webrtc/signal/post?token={token}",
             data=json.dumps(msg),
             headers={"Content-Type": "application/json"},
@@ -127,55 +127,55 @@ class RecSession:
             if r.status != 200:
                 raise RecSessionError(f"signal POST -> HTTP {r.status}")
 
-    async def _leer(self, primero: asyncio.Future) -> None:
-        enviado = False
+    async def _read(self, first_ready: asyncio.Future) -> None:
+        sent = False
         try:
-            async for linea in self._resp.content:
-                linea = linea.strip()
-                if not linea.startswith(b"data:"):
+            async for line in self._resp.content:
+                line = line.strip()
+                if not line.startswith(b"data:"):
                     continue
                 try:
-                    msg = json.loads(linea[5:])
+                    msg = json.loads(line[5:])
                 except ValueError:
                     continue
-                tipo = msg.get("type")
+                msg_type = msg.get("type")
 
-                if tipo == "error" and msg.get("reason") == "sessions_full":
-                    self._fallar(primero, RecSessionError("sessions_full"))
+                if msg_type == "error" and msg.get("reason") == "sessions_full":
+                    self._fail(first_ready, RecSessionError("sessions_full"))
                     return
 
-                if tipo == "offer" and self._slot is None and isinstance(msg.get("slot"), int):
+                if msg_type == "offer" and self._slot is None and isinstance(msg.get("slot"), int):
                     self._slot = msg["slot"]
                     try:
                         await self._post({"type": "rec_start", "slot": self._slot})
                     except api.DoorbellApiError as err:
-                        self._fallar(primero, err)
+                        self._fail(first_ready, err)
                         return
-                    enviado = True
+                    sent = True
                     continue
 
-                if not enviado:
+                if not sent:
                     continue
 
-                if tipo == "rec_error" and not primero.done():
-                    primero.set_exception(
-                        RecSessionError(_ERRORES.get(msg.get("error"), msg.get("error")))
+                if msg_type == "rec_error" and not first_ready.done():
+                    first_ready.set_exception(
+                        RecSessionError(_ERRORS.get(msg.get("error"), msg.get("error")))
                     )
                     # Rule: "after every rec_start/rec_stop, accepted or not, the requester also
                     # gets rec_state" (§1.4-quater) - it is on its way, but the refusal already
                     # said everything the caller of start() needs; nothing here waits for it.
                     continue
 
-                if tipo == "rec_state":
+                if msg_type == "rec_state":
                     self.recording = bool(msg.get("recording"))
                     self.kind = msg.get("kind")
                     self.origin = msg.get("origin")
                     self.sd_available = msg.get("sd_available")
-                    ya_arrancado = primero.done()
-                    if not primero.done():
-                        primero.set_result(None)
+                    already_started = first_ready.done()
+                    if not first_ready.done():
+                        first_ready.set_result(None)
                     self._on_update()
-                    if not self.recording and ya_arrancado:
+                    if not self.recording and already_started:
                         # The doorbell ended it on its own (10 min cap, an admin stopping it from
                         # elsewhere, a ring taking the slot for a call, ...): hold nothing further.
                         asyncio.create_task(self.stop())
@@ -183,16 +183,16 @@ class RecSession:
         except asyncio.CancelledError:
             raise
         except (aiohttp.ClientError, OSError) as err:
-            ya_arrancado = primero.done()
-            self._fallar(primero, api.DoorbellApiError(f"signalling session lost: {err}"))
-            if ya_arrancado:
+            already_started = first_ready.done()
+            self._fail(first_ready, api.DoorbellApiError(f"signalling session lost: {err}"))
+            if already_started:
                 # start() already returned successfully, so nobody else is waiting to call
                 # stop() for this failure - do it here, same as the rec_state branch above.
                 asyncio.create_task(self.stop())
 
-    def _fallar(self, primero: asyncio.Future, err: Exception) -> None:
-        if not primero.done():
-            primero.set_exception(err)
+    def _fail(self, first_ready: asyncio.Future, err: Exception) -> None:
+        if not first_ready.done():
+            first_ready.set_exception(err)
         self.recording = False
         self._on_update()
 
@@ -205,7 +205,7 @@ class RecSession:
             if self.recording:
                 try:
                     await self._post({"type": "rec_stop", "slot": self._slot})
-                except Exception:  # noqa: BLE001 - best effort, matching signal_client.async_orden
+                except Exception:  # noqa: BLE001 - best effort, matching signal_client.async_send_command
                     _LOGGER.debug("rec_stop failed", exc_info=True)
             try:
                 await self._post({"type": "bye", "slot": self._slot})

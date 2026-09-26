@@ -31,15 +31,15 @@ from custom_components.ig_doorbell.const import (
 from .conftest import CREDENTIAL, DEVICE_ID, LAN_IP
 
 
-async def _montar(hass, *, title: str, estado: dict):
+async def _setup(hass, *, title: str, state: dict):
     await async_setup_component(hass, "http", {})
     entry = MockConfigEntry(
         domain=DOMAIN, unique_id=DEVICE_ID, title=title,
         data={CONF_DEVICE_ID: DEVICE_ID, CONF_CREDENTIAL: CREDENTIAL, CONF_HOST_HINT: LAN_IP},
     )
     entry.add_to_hass(hass)
-    with patch.object(net, "es_este_portero", AsyncMock(return_value=True)), \
-         patch.object(api, "async_get_states", AsyncMock(return_value=estado)), \
+    with patch.object(net, "is_this_doorbell", AsyncMock(return_value=True)), \
+         patch.object(api, "async_get_states", AsyncMock(return_value=state)), \
          patch.object(api, "async_get_firmware_info", AsyncMock(return_value={})), \
          patch.object(api, "async_get_role", AsyncMock(return_value="admin")), \
          patch.object(api, "async_set_hass_config", AsyncMock()):
@@ -50,32 +50,32 @@ async def _montar(hass, *, title: str, estado: dict):
 
 async def test_an_entry_named_by_its_bare_device_id_fixes_itself_on_startup(hass):
     """The Ermita case: upgrading to this version, with no new poll needed, fixes a stale title."""
-    entry = await _montar(hass, title=DEVICE_ID, estado={"m": 0, "door_m": 0, "dname": "Ermita"})
+    entry = await _setup(hass, title=DEVICE_ID, state={"m": 0, "door_m": 0, "dname": "Ermita"})
     assert entry.title == "Ermita"
-    dispositivo = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, DEVICE_ID)})
-    assert dispositivo.name == "Ermita"
+    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, DEVICE_ID)})
+    assert device.name == "Ermita"
 
 
 async def test_nameless_doorbell_never_falls_back_to_the_bare_id(hass):
-    entry = await _montar(hass, title=DEVICE_ID, estado={"m": 0, "door_m": 0, "dname": ""})
+    entry = await _setup(hass, title=DEVICE_ID, state={"m": 0, "door_m": 0, "dname": ""})
     assert entry.title != DEVICE_ID
     assert DEVICE_ID in entry.title       # e.g. "IG Doorbell <device_id>" - still identifiable
     assert entry.title.startswith("IG Doorbell")
 
 
 async def test_a_later_rename_on_the_doorbell_updates_title_and_device_without_touching_entity_id(hass):
-    estado = {"m": 0, "door_m": 0, "dname": "Puerta Principal"}
-    entry = await _montar(hass, title="Puerta Principal", estado=estado)
+    state = {"m": 0, "door_m": 0, "dname": "Puerta Principal"}
+    entry = await _setup(hass, title="Puerta Principal", state=state)
 
     reg_e = er.async_get(hass)
-    mode_before = reg_e.async_get_entity_id("select", DOMAIN, f"{DEVICE_ID}_modo")
+    mode_before = reg_e.async_get_entity_id("select", DOMAIN, f"{DEVICE_ID}_mode")
     assert mode_before is not None
 
     # Mutated in place: the mock returns this same dict on every future poll too.
-    estado["dname"] = "Puerta Trasera"
+    state["dname"] = "Puerta Trasera"
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    with patch.object(net, "es_este_portero", AsyncMock(return_value=True)), \
-         patch.object(api, "async_get_states", AsyncMock(return_value=estado)), \
+    with patch.object(net, "is_this_doorbell", AsyncMock(return_value=True)), \
+         patch.object(api, "async_get_states", AsyncMock(return_value=state)), \
          patch.object(api, "async_get_firmware_info", AsyncMock(return_value={})), \
          patch.object(api, "async_get_role", AsyncMock(return_value="admin")), \
          patch.object(api, "async_set_hass_config", AsyncMock()):
@@ -83,30 +83,30 @@ async def test_a_later_rename_on_the_doorbell_updates_title_and_device_without_t
         await hass.async_block_till_done()
 
     assert entry.title == "Puerta Trasera"
-    dispositivo = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, DEVICE_ID)})
-    assert dispositivo.name == "Puerta Trasera"
+    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, DEVICE_ID)})
+    assert device.name == "Puerta Trasera"
 
-    mode_after = reg_e.async_get_entity_id("select", DOMAIN, f"{DEVICE_ID}_modo")
+    mode_after = reg_e.async_get_entity_id("select", DOMAIN, f"{DEVICE_ID}_mode")
     assert mode_after == mode_before
 
 
 async def test_a_manual_device_rename_in_ha_is_never_overwritten(hass):
     """`name_by_user` is the user's own override; this sync must never touch it."""
-    estado = {"m": 0, "door_m": 0, "dname": "Puerta Principal"}
-    entry = await _montar(hass, title="Puerta Principal", estado=estado)
+    state = {"m": 0, "door_m": 0, "dname": "Puerta Principal"}
+    entry = await _setup(hass, title="Puerta Principal", state=state)
 
-    registro = dr.async_get(hass)
-    dispositivo = registro.async_get_device(identifiers={(DOMAIN, DEVICE_ID)})
-    registro.async_update_device(dispositivo.id, name_by_user="Como yo la llamo")
+    registry = dr.async_get(hass)
+    device = registry.async_get_device(identifiers={(DOMAIN, DEVICE_ID)})
+    registry.async_update_device(device.id, name_by_user="Como yo la llamo")
 
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    with patch.object(net, "es_este_portero", AsyncMock(return_value=True)), \
-         patch.object(api, "async_get_states", AsyncMock(return_value=estado)), \
+    with patch.object(net, "is_this_doorbell", AsyncMock(return_value=True)), \
+         patch.object(api, "async_get_states", AsyncMock(return_value=state)), \
          patch.object(api, "async_get_firmware_info", AsyncMock(return_value={})), \
          patch.object(api, "async_get_role", AsyncMock(return_value="admin")), \
          patch.object(api, "async_set_hass_config", AsyncMock()):
         await coordinator.async_refresh()
         await hass.async_block_till_done()
 
-    dispositivo = registro.async_get_device(identifiers={(DOMAIN, DEVICE_ID)})
-    assert dispositivo.name_by_user == "Como yo la llamo"
+    device = registry.async_get_device(identifiers={(DOMAIN, DEVICE_ID)})
+    assert device.name_by_user == "Como yo la llamo"

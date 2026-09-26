@@ -44,26 +44,26 @@
       "init": {
         "title": "IG Doorbell",
         "menu_options": {
-          "entidades": "Entidades que puede accionar el videoportero",
-          "direccion": "Dirección del videoportero",
-          "reemparejar": "Volver a emparejar"
+          "entities": "Entidades que puede accionar el videoportero",
+          "address": "Dirección del videoportero",
+          "repair": "Volver a emparejar"
         }
       },
-      "entidades": {
+      "entities": {
         "title": "Entidades que puede accionar el videoportero",
         "description": "Elige las entidades que quieres poder accionar desde el videoportero: para abrir la puerta, o desde un paso de una de sus secuencias. Solo estas se ofrecen en las apps. Hasta {max}.",
         "data": {
-          "entidades": "Entidades"
+          "entities": "Entidades"
         }
       },
-      "direccion": {
+      "address": {
         "title": "Dirección del videoportero",
         "description": "La dirección IP del videoportero en tu red local. Cámbiala si el videoportero se ha movido (IP o VLAN nueva). Home Assistant solo llega al videoportero en esta dirección.",
         "data": {
           "host": "Dirección IP del videoportero"
         }
       },
-      "reemparejar": {
+      "repair": {
         "title": "Volver a emparejar",
         "description": "Usa esto si se revocó la credencial de acceso. Vuelve a introducir el correo y la contraseña del administrador del videoportero.",
         "data": {
@@ -80,7 +80,7 @@
       "pair_verify_failed": "El emparejamiento funcionó, pero la credencial nueva fue rechazada por la red local. Se deshizo el emparejamiento en el videoportero.",
       "device_not_paired": "El propio videoportero aún no está registrado",
       "cloud_authorize_failed": "El videoportero no pudo registrar este emparejamiento",
-      "demasiadas": "Demasiadas entidades: elige {max} como máximo"
+      "too_many": "Demasiadas entidades: elige {max} como máximo"
     }
   },
   "entity": {

@@ -1,20 +1,21 @@
-"""UNA entidad de evento que lleva TODO lo que el portero puede contar (§1.16).
+"""ONE event entity that carries EVERYTHING the doorbell can report (§1.16).
 
-## Por que una sola, y no una por evento
+## Why a single one, not one per event
 
-Porque el catalogo crece. §1.16 tiene hoy 24 entradas y ya ha crecido tres veces este mes, y una
-entidad por evento significa que **una funcion nueva del portero es invisible hasta que alguien
-actualice esta integracion**. Con una sola entidad y la lista de tipos abierta, un evento que este
-codigo no conozca llega igual y se puede automatizar el mismo dia.
+Because the catalog grows. §1.16 has 24 entries today and has already grown three times this
+month, and one entity per event would mean **a new doorbell feature is invisible until someone
+updates this integration**. With a single entity and an open list of types, an event this code
+does not know about still arrives and can be automated the same day.
 
-Es ademas lo que Home Assistant espera de algo momentaneo: un timbrazo no tiene estado, tiene
-instante. Modelarlo como un `binary_sensor` que se enciende y se apaga obliga a inventarse cuanto
-dura -- y quien mire medio segundo tarde no ve nada.
+It is also what Home Assistant expects of something momentary: a ring has no state, it has an
+instant. Modelling it as a `binary_sensor` that turns on and off forces you to invent how long it
+lasts - and whoever looks half a second late sees nothing.
 
-## Lo que NO hace
+## What it does NOT do
 
-No filtra. El unico evento que se descarta aqui es `hass_action`, y no es un evento: es una orden
-(§4), que ni sale en la campanita ni deberia salir aqui -- seria una entrada por cada bombilla.
+It does not filter. The only event dropped here is `hass_action`, and it is not an event: it is a
+command (§4), which should not show up in the bell icon nor here - it would be one entry per
+light bulb.
 """
 from __future__ import annotations
 
@@ -25,15 +26,15 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
-from .const import DOMAIN, SIGNAL_EVENTO
+from .const import DOMAIN, SIGNAL_EVENT
 from .coordinator import DoorbellCoordinator
 from .entity import AddEntities, DoorbellEntity
 
 _LOGGER = logging.getLogger(__name__)
 
-# Los identificadores de §3.6.1. Se listan para que Home Assistant los ofrezca en el editor de
-# automatizaciones -- **no para filtrar**: uno que no este aqui se acepta igual (ver `_recibido`).
-TIPOS_CONOCIDOS = [
+# The identifiers from §3.6.1. Listed so Home Assistant offers them in the automation editor -
+# **not to filter**: one that is not here is accepted just the same (see `_received`).
+KNOWN_EVENT_TYPES = [
     "ring", "visitor", "package", "person_with_package", "package_gone",
     "visitor_message", "door_opened", "storage_problem", "unexpected_reboot",
     "client_paired", "user_added", "user_revoked", "login_failed",
@@ -46,50 +47,50 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntities
 ) -> None:
     coordinator: DoorbellCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    async_add_entities([DoorbellEventos(coordinator)])
+    async_add_entities([DoorbellEvents(coordinator)])
 
 
-class DoorbellEventos(DoorbellEntity, EventEntity):
-    """Todo lo que ocurre en la puerta, en una entidad."""
+class DoorbellEvents(DoorbellEntity, EventEntity):
+    """Everything that happens at the door, in one entity."""
 
     _attr_translation_key = "events"
     _attr_icon = "mdi:bell-ring-outline"
-    _attr_event_types = TIPOS_CONOCIDOS
+    _attr_event_types = KNOWN_EVENT_TYPES
 
     def __init__(self, coordinator: DoorbellCoordinator) -> None:
-        super().__init__(coordinator, "eventos")
+        super().__init__(coordinator, "events")
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass,
-                SIGNAL_EVENTO.format(device_id=self.coordinator.device_id),
-                self._recibido,
+                SIGNAL_EVENT.format(device_id=self.coordinator.device_id),
+                self._received,
             )
         )
 
     @callback
-    def _recibido(self, sobre: dict) -> None:
-        ev = sobre.get("ev")
+    def _received(self, envelope: dict) -> None:
+        ev = envelope.get("ev")
         if not ev:
             return
 
-        # Un tipo que no estaba en la lista se ANADE en caliente en vez de descartarse. Sin esto,
-        # un evento nuevo del portero se perderia en silencio hasta que alguien actualizara esta
-        # integracion -- y el sintoma seria "esa funcion no llega a Home Assistant", que nadie
-        # relaciona con una lista de constantes.
+        # A type that was not in the list gets ADDED on the fly instead of being dropped. Without
+        # this, a new doorbell event would be silently lost until someone updated this
+        # integration - and the symptom would be "that feature never reaches Home Assistant",
+        # which nobody connects to a list of constants.
         if ev not in self._attr_event_types:
-            _LOGGER.info("Evento '%s' que esta integracion no conocia: se acepta igual", ev)
+            _LOGGER.info("Event '%s' this integration did not know about: accepted anyway", ev)
             self._attr_event_types = [*self._attr_event_types, ev]
 
-        # Todo el sobre viaja como atributos, `d` aplanado. Es lo que hace que una automatizacion
-        # pueda mirar `rec` --el clip al que lleva este aviso (§1.7-quater)-- o `by`, sin que esta
-        # integracion tenga que conocer cada campo de cada evento.
-        atributos = {k: v for k, v in sobre.items() if k not in ("ev", "type", "d")}
-        d = sobre.get("d")
+        # The whole envelope travels as attributes, `d` flattened. This is what lets an automation
+        # look at `rec` - the clip this notice points to (§1.7-quater) - or `by`, without this
+        # integration having to know every field of every event.
+        attributes = {k: v for k, v in envelope.items() if k not in ("ev", "type", "d")}
+        d = envelope.get("d")
         if isinstance(d, dict):
-            atributos.update(d)
+            attributes.update(d)
 
-        self._trigger_event(ev, atributos)
+        self._trigger_event(ev, attributes)
         self.async_write_ha_state()

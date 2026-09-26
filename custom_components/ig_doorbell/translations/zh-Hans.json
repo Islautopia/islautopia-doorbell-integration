@@ -3,19 +3,19 @@
     "step": {
       "init": {
         "menu_options": {
-          "entidades": "门铃可以操作的实体"
+          "entities": "门铃可以操作的实体"
         }
       },
-      "entidades": {
+      "entities": {
         "title": "门铃可以操作的实体",
         "description": "选择您希望门铃可以操作的实体——用于开门，或用于其某个序列中的一个步骤。应用中只会提供这些实体。最多 {max} 个。",
         "data": {
-          "entidades": "实体"
+          "entities": "实体"
         }
       }
     },
     "error": {
-      "demasiadas": "实体过多——最多选择 {max} 个"
+      "too_many": "实体过多——最多选择 {max} 个"
     }
   },
   "entity": {

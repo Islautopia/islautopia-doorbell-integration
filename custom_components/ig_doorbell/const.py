@@ -8,51 +8,52 @@ from __future__ import annotations
 DOMAIN = "ig_doorbell"
 
 # --- Webhook (API_CONTRACT.md §4) -----------------------------------------------------------
-# ⚠️ LA MARCA QUE DEVUELVE NUESTRO HANDLER, y no es decorativa: Home Assistant contesta `200` a un
-# webhook que NO existe (medido el 2026-08-24 contra un HA real, con el cuerpo vacío), a propósito,
-# para que nadie pueda enumerar los webhook de una instalación probándolos. Así que por código de
-# estado el portero no puede distinguir «entregado» de «HA se olvidó de mí», y uno cuya integración
-# se borró dispararía al vacío para siempre con su contador de fallos en cero. La marca es lo único
-# que rompe ese empate. Ver webhook.py.
-WEBHOOK_MARCA = "igd"
+# ⚠️ THE MARKER OUR HANDLER RETURNS, and it is not decorative: Home Assistant answers `200` to a
+# webhook that does NOT exist (measured 2026-08-24 against a real HA, with an empty body), on
+# purpose, so nobody can enumerate an installation's webhooks by probing them. So by status code
+# alone the doorbell cannot tell "delivered" from "HA forgot about me", and one whose integration
+# was removed would keep firing into the void forever with its failure counter at zero. The marker
+# is the only thing that breaks that tie. See webhook.py.
+WEBHOOK_MARKER = "igd"
 
-# Señal interna: un sobre del portero, del webhook a las entidades. Una por portero.
-SIGNAL_EVENTO = "ig_doorbell_evento_{device_id}"
+# Internal signal: one doorbell envelope, from the webhook to the entities. One per doorbell.
+SIGNAL_EVENT = "ig_doorbell_event_{device_id}"
 
-# Cada cuánto se le pregunta al portero por su estado. Sustituye al LWT de MQTT: si `get_states`
-# falla, las entidades pasan a no disponibles, y eso sale gratis en vez de necesitar un mensaje
-# póstumo que alguien tenga que configurar.
+# How often the doorbell is asked for its state. Replaces MQTT's LWT: if `get_states` fails, the
+# entities go unavailable, and that comes for free instead of needing a last-will message someone
+# has to configure.
 #
-# 30 s y no 5: casi todo lo que cambia deprisa llega **empujado** por el webhook, así que el sondeo
-# solo cubre lo que cambia sin avisar (el modo desde el dashboard, el número de espectadores, que
-# aparezca un panel de calle). Sondear más a menudo castigaría al portero -- `esp_http_server`
-# atiende de una en una-- para refrescar cosas que casi nunca se mueven.
-INTERVALO_SONDEO = 30
+# 30 s and not 5: almost everything that changes fast arrives **pushed** by the webhook, so polling
+# only covers what changes without notice (the mode from the doorbell's own dashboard, the viewer
+# count, a street panel showing up). Polling more often would punish the doorbell -
+# `esp_http_server` serves one request at a time - to refresh things that almost never move.
+POLL_INTERVAL = 30
 
-# --- Entidades de Home Assistant que el portero puede accionar (§4) ---------------------------
-# ⚠️ 5 (Inaki, 2026-09-25: «hasta 5»), y no es un limite de memoria: esta lista es la LISTA BLANCA
-# de lo que el portero puede mover en la casa -- la puerta y los pasos `hass` solo pueden apuntar
-# a una de estas. Una lista blanca corta se revisa de un vistazo. Hasta la 0.7.5 eran 24. El
-# portero rechaza con `400 too_many_entities` en vez de recortar.
-MAX_ENTIDADES = 5
-CONF_ENTIDADES = "entidades"
+# --- Home Assistant entities the doorbell may act on (§4) --------------------------------------
+# ⚠️ 5 (Inaki, 2026-09-25: "up to 5"), and it is not a memory limit: this list is the WHITELIST of
+# what the doorbell can move in the house - the door and the `hass` steps may only point at one of
+# these. A short whitelist is reviewed at a glance. Up to 0.7.5 there were 24. The doorbell refuses
+# with `400 too_many_entities` instead of trimming.
+MAX_ENTITIES = 5
+CONF_ENTITIES = "entities"
 
-# --- El modo del portero (§1.2, campo `m`) ----------------------------------------------------
-# ⚠️ El 2 se llamaba "Noche" y el contrato lo nombraba de las dos formas, lo que llevaba a que cada
-# cliente eligiera una. Unificado a **"No molestar"**, que describe lo que hace en vez de cuándo se
-# supone que se usa. El valor numérico NO cambia: sigue siendo 2, así que no hay nada que migrar.
+# --- The doorbell's mode (§1.2, field `m`) -----------------------------------------------------
+# ⚠️ 2 used to be called "Night" and the contract named it both ways, which led every client to
+# pick one. Unified to **"Do not disturb"**, which describes what it does instead of when it is
+# supposed to be used. The numeric value does NOT change: it stays 2, so there is nothing to
+# migrate.
 #
-# ⚠️ Los valores son CLAVES de traduccion (2026-09-25), no textos: Home Assistant traduce el estado de
-# un `select` con `translation_key`, asi que lo que lee el dueno sale en su idioma y lo que guarda
-# una automatizacion es estable. Hasta la 0.6.x el estado era el texto en espanol ("Ausente").
-MODOS: dict[int, str] = {
+# ⚠️ The values are translation KEYS (2026-09-25), not text: Home Assistant translates a `select`'s
+# state through `translation_key`, so what the owner reads comes out in their own language and what
+# an automation stores stays stable. Up to 0.6.x the state was the Spanish text itself ("Ausente").
+MODES: dict[int, str] = {
     0: "normal",
     1: "away",
     2: "do_not_disturb",
     3: "custom",
 }
 
-# El tiempo de espera de la vista en vivo (entidad `number`, lo aplica la card). Ver number.py.
+# The live-view timeout (`number` entity, applied by the card). See number.py.
 LIVE_TIMEOUT_DEFAULT_S = 120
 LIVE_TIMEOUT_MAX_S = 3600
 
@@ -67,14 +68,14 @@ CONF_LABEL = "label"
 DEFAULT_PAIR_LABEL = "Home Assistant"
 
 
-def nombre_generico(device_id: str) -> str:
-    """El nombre a mostrar cuando el portero no tiene `dname` configurado (§0-bis).
+def generic_name(device_id: str) -> str:
+    """The name to show when the doorbell has no `dname` configured (§0-bis).
 
-    ⚠️ NUNCA el id a secas (Inaki, 2026-09-26): «el nombre del portero si es util, el id
-    despista mucho» -- buscando donde configurar sus entidades no reconocio la entrada porque
-    se llamaba igual que su device_id. Mismo formato que sintetiza el propio firmware para su
-    instancia mDNS cuando nadie ha bautizado el portero (API_CONTRACT.md, mDNS/Zeroconf,
-    "IG Doorbell <device_id>"), para que el generico sea el mismo en todos los clientes.
+    ⚠️ NEVER the bare id (Inaki, 2026-09-26): "the doorbell's name is actually useful, the id
+    throws you off" - looking for where to configure its entities, he did not recognize the entry
+    because it was named exactly like its device_id. Same format the firmware itself synthesizes
+    for its mDNS instance when nobody has named the doorbell (API_CONTRACT.md, mDNS/Zeroconf,
+    "IG Doorbell <device_id>"), so the generic name is the same across every client.
     """
     return f"IG Doorbell {device_id}"
 
@@ -119,7 +120,7 @@ DOORBELL_HOSTNAME_SUFFIX = "doorbell.islautopia.com"
 #
 # In a LOCK, "on" means OPEN (`lock.unlock`) and "off" means CLOSE (`lock.lock`). Everything else
 # maps to `turn_on` / `turn_off` of its own domain.
-DOMINIOS_PERMITIDOS: tuple[str, ...] = ("fan", "input_boolean", "light", "lock", "siren", "switch")
+ALLOWED_DOMAINS: tuple[str, ...] = ("fan", "input_boolean", "light", "lock", "siren", "switch")
 
 DOMAIN_OPEN_SERVICE: dict[str, tuple[str, str]] = {
     "lock": ("lock", "unlock"),

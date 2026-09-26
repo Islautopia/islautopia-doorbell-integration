@@ -6,7 +6,7 @@ Run (from the repo root, in a Linux container with the harness installed):
 
 The doorbell is never contacted: every network function is patched. What these tests measure is
 the RULES of Phase 0 (LAN only, the credential never leaves the server, nothing half-configured,
-translated entities, the live-view timeout entity). tools/mutantes.py flips each rule back and
+translated entities, the live-view timeout entity). tools/mutants.py flips each rule back and
 checks that the suite goes red.
 """
 from __future__ import annotations

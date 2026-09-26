@@ -69,7 +69,7 @@ async def test_async_list_quick_replies_tolerates_a_missing_or_malformed_key():
         assert await api.async_list_quick_replies(fake, DEVICE_ID, CREDENTIAL) == []
 
 
-def _entrada(hass):
+def _entry(hass):
     entry = MockConfigEntry(
         domain=DOMAIN, unique_id=DEVICE_ID,
         data={CONF_DEVICE_ID: DEVICE_ID, CONF_CREDENTIAL: CREDENTIAL},
@@ -80,8 +80,8 @@ def _entrada(hass):
 
 async def test_ws_get_quick_replies_returns_the_list_and_no_credential(hass, hass_ws_client, monkeypatch):
     await async_setup_component(hass, "http", {})
-    entry = _entrada(hass)
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {**entry.data, "sesion": object()}
+    entry = _entry(hass)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {**entry.data, "session": object()}
 
     body = [{"id": 7, "label": "Un momento, por favor", "steps": 1}]
 
@@ -114,8 +114,8 @@ async def test_ws_get_quick_replies_not_found_for_unknown_device(hass, hass_ws_c
 
 async def test_ws_get_quick_replies_surfaces_an_unreachable_doorbell(hass, hass_ws_client, monkeypatch):
     await async_setup_component(hass, "http", {})
-    entry = _entrada(hass)
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {**entry.data, "sesion": object()}
+    entry = _entry(hass)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {**entry.data, "session": object()}
 
     async def _boom(session, device_id, credential):
         raise api.DoorbellApiError("no route to host")

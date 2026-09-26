@@ -50,12 +50,12 @@ from . import api, net, webhook
 from .const import (
     CONF_CREDENTIAL,
     CONF_DEVICE_ID,
-    CONF_ENTIDADES,
+    CONF_ENTITIES,
     CONF_HOST_HINT,
     DOMAIN,
-    DOMINIOS_PERMITIDOS,
+    ALLOWED_DOMAINS,
     DOORBELL_HOSTNAME_SUFFIX,
-    MAX_ENTIDADES,
+    MAX_ENTITIES,
 )
 from .card import async_register_card
 from .coordinator import DoorbellCoordinator
@@ -131,558 +131,564 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # public-DNS fallback to "learn" a new address from (Phase 0, 2026-09-25): a moved doorbell is
     # found again by zeroconf, or the user sets the address in the options flow.
     hostname = api.doorbell_hostname(device_id)
-    direccion = await _direccion_lan(hass, entry)
+    address = await _lan_address(hass, entry)
 
-    mapeo = {hostname: direccion} if direccion else {}
-    if not direccion:
+    address_map = {hostname: address} if address else {}
+    if not address:
         _LOGGER.error(
             "No LAN address stored for doorbell %s. Home Assistant only talks to the doorbell over "
             "the local network: set its address in the integration options (Doorbell address).",
             device_id,
         )
     else:
-        sondeo = net.crear_sesion(hass, {})
+        probe_session = net.create_session(hass, {})
         try:
-            if not await net.es_este_portero(sondeo, direccion, device_id):
+            if not await net.is_this_doorbell(probe_session, address, device_id):
                 # Not an error by itself: the doorbell may be powered off. Said at INFO so a moved
                 # doorbell is diagnosable; the entities go unavailable, which is what it means.
                 _LOGGER.info(
                     "Doorbell %s does not answer at %s right now (off, or moved: zeroconf or the "
-                    "options flow will update the address).", device_id, direccion,
+                    "options flow will update the address).", device_id, address,
                 )
         finally:
-            await sondeo.close()
+            await probe_session.close()
 
-    sesion = net.crear_sesion(hass, mapeo)
+    session = net.create_session(hass, address_map)
 
     coordinator = DoorbellCoordinator(
-        hass, entry, device_id, entry.data[CONF_CREDENTIAL], sesion, direccion
+        hass, entry, device_id, entry.data[CONF_CREDENTIAL], session, address
     )
 
-    # ⚠️ `async_refresh()` y NO `async_config_entry_first_refresh()`, y es deliberado.
+    # ⚠️ `async_refresh()` and NOT `async_config_entry_first_refresh()`, and it is deliberate.
     #
-    # El segundo ABORTA el arranque de la entrada si el portero no contesta. Y esta entrada hace
-    # ademas de intermediaria de credenciales de la card (websocket_api.py), asi que un portero
-    # apagado un momento se llevaria por delante **tambien la card** -- que es una regresion
-    # respecto a como funcionaba esto con MQTT, donde el arranque siempre salia adelante.
+    # The second one ABORTS the entry's startup if the doorbell does not answer. And this entry
+    # also acts as the card's credential broker (websocket_api.py), so a doorbell that is off for
+    # a moment would take **the card down too** - a regression from how this worked with MQTT,
+    # where startup always went through.
     #
-    # Con `async_refresh()` la entrada arranca siempre: si el portero no esta, sus entidades salen
-    # como no disponibles (entity.py), que es exactamente lo que significa, y la card sigue
-    # funcionando.
+    # With `async_refresh()` the entry always starts up: if the doorbell is not there, its
+    # entities come up unavailable (entity.py), which is exactly what that means, and the card
+    # keeps working.
     await coordinator.async_refresh()
 
-    # ⚠️ AQUI y no mas abajo: el oyente de actualizaciones (linea de mas abajo,
-    # `entry.add_update_listener`) todavia no esta registrado, asi que esta primera correccion NO
-    # dispara una recarga (Inaki, 2026-09-26: "el nombre del portero si es util, el id despista
-    # mucho"). Corrige sola cualquier entrada vieja que se llame por su device_id -- la de Ermita
-    # entre ellas -- en cuanto arranca esta version, sin esperar a que el nombre del portero
-    # cambie. Ver `_sincronizar_nombre`.
-    _sincronizar_nombre(hass, entry, coordinator)
+    # ⚠️ HERE and not further down: the update listener (line further below,
+    # `entry.add_update_listener`) is not registered yet, so this first correction does NOT
+    # trigger a reload (Inaki, 2026-09-26: "the doorbell's name is actually useful, the id throws
+    # you off"). Fixes on its own any old entry named by its device_id - Ermita's among them - the
+    # moment this version starts, without waiting for the doorbell's name to change. See
+    # `_sync_name`.
+    _sync_name(hass, entry, coordinator)
 
-    webhook_id = await webhook.async_registrar(hass, device_id, coordinator.nombre_portero)
+    webhook_id = await webhook.async_register(hass, device_id, coordinator.doorbell_name)
 
     hass.data[DOMAIN][entry.entry_id] = {
         **dict(entry.data),
         "coordinator": coordinator,
         "webhook_id": webhook_id,
-        "sesion": sesion,
+        "session": session,
     }
 
-    _adoptar_entidad_de_la_puerta(hass, entry, coordinator)
-    if not await _async_configurar_portero(hass, entry, coordinator, primera_vez=True):
-        _programar_reintento(hass, entry, coordinator)
-    _vigilar_entidades(hass, entry, coordinator)
-    _vigilar_nombre(hass, entry, coordinator)
+    _adopt_door_entity(hass, entry, coordinator)
+    if not await _async_configure_doorbell(hass, entry, coordinator, first_time=True):
+        _schedule_retry(hass, entry, coordinator)
+    _watch_entities(hass, entry, coordinator)
+    _watch_name(hass, entry, coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
 
 
-async def _direccion_lan(hass: HomeAssistant, entry: ConfigEntry) -> str | None:
+async def _lan_address(hass: HomeAssistant, entry: ConfigEntry) -> str | None:
     """The stored LAN address as a literal IP.
 
     Entries created before 0.7.0 may hold a NAME the user typed. A LOCAL name is resolved once
     through the system resolver (the home's own DNS), and the address is stored so the next setup
     needs no lookup. A name under our cloud's domain is refused: resolving it is asking the VPS.
     """
-    guardada = entry.data.get(CONF_HOST_HINT) or entry.options.get(CONF_HOST_HINT)
-    if not guardada or net.es_direccion(guardada):
-        return guardada or None
-    if guardada.lower().rstrip(".").endswith(DOORBELL_HOSTNAME_SUFFIX):
+    stored = entry.data.get(CONF_HOST_HINT) or entry.options.get(CONF_HOST_HINT)
+    if not stored or net.is_address(stored):
+        return stored or None
+    if stored.lower().rstrip(".").endswith(DOORBELL_HOSTNAME_SUFFIX):
         _LOGGER.error(
             "The stored address of %s is the cloud hostname %s. Home Assistant no longer resolves "
             "it (LAN only): set the doorbell's IP in the integration options.",
-            entry.data[CONF_DEVICE_ID], guardada,
+            entry.data[CONF_DEVICE_ID], stored,
         )
         return None
     try:
         info = await asyncio.get_running_loop().getaddrinfo(
-            guardada, 80, family=socket.AF_INET, type=socket.SOCK_STREAM
+            stored, 80, family=socket.AF_INET, type=socket.SOCK_STREAM
         )
     except OSError:
         return None
     if not info:
         return None
-    direccion = info[0][4][0]
-    hass.config_entries.async_update_entry(entry, data={**entry.data, CONF_HOST_HINT: direccion})
-    return direccion
+    address = info[0][4][0]
+    hass.config_entries.async_update_entry(entry, data={**entry.data, CONF_HOST_HINT: address})
+    return address
 
 
-async def _async_configurar_portero(
+async def _async_configure_doorbell(
     hass: HomeAssistant,
     entry: ConfigEntry,
     coordinator: DoorbellCoordinator,
     *,
-    primera_vez: bool = False,
+    first_time: bool = False,
 ) -> bool:
-    """Le dice al portero a donde mandar sus avisos y que entidades puede accionar (§4).
+    """Tells the doorbell where to send its notices and which entities it may act on (§4).
 
-    La direccion que se le da tiene que ser alcanzable **sin DNS**. Ver `_base_local`, que es donde
-    vive ese problema y por que `get_url()` no basta para resolverlo.
+    The address given to it has to be reachable **without DNS**. See `_local_base`, which is
+    where that problem lives and why `get_url()` alone is not enough to solve it.
     """
-    base = await _base_local(hass, entry.data.get(CONF_HOST_HINT) or entry.options.get(CONF_HOST_HINT))
+    base = await _local_base(hass, entry.data.get(CONF_HOST_HINT) or entry.options.get(CONF_HOST_HINT))
     if base is None:
         _LOGGER.error(
-            "Home Assistant no sabe cual es su propia direccion en la red local, asi que no se le "
-            "puede decir al portero a donde escribir. Ponla en Ajustes > Sistema > Red > "
-            "«Direccion de Home Assistant» y recarga esta integracion."
+            "Home Assistant does not know its own address on the local network, so it cannot "
+            "tell the doorbell where to write. Set it in Settings > System > Network > "
+            "\"Home Assistant address\" and reload this integration."
         )
-        # No se programa reintento: esto no se arregla porque el portero conteste, se
-        # arregla cuando alguien configure esa direccion -- y eso ya recarga la integracion.
+        # No retry is scheduled: this is not fixed by the doorbell answering, it is fixed when
+        # someone configures that address - and that already reloads the integration.
         return True
 
-    url_webhook = f"{base.rstrip('/')}/api/webhook/{webhook.webhook_id_de(coordinator.device_id)}"
-    entidades = _entidades_validas(entry.options.get(CONF_ENTIDADES) or [], coordinator.device_id)
-    # `domain` viaja aunque el portero lo pueda derivar del id: lo comprueba contra el id, y asi un
-    # desacuerdo se ve en vez de elegir uno en silencio (contrato 4).
-    lista = [
-        {"id": e, "name": _nombre_visible(hass, e), "domain": e.split(".", 1)[0]}
-        for e in entidades
+    webhook_url = f"{base.rstrip('/')}/api/webhook/{webhook.webhook_id_for(coordinator.device_id)}"
+    entities = _valid_entities(entry.options.get(CONF_ENTITIES) or [], coordinator.device_id)
+    # `domain` travels even though the doorbell could derive it from the id: it checks it against
+    # the id, so a mismatch is visible instead of silently picking one (contract 4).
+    entity_list = [
+        {"id": e, "name": _friendly_name(hass, e), "domain": e.split(".", 1)[0]}
+        for e in entities
     ]
 
     try:
         await api.async_set_hass_config(
-            coordinator.sesion,
+            coordinator.session,
             coordinator.device_id,
             entry.data[CONF_CREDENTIAL],
-            url_webhook=url_webhook,
-            entities=lista,
+            webhook_url=webhook_url,
+            entities=entity_list,
         )
     except api.NotAllowedError:
-        # Se dice y NO se reintenta: reemparejar desde una sesion de administrador es lo unico que
-        # lo arregla, y un bucle de reintentos solo llenaria el registro de algo que no va a
-        # cambiar solo.
+        # Stated and NOT retried: re-pairing from an administrator session is the only thing that
+        # fixes it, and a retry loop would only fill the log with something that will not change
+        # on its own.
         _LOGGER.error(
-            "Este emparejamiento no es administrador de %s, asi que no puede configurar el "
-            "webhook. Vuelve a emparejarlo desde una sesion de administrador.",
+            "This pairing is not an administrator of %s, so it cannot configure the webhook. "
+            "Re-pair it from an administrator session.",
             coordinator.device_id,
         )
         return True
     except api.DoorbellApiError as err:
-        # No es fatal: las entidades siguen funcionando por sondeo. Lo que se pierde es lo que
-        # llega EMPUJADO -- el timbrazo, el paquete-- asi que se dice claramente en vez de dejar al
-        # usuario preguntandose por que no salta nada, y se reintenta en cuanto el portero vuelva.
-        if primera_vez:
+        # Not fatal: the entities keep working by polling. What is lost is what arrives PUSHED -
+        # the ring, the package - so it is stated clearly instead of leaving the user wondering
+        # why nothing fires, and it is retried as soon as the doorbell comes back.
+        if first_time:
             _LOGGER.warning(
-                "No se pudo configurar el webhook en %s (%s). Se reintentara en cuanto el portero "
-                "vuelva a contestar; hasta entonces las entidades funcionan por sondeo pero los "
-                "avisos en vivo no llegaran.",
+                "Could not configure the webhook on %s (%s). It will be retried as soon as the "
+                "doorbell answers again; until then the entities work by polling but live "
+                "notices will not arrive.",
                 coordinator.device_id, err,
             )
         return False
 
-    _NOMBRES_EMPUJADOS[entry.entry_id] = {e["id"]: e["name"] for e in lista}
+    _PUSHED_NAMES[entry.entry_id] = {e["id"]: e["name"] for e in entity_list}
     _LOGGER.info(
-        "Webhook configurado en %s: %s (%d entidad(es) accionables)",
-        coordinator.device_id, url_webhook, len(lista),
+        "Webhook configured on %s: %s (%d actionable entity/entities)",
+        coordinator.device_id, webhook_url, len(entity_list),
     )
     return True
 
 
-# Lo ultimo que se le dijo a cada portero de cada entidad: su nombre visible. Sirve para no volver a
-# empujar la lista por cada cambio de ESTADO de una luz -- solo cuando cambia lo que el portero
-# guarda.
-_NOMBRES_EMPUJADOS: dict[str, dict[str, str]] = {}
+# The last thing said to each doorbell about each entity: its friendly name. Used to avoid
+# re-pushing the list on every light's STATE change - only when what the doorbell stores changes.
+_PUSHED_NAMES: dict[str, dict[str, str]] = {}
 
 
-def _entidades_validas(entidades: list[str], device_id: str) -> list[str]:
-    """La lista tal como se le puede dar al portero: dominios permitidos, sin repetir, hasta 5.
+def _valid_entities(entities: list[str], device_id: str) -> list[str]:
+    """The list as it can be given to the doorbell: allowed domains, no repeats, up to 5.
 
-    ⚠️ Una lista guardada por la 0.7.5 puede traer 24 entidades, o un `button`: el portero la
-    rechazaria ENTERA (`too_many_entities`, `bad_entity_domain`) y con ella la URL del webhook, que
-    viaja en la misma peticion -- o sea que actualizar la integracion dejaria la casa sin avisos. Se
-    manda la parte valida y SE DICE en el registro; el formulario de opciones ya solo deja elegir
-    lo valido.
+    ⚠️ A list saved by 0.7.5 may carry 24 entities, or a `button`: the doorbell would refuse it
+    WHOLE (`too_many_entities`, `bad_entity_domain`) and with it the webhook URL, which travels in
+    the same request - so updating the integration would leave the house without notices. The
+    valid part is sent and it IS STATED in the log; the options form already only lets you pick
+    what is valid.
     """
-    validas: list[str] = []
-    for e in entidades:
-        if e.split(".", 1)[0] in DOMINIOS_PERMITIDOS and e not in validas:
-            validas.append(e)
-    fuera = [e for e in entidades if e not in validas]
-    if len(validas) > MAX_ENTIDADES:
-        fuera += validas[MAX_ENTIDADES:]
-        validas = validas[:MAX_ENTIDADES]
-    if fuera:
+    valid: list[str] = []
+    for e in entities:
+        if e.split(".", 1)[0] in ALLOWED_DOMAINS and e not in valid:
+            valid.append(e)
+    rejected = [e for e in entities if e not in valid]
+    if len(valid) > MAX_ENTITIES:
+        rejected += valid[MAX_ENTITIES:]
+        valid = valid[:MAX_ENTITIES]
+    if rejected:
         _LOGGER.warning(
-            "%s: estas entidades NO se le dan al portero (solo se admiten %s, y %d como maximo): "
-            "%s. Revisa las opciones de la integracion.",
-            device_id, ", ".join(DOMINIOS_PERMITIDOS), MAX_ENTIDADES, ", ".join(fuera),
+            "%s: these entities are NOT given to the doorbell (only %s are accepted, and %d at "
+            "most): %s. Check the integration's options.",
+            device_id, ", ".join(ALLOWED_DOMAINS), MAX_ENTITIES, ", ".join(rejected),
         )
-    return validas
+    return valid
 
 
-def _adoptar_entidad_de_la_puerta(
+def _adopt_door_entity(
     hass: HomeAssistant, entry: ConfigEntry, coordinator: DoorbellCoordinator
 ) -> None:
-    """Una sola vez al actualizar: la entidad con la que YA se abre la puerta entra en la lista.
+    """Once, on upgrade: the entity that ALREADY opens the door joins the list.
 
-    ⚠️ SIN ESTO, ACTUALIZAR A LA 0.7.6 DEJA LA PUERTA SIN ABRIR. Hasta la 0.7.5 `ha_e` se escribia a
-    mano en el portero y no tenia por que estar en la lista de esta integracion (que en muchas
-    instalaciones esta vacia). Desde la 0.7.6 esta integracion solo acciona entidades de su lista,
-    asi que la orden de abrir se rechazaria (`not_listed`) sin que el dueno hubiera tocado nada.
+    ⚠️ WITHOUT THIS, UPGRADING TO 0.7.6 LEAVES THE DOOR UNABLE TO OPEN. Up to 0.7.5 `ha_e` was
+    written by hand on the doorbell and had no need to be in this integration's list (which on
+    many installations is empty). Since 0.7.6 this integration only acts on entities from its
+    list, so the open command would be refused (`not_listed`) without the owner having touched
+    anything.
 
-    Adoptarla no amplia nada: es la entidad que el administrador ya eligio para la puerta. Se hace
-    ANTES de registrar el oyente de opciones (por eso no recarga) y se dice en el registro. Si su
-    dominio ya no se admite, NO se adopta: se avisa con una notificacion persistente, porque la
-    puerta va a dejar de abrir y el dueno tiene que saberlo antes de estar delante de ella.
+    Adopting it does not widen anything: it is the entity the administrator already picked for
+    the door. Done BEFORE registering the options listener (which is why it does not reload) and
+    stated in the log. If its domain is no longer accepted, it is NOT adopted: a persistent
+    notification warns instead, because the door is about to stop opening and the owner needs to
+    know before standing in front of it.
 
-    Mismo destino que el oyente de opciones: se elimina el dia que ninguna instalacion venga de la
-    0.7.5.
+    Same fate as the options listener: removed the day no installation comes from 0.7.5 any more.
     """
-    datos = coordinator.data or {}
-    ha_e = datos.get("ha_e") or ""
-    if datos.get("door_m") != 1 or not ha_e:
+    data = coordinator.data or {}
+    ha_e = data.get("ha_e") or ""
+    if data.get("door_m") != 1 or not ha_e:
         return
-    actuales = list(entry.options.get(CONF_ENTIDADES) or [])
-    if ha_e in actuales:
+    current = list(entry.options.get(CONF_ENTITIES) or [])
+    if ha_e in current:
         return
-    if ha_e.split(".", 1)[0] not in DOMINIOS_PERMITIDOS:
+    if ha_e.split(".", 1)[0] not in ALLOWED_DOMAINS:
         _LOGGER.error(
-            "La puerta de %s se abre con %s, y ese tipo de entidad ya no se admite (solo %s). "
-            "La puerta NO se abrira por Home Assistant hasta que se elija otra.",
-            coordinator.device_id, ha_e, ", ".join(DOMINIOS_PERMITIDOS),
+            "The door of %s opens with %s, and that kind of entity is no longer accepted "
+            "(only %s). The door will NOT open through Home Assistant until another is picked.",
+            coordinator.device_id, ha_e, ", ".join(ALLOWED_DOMAINS),
         )
         persistent_notification.async_create(
             hass,
             f"The door of doorbell {coordinator.device_id} opens with `{ha_e}`, and that kind of "
-            f"entity is no longer accepted (only {', '.join(DOMINIOS_PERMITIDOS)}). The door will "
+            f"entity is no longer accepted (only {', '.join(ALLOWED_DOMAINS)}). The door will "
             "NOT open through Home Assistant until another entity is picked in the integration "
             "options and then in the doorbell's door settings.",
             title="IG Doorbell: door entity not accepted",
             notification_id=f"{DOMAIN}_{coordinator.device_id}_ha_e",
         )
         return
-    validas = [e for e in actuales if e.split(".", 1)[0] in DOMINIOS_PERMITIDOS]
-    if len(validas) >= MAX_ENTIDADES:
+    valid = [e for e in current if e.split(".", 1)[0] in ALLOWED_DOMAINS]
+    if len(valid) >= MAX_ENTITIES:
         _LOGGER.error(
-            "La puerta de %s se abre con %s, que no esta en la lista de entidades y la lista ya "
-            "tiene %d: la puerta NO se abrira por Home Assistant hasta que se anada.",
-            coordinator.device_id, ha_e, MAX_ENTIDADES,
+            "The door of %s opens with %s, which is not in the entity list and the list already "
+            "has %d: the door will NOT open through Home Assistant until it is added.",
+            coordinator.device_id, ha_e, MAX_ENTITIES,
         )
         return
     hass.config_entries.async_update_entry(
-        entry, options={**entry.options, CONF_ENTIDADES: [*actuales, ha_e]}
+        entry, options={**entry.options, CONF_ENTITIES: [*current, ha_e]}
     )
     _LOGGER.warning(
-        "%s: la entidad con la que se abre la puerta (%s) se ha anadido a la lista de entidades "
-        "que puede accionar el portero, para que siga abriendo con la 0.7.6.",
+        "%s: the entity that opens the door (%s) has been added to the list of entities the "
+        "doorbell may act on, so it keeps opening on 0.7.6.",
         coordinator.device_id, ha_e,
     )
 
 
-def _sincronizar_nombre(
+def _sync_name(
     hass: HomeAssistant, entry: ConfigEntry, coordinator: DoorbellCoordinator
 ) -> None:
-    """El titulo de la entrada y el nombre del dispositivo siguen al nombre del portero (`dname`).
+    """The entry's title and the device's name follow the doorbell's name (`dname`).
 
-    Iñaki, 2026-09-26: *"el nombre del portero si es util, el id despista mucho"* -- buscando
-    donde configurar sus entidades no reconocio la entrada de Ermita porque en Ajustes >
-    Dispositivos y servicios se llamaba `f9b31fc3bb64bc26` (su `device_id`), no "Ermita" ni nada
-    parecido. `coordinator.nombre_portero` ya resuelve `dname` (o el generico del firmware si no
-    hay uno, nunca el id a secas - const.py), asi que solo hace falta empujarlo a los dos sitios
-    que Home Assistant muestra por separado.
+    Iñaki, 2026-09-26: *"the doorbell's name is actually useful, the id throws you off"* -
+    looking for where to configure its entities, he did not recognise Ermita's entry because in
+    Settings > Devices & services it was called `f9b31fc3bb64bc26` (its `device_id`), not "Ermita"
+    or anything like it. `coordinator.doorbell_name` already resolves `dname` (or the firmware's
+    generic one if there is none, never the bare id - const.py), so it only needs pushing to the
+    two places Home Assistant shows separately.
 
-    Solo toca `name` en el registro de dispositivo, NUNCA `name_by_user`: si el propio Iñaki
-    renombra el dispositivo a mano en Home Assistant, eso se guarda aparte y HA lo sigue
-    mostrando por encima de esto (es el mecanismo nativo para "el usuario ya lo dijo, no lo
-    machaques"). Y no toca ningun `entity_id`: solo el nombre visible del dispositivo cambia, que
-    es de donde las entidades con `has_entity_name` componen su nombre visible en cada lectura --
-    no hay que tocarlas una a una.
+    Only touches `name` on the device registry, NEVER `name_by_user`: if Iñaki himself renames the
+    device by hand in Home Assistant, that is stored separately and HA keeps showing it over this
+    (it is the native mechanism for "the user already said so, do not stomp it"). And it does not
+    touch any `entity_id`: only the device's friendly name changes, which is what entities with
+    `has_entity_name` compose their friendly name from on every read - no need to touch them one
+    by one.
     """
-    nombre = coordinator.nombre_portero
-    if entry.title != nombre:
-        hass.config_entries.async_update_entry(entry, title=nombre)
+    name = coordinator.doorbell_name
+    if entry.title != name:
+        hass.config_entries.async_update_entry(entry, title=name)
 
-    registro = dr.async_get(hass)
-    dispositivo = registro.async_get_device(identifiers={(DOMAIN, coordinator.device_id)})
-    if dispositivo is not None and dispositivo.name != nombre:
-        registro.async_update_device(dispositivo.id, name=nombre)
+    registry = dr.async_get(hass)
+    device = registry.async_get_device(identifiers={(DOMAIN, coordinator.device_id)})
+    if device is not None and device.name != name:
+        registry.async_update_device(device.id, name=name)
 
 
-def _vigilar_nombre(
+def _watch_name(
     hass: HomeAssistant, entry: ConfigEntry, coordinator: DoorbellCoordinator
 ) -> None:
-    """Vuelve a comprobar el nombre del portero en cada sondeo, para pillar un cambio posterior.
+    """Checks the doorbell's name again on every poll, to catch a later change.
 
-    ⚠️ Esto se llama DESPUES de registrar `entry.add_update_listener` (mas abajo en
-    `async_setup_entry`), asi que aqui si un cambio de nombre real recarga la entrada -- igual que
-    un cambio de opciones. No es un efecto secundario que haya que evitar: es el mismo patron que
-    `_vigilar_entidades` ya usa para las entidades, y `async_update_entry` no hace nada (ni
-    dispara la recarga) si el nombre no ha cambiado desde la ultima vez.
+    ⚠️ This is called AFTER registering `entry.add_update_listener` (further below in
+    `async_setup_entry`), so here a real name change DOES reload the entry - same as a change of
+    options. Not a side effect to avoid: it is the same pattern `_watch_entities` already uses for
+    the entities, and `async_update_entry` does nothing (nor triggers a reload) if the name has
+    not changed since last time.
     """
 
     @callback
-    def _al_actualizar() -> None:
-        _sincronizar_nombre(hass, entry, coordinator)
+    def _on_update() -> None:
+        _sync_name(hass, entry, coordinator)
 
-    entry.async_on_unload(coordinator.async_add_listener(_al_actualizar))
+    entry.async_on_unload(coordinator.async_add_listener(_on_update))
 
 
-def _vigilar_entidades(
+def _watch_entities(
     hass: HomeAssistant, entry: ConfigEntry, coordinator: DoorbellCoordinator
 ) -> None:
-    """Mantiene al dia la lista del portero cuando las entidades cambian EN Home Assistant.
+    """Keeps the doorbell's list current when entities change IN Home Assistant.
 
-    - **Cambia el nombre visible** (el usuario la renombra, o renombra el dispositivo): se vuelve a
-      empujar la lista, para que el desplegable de las apps diga lo mismo que HA.
-    - **Cambia el `entity_id`**: se sustituye en las opciones, y la recarga lo empuja.
-    - **Se borra**: se quita de las opciones, y la recarga lo empuja. El portero marca entonces lo
-      que la usaba (`ha_e_ok: false`, `not_listed` en el paso) en vez de fallar en silencio.
+    - **Friendly name changes** (the user renames it, or renames the device): the list is pushed
+      again, so the apps' dropdown says the same as HA.
+    - **`entity_id` changes**: replaced in the options, and the reload pushes it.
+    - **It is deleted**: removed from the options, and the reload pushes it. The doorbell then
+      flags whatever used it (`ha_e_ok: false`, `not_listed` in the step) instead of failing
+      silently.
     """
-    entidades = _entidades_validas(entry.options.get(CONF_ENTIDADES) or [], coordinator.device_id)
-    pendiente: list = []
+    entities = _valid_entities(entry.options.get(CONF_ENTITIES) or [], coordinator.device_id)
+    pending: list = []
 
     @callback
-    def _reempujar_pronto() -> None:
-        # Un renombrado de dispositivo cambia varias entidades a la vez: se agrupa en un envio.
-        if pendiente:
+    def _repush_soon() -> None:
+        # Renaming a device changes several entities at once: grouped into one push.
+        if pending:
             return
 
-        async def _ya(_ahora) -> None:
-            pendiente.clear()
-            if not await _async_configurar_portero(hass, entry, coordinator):
-                _programar_reintento(hass, entry, coordinator)
+        async def _now(_when) -> None:
+            pending.clear()
+            if not await _async_configure_doorbell(hass, entry, coordinator):
+                _schedule_retry(hass, entry, coordinator)
 
-        pendiente.append(async_call_later(hass, 2, _ya))
+        pending.append(async_call_later(hass, 2, _now))
 
     @callback
-    def _estado(event: Event) -> None:
+    def _on_state_change(event: Event) -> None:
         eid = event.data["entity_id"]
-        nuevo = event.data.get("new_state")
-        nombre = (nuevo.attributes.get("friendly_name") if nuevo else None) or eid
-        if nombre != _NOMBRES_EMPUJADOS.get(entry.entry_id, {}).get(eid):
-            _reempujar_pronto()
+        new_entity_state = event.data.get("new_state")
+        name = (new_entity_state.attributes.get("friendly_name") if new_entity_state else None) or eid
+        if name != _PUSHED_NAMES.get(entry.entry_id, {}).get(eid):
+            _repush_soon()
 
     @callback
-    def _registro(event: Event) -> None:
-        accion = event.data.get("action")
+    def _on_registry_update(event: Event) -> None:
+        action = event.data.get("action")
         eid = event.data.get("entity_id")
-        actuales = list(entry.options.get(CONF_ENTIDADES) or [])
-        if accion == "remove" and eid in actuales:
-            actuales.remove(eid)
-            _LOGGER.warning("%s se ha borrado de Home Assistant: sale de la lista del portero %s",
+        current = list(entry.options.get(CONF_ENTITIES) or [])
+        if action == "remove" and eid in current:
+            current.remove(eid)
+            _LOGGER.warning("%s was deleted from Home Assistant: removed from doorbell %s's list",
                             eid, coordinator.device_id)
-        elif accion == "update" and event.data.get("old_entity_id") in actuales:
-            actuales[actuales.index(event.data["old_entity_id"])] = eid
+        elif action == "update" and event.data.get("old_entity_id") in current:
+            current[current.index(event.data["old_entity_id"])] = eid
         else:
             return
-        # Cambiar las opciones dispara la recarga (`_async_update_listener`), que vuelve a empujar
-        # la lista y a vigilar las entidades nuevas. Un solo camino, no dos.
+        # Changing the options triggers the reload (`_async_update_listener`), which pushes the
+        # list again and watches the new entities. One path, not two.
         hass.config_entries.async_update_entry(
-            entry, options={**entry.options, CONF_ENTIDADES: actuales}
+            entry, options={**entry.options, CONF_ENTITIES: current}
         )
 
-    if entidades:
-        entry.async_on_unload(async_track_state_change_event(hass, entidades, _estado))
-    entry.async_on_unload(hass.bus.async_listen(er.EVENT_ENTITY_REGISTRY_UPDATED, _registro))
-    entry.async_on_unload(lambda: pendiente and pendiente.pop()())
+    if entities:
+        entry.async_on_unload(async_track_state_change_event(hass, entities, _on_state_change))
+    entry.async_on_unload(hass.bus.async_listen(er.EVENT_ENTITY_REGISTRY_UPDATED, _on_registry_update))
+    entry.async_on_unload(lambda: pending and pending.pop()())
 
 
-# Redes internas de contenedores que Home Assistant OS / Supervised crea para si mismo. Una
-# direccion de aqui es valida DENTRO de la maquina y inalcanzable desde la LAN (ver `_base_local`).
-_REDES_CONTENEDORES = (ip_network("172.30.32.0/23"), ip_network("172.17.0.0/16"))
+# Internal container networks Home Assistant OS / Supervised creates for itself. An address from
+# here is valid INSIDE the machine and unreachable from the LAN (see `_local_base`).
+_CONTAINER_NETWORKS = (ip_network("172.30.32.0/23"), ip_network("172.17.0.0/16"))
 
 
-def _es_red_interna_de_contenedores(ip: str) -> bool:
+def _is_container_network(ip: str) -> bool:
     try:
-        direccion = ip_address(ip)
+        address = ip_address(ip)
     except ValueError:
         return False
-    return any(direccion in red for red in _REDES_CONTENEDORES)
+    return any(address in network_ for network_ in _CONTAINER_NETWORKS)
 
 
-async def _base_local(hass: HomeAssistant, destino: str | None = None) -> str | None:
-    """La direccion de Home Assistant que el portero puede alcanzar SIN DNS.
+async def _local_base(hass: HomeAssistant, target_host: str | None = None) -> str | None:
+    """Home Assistant's own address the doorbell can reach WITHOUT DNS.
 
-    ⚠️ `get_url(allow_external=False)` NO garantiza eso, y darlo por hecho fue un error mio. Esa
-    bandera solo dice *no uses la externa*: si el `internal_url` configurado es a su vez un nombre
-    publico, lo devuelve tal cual. **En el Home Assistant de Inaki es exactamente el caso** --
-    `internal_url` y `external_url` valen los dos `https://hass.islautopia.com`-- asi que la
-    primera instalacion real habria mandado al portero a salir a internet, DNS al menos, para
-    hablar con una maquina que tiene en la LAN de al lado. Eso rompe el principio 1 **sin dar
-    ningun error**: solo deja de funcionar el dia que se caiga la linea.
+    ⚠️ `get_url(allow_external=False)` does NOT guarantee that, and taking it for granted was a
+    mistake of mine. That flag only says *do not use the external one*: if the configured
+    `internal_url` is itself a public name, it returns it as is. **On Inaki's Home Assistant that
+    is exactly the case** - `internal_url` and `external_url` are both
+    `https://hass.islautopia.com` - so the first real installation would have sent the doorbell
+    out to the internet, DNS at least, to talk to a machine right next to it on the LAN. That
+    breaks principle 1 **without giving any error**: it just stops working the day the line drops.
 
-    Por eso se prefiere **la IP** con la que esta maquina sale a la red, que es lo unico que no
-    necesita que nada resuelva un nombre. `get_url` se queda de respaldo, con su aviso.
+    That is why **the IP** this machine uses to reach the network is preferred, since it is the
+    only thing that needs nothing to resolve a name. `get_url` stays as the fallback, with its
+    warning.
     """
-    # 1) La IP con la que esta maquina LLEGA AL PORTERO.
+    # 1) The IP this machine uses to REACH THE DOORBELL.
     #
-    # ⚠️ Se pregunta la ruta hacia el portero, no hacia internet. Hasta el 2026-09-16 se usaba
-    # `PUBLIC_TARGET_IP`, y el 15-09 Home Assistant arranco con la linea caida (PPPoE abajo a la
-    # vez que se reinicio): sin ruta a internet, la IP de salida fue la del puente interno de
-    # Docker del Supervisor (172.30.32.1). Se le mando al portero, y la puerta dejo de abrir
-    # --sin ningun error visible-- hasta que alguien lo noto al dia siguiente. Una direccion de
-    # esos puentes nunca es alcanzable desde la LAN, asi que ademas se rechaza explicitamente.
+    # ⚠️ The route towards the doorbell is asked for, not towards the internet. Until 2026-09-16
+    # `PUBLIC_TARGET_IP` was used, and on 09-15 Home Assistant started up with the line down
+    # (PPPoE down at the same time it restarted): with no route to the internet, the outgoing IP
+    # was the Supervisor's internal Docker bridge (172.30.32.1). That got sent to the doorbell,
+    # and the door stopped opening - with no visible error - until someone noticed the next day.
+    # An address from those bridges is never reachable from the LAN, so it is also explicitly
+    # rejected.
     ip = None
-    for objetivo in (destino, network.PUBLIC_TARGET_IP):
-        if not objetivo:
+    for target in (target_host, network.PUBLIC_TARGET_IP):
+        if not target:
             continue
         try:
-            candidata = await network.async_get_source_ip(hass, objetivo)
-        except Exception:  # noqa: BLE001 - cualquier fallo aqui solo significa "prueba la siguiente"
-            candidata = None
-        if candidata and not _es_red_interna_de_contenedores(candidata):
-            ip = candidata
+            candidate = await network.async_get_source_ip(hass, target)
+        except Exception:  # noqa: BLE001 - any failure here just means "try the next one"
+            candidate = None
+        if candidate and not _is_container_network(candidate):
+            ip = candidate
             break
-        if candidata:
+        if candidate:
             _LOGGER.warning(
-                "La IP de salida hacia %s es %s, de una red interna de contenedores: el portero no "
-                "puede llegar a ella, asi que no se le da.", objetivo, candidata)
+                "The outgoing IP towards %s is %s, from an internal container network: the "
+                "doorbell cannot reach it, so it is not given to it.", target, candidate)
     if ip:
-        esquema = "https" if getattr(hass.http, "use_ssl", False) else "http"
-        return f"{esquema}://{ip}:{hass.http.server_port}"
+        scheme = "https" if getattr(hass.http, "use_ssl", False) else "http"
+        return f"{scheme}://{ip}:{hass.http.server_port}"
 
-    # 2) Respaldo: lo que Home Assistant crea que es su direccion interna.
+    # 2) Fallback: what Home Assistant believes its own internal address is.
     try:
         base = get_url(hass, allow_external=False, allow_cloud=False,
                        allow_ip=True, prefer_external=False)
     except NoURLAvailableError:
         return None
 
-    anfitrion = urlparse(base).hostname or ""
+    host = urlparse(base).hostname or ""
     try:
-        ip_address(anfitrion)
+        ip_address(host)
     except ValueError:
-        # Es un NOMBRE, no una direccion. Puede funcionar perfectamente -- su DNS local puede
-        # resolverlo dentro de casa-- asi que no se rechaza. Pero se dice, porque es la diferencia
-        # entre "funciona" y "funciona mientras haya quien resuelva ese nombre".
+        # It is a NAME, not an address. It can work perfectly well - its local DNS may resolve it
+        # inside the house - so it is not rejected. But it is stated, because that is the
+        # difference between "it works" and "it works while someone is around to resolve that
+        # name".
         _LOGGER.warning(
-            "La direccion que Home Assistant da de si mismo es un NOMBRE (%s), no una IP de la "
-            "red local. El videoportero tendra que resolverlo para poder avisar, asi que si ese "
-            "nombre solo existe en internet, los avisos dejaran de llegar en cuanto se caiga la "
-            "linea -- dentro de casa, y sin ningun error. Ponle una direccion local en Ajustes > "
-            "Sistema > Red.",
-            anfitrion,
+            "The address Home Assistant reports for itself is a NAME (%s), not a local-network "
+            "IP. The video doorbell will have to resolve it to send notices, so if that name only "
+            "exists on the internet, notices will stop arriving the moment the line drops - "
+            "inside the house, and with no error. Set a local address in Settings > System > "
+            "Network.",
+            host,
         )
     return base
 
 
-def _programar_reintento(
+def _schedule_retry(
     hass: HomeAssistant, entry: ConfigEntry, coordinator: DoorbellCoordinator
 ) -> None:
-    """Vuelve a intentar la configuracion en cuanto el portero conteste.
+    """Tries the configuration again as soon as the doorbell answers.
 
-    Hace falta porque el caso normal de fallo es **el portero apagado cuando arranca Home
-    Assistant**, y ahi no hay nada que dispare un segundo intento: el sondeo se recupera solo, pero
-    la configuracion del webhook es una escritura de una sola vez. Sin esto, un corte de luz de
-    madrugada deja el portero sin saber a donde escribir hasta que alguien recargue la integracion
-    a mano -- y el sintoma seria «los avisos ya no llegan», que nadie relaciona con un apagon.
+    Needed because the normal failure case is **the doorbell being off when Home Assistant
+    starts up**, and there is nothing there to trigger a second attempt: polling recovers on its
+    own, but configuring the webhook is a one-shot write. Without this, an overnight power cut
+    leaves the doorbell not knowing where to write until someone reloads the integration by hand -
+    and the symptom would be "notices stopped arriving", which nobody connects to a power cut.
     """
-    cancelar: list = []
+    cancel_listeners: list = []
 
     @callback
-    def _cuando_conteste() -> None:
+    def _when_answered() -> None:
         if not coordinator.last_update_success:
             return
-        # Se suelta el enganche ANTES de reintentar: si no, un fallo del reintento volveria a
-        # entrar aqui en el sondeo siguiente y se acumularian intentos solapados.
-        if cancelar:
-            cancelar.pop()()
-        hass.async_create_task(_reintentar(hass, entry, coordinator))
+        # The hook is released BEFORE retrying: otherwise a failed retry would come back in here
+        # on the next poll and overlapping attempts would pile up.
+        if cancel_listeners:
+            cancel_listeners.pop()()
+        hass.async_create_task(_retry(hass, entry, coordinator))
 
-    cancelar.append(coordinator.async_add_listener(_cuando_conteste))
-    entry.async_on_unload(lambda: cancelar and cancelar.pop()())
+    cancel_listeners.append(coordinator.async_add_listener(_when_answered))
+    entry.async_on_unload(lambda: cancel_listeners and cancel_listeners.pop()())
 
 
-async def _reintentar(
+async def _retry(
     hass: HomeAssistant, entry: ConfigEntry, coordinator: DoorbellCoordinator
 ) -> None:
-    if not await _async_configurar_portero(hass, entry, coordinator):
-        _programar_reintento(hass, entry, coordinator)
+    if not await _async_configure_doorbell(hass, entry, coordinator):
+        _schedule_retry(hass, entry, coordinator)
 
 
-def _nombre_visible(hass: HomeAssistant, entity_id: str) -> str:
-    """El nombre que una persona reconoce, para el desplegable de las apps.
+def _friendly_name(hass: HomeAssistant, entity_id: str) -> str:
+    """The name a person recognises, for the apps' dropdown.
 
-    `light.porche_2` no le dice nada a nadie, y ese desplegable lo lee **del portero**, no de Home
-    Assistant -- las apps no hablan con HA ni tienen por que (§4). Si la entidad no existe todavia
-    se manda su propio `entity_id`: un desplegable con una entrada en blanco no se puede elegir, y
-    eso es peor que uno con un nombre feo.
+    `light.porche_2` says nothing to anyone, and that dropdown reads it **from the doorbell**, not
+    from Home Assistant - the apps do not talk to HA and have no need to (§4). If the entity does
+    not exist yet its own `entity_id` is sent: a dropdown with a blank entry cannot be picked, and
+    that is worse than one with an ugly name.
     """
-    estado = hass.states.get(entity_id)
-    if estado is None:
+    state = hass.states.get(entity_id)
+    if state is None:
         return entity_id
-    return estado.attributes.get("friendly_name") or entity_id
+    return state.attributes.get("friendly_name") or entity_id
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if ok:
-        webhook.desregistrar(hass, entry.data[CONF_DEVICE_ID])
-        datos = hass.data[DOMAIN].pop(entry.entry_id, None)
-        # La sesion es de ESTA entrada y no tiene limpieza automatica a proposito (net.py): la que
-        # trae Home Assistant salta al PARAR, y una integracion se descarga y recarga muchas veces
-        # antes de eso. Sin este cierre, cada recarga deja un conector y su hilo de resolucion.
-        if datos and (sesion := datos.get("sesion")):
-            await sesion.close()
+        webhook.unregister(hass, entry.data[CONF_DEVICE_ID])
+        data = hass.data[DOMAIN].pop(entry.entry_id, None)
+        # The session belongs to THIS entry and has no automatic cleanup on purpose (net.py): the
+        # one Home Assistant brings closes on STOP, and an integration gets unloaded and reloaded
+        # many times before that. Without this close, every reload leaves behind a connector and
+        # its resolution thread.
+        if data and (session := data.get("session")):
+            await session.close()
     return ok
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Al DESINSTALAR: se le dice al portero que deje de escribir aqui.
+    """On UNINSTALL: tells the doorbell to stop writing here.
 
-    ⚠️ ESTO NO ES CORTESIA: es la otra mitad de la marca que devuelve el webhook. Home Assistant
-    contesta `200` a un webhook que ya no existe -- a proposito, para que nadie pueda enumerarlos--
-    asi que un portero al que no se le dice nada seguiria disparando al vacio para siempre. La
-    marca convierte ese fallo invisible en uno visible; esto es lo que evita que exista.
+    ⚠️ THIS IS NOT A COURTESY: it is the other half of the marker the webhook returns. Home
+    Assistant answers `200` to a webhook that no longer exists - on purpose, so nobody can
+    enumerate them - so a doorbell told nothing would keep firing into the void forever. The
+    marker turns that invisible failure into a visible one; this is what prevents it from
+    existing.
 
-    Best-effort: si el portero no esta alcanzable ahora mismo, se dice y se sigue. Impedir que
-    alguien desinstale una integracion porque un aparato esta apagado seria peor.
+    Best-effort: if the doorbell is not reachable right now, it is stated and moved on. Preventing
+    someone from uninstalling an integration because a device is off would be worse.
     """
-    mapeo = {}
-    pista = entry.data.get(CONF_HOST_HINT) or entry.options.get(CONF_HOST_HINT)
-    if net.es_direccion(pista):
-        mapeo[api.doorbell_hostname(entry.data[CONF_DEVICE_ID])] = pista
-    sesion = net.crear_sesion(hass, mapeo)
+    address_map = {}
+    hint = entry.data.get(CONF_HOST_HINT) or entry.options.get(CONF_HOST_HINT)
+    if net.is_address(hint):
+        address_map[api.doorbell_hostname(entry.data[CONF_DEVICE_ID])] = hint
+    session = net.create_session(hass, address_map)
     try:
         await api.async_set_hass_config(
-            sesion,
+            session,
             entry.data[CONF_DEVICE_ID],
             entry.data[CONF_CREDENTIAL],
-            url_webhook="",
+            webhook_url="",
             entities=[],
         )
-        _LOGGER.info("Webhook desconfigurado en %s", entry.data[CONF_DEVICE_ID])
+        _LOGGER.info("Webhook unconfigured on %s", entry.data[CONF_DEVICE_ID])
     except api.DoorbellApiError as err:
         _LOGGER.warning(
-            "No se pudo desconfigurar el webhook en %s (%s). Ese portero seguira mandando avisos "
-            "a una direccion que ya no escucha nadie hasta que se le vuelva a configurar.",
+            "Could not unconfigure the webhook on %s (%s). That doorbell will keep sending "
+            "notices to an address nobody is listening at any more until it is configured again.",
             entry.data[CONF_DEVICE_ID], err,
         )
     finally:
-        # Esta sesion es de usar y tirar y NO la limpia nadie: en `async_remove_entry` ya no hay
-        # entrada en `hass.data`, porque la descarga corre antes. Sin este cierre, cada
-        # desinstalacion deja un conector abierto y el hilo de resolucion detras.
-        await sesion.close()
+        # This session is throw-away and NOBODY cleans it up: by `async_remove_entry` there is no
+        # entry in `hass.data` any more, because unloading runs before this. Without this close,
+        # every uninstall leaves behind an open connector and its resolution thread.
+        await session.close()
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Recarga la entrada cuando cambian sus datos o sus opciones.
+    """Reloads the entry when its data or its options change.
 
-    Recargar entera y no parchear a mano: al cambiar la lista de entidades hay que volver a
-    empujarla al portero, y el webhook hay que volver a registrarlo con el nombre nuevo. Hacerlo
-    por partes es como se acaba con la mitad de la configuracion vieja y la mitad nueva.
+    Reloading whole and not patching by hand: changing the entity list means pushing it to the
+    doorbell again, and the webhook has to be re-registered with the new name. Doing it in parts
+    is how you end up with half the old configuration and half the new one.
     """
     await hass.config_entries.async_reload(entry.entry_id)

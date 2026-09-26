@@ -1,4 +1,4 @@
-"""Sensores del portero: espectadores, y los de diagnostico."""
+"""Doorbell sensors: viewers, and the diagnostic ones."""
 from __future__ import annotations
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
@@ -16,22 +16,22 @@ async def async_setup_entry(
 ) -> None:
     c: DoorbellCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     async_add_entities([
-        EspectadoresSensor(c),
-        TextoSensor(c, "fw_version", "firmware_version", "mdi:chip"),
-        TextoSensor(c, "panel_fw", "panel_firmware", "mdi:tablet"),
+        ViewersSensor(c),
+        TextSensor(c, "fw_version", "firmware_version", "mdi:chip"),
+        TextSensor(c, "panel_fw", "panel_firmware", "mdi:tablet"),
     ])
 
 
-class EspectadoresSensor(DoorbellEntity, SensorEntity):
-    """`webrtc_clients` (§1.2): cuanta gente esta mirando ahora mismo, 0-4.
+class ViewersSensor(DoorbellEntity, SensorEntity):
+    """`webrtc_clients` (§1.2): how many people are watching right now, 0-4.
 
-    Cuenta SOLO sesiones WebRTC, incluidas las que todavia negocian ICE/DTLS. Los clientes RTSP no
-    cuentan: son NVR de terceros, no usuarios.
+    Counts ONLY WebRTC sessions, including ones still negotiating ICE/DTLS. RTSP clients do not
+    count: they are third-party NVRs, not users.
 
-    ⚠️ Hasta 30 s de retraso, y no es un defecto que arreglar bajando el sondeo. El contador cambia
-    en sitios que corren en el camino de tiempo real del audio y el video del portero, asi que
-    preguntarselo mas a menudo le cuesta a el lo que a nosotros nos ahorra. **Para automatizar en
-    vivo esta la entidad de eventos**, que llega empujada.
+    ⚠️ Up to 30 s of lag, and that is not a defect to fix by polling more often. The counter changes
+    in places that run on the doorbell's real-time audio/video path, so asking more often costs it
+    exactly what it would save us. **The events entity is there for live automation**, and it
+    arrives pushed.
     """
 
     _attr_translation_key = "viewers"
@@ -39,29 +39,29 @@ class EspectadoresSensor(DoorbellEntity, SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator: DoorbellCoordinator) -> None:
-        super().__init__(coordinator, "espectadores")
+        super().__init__(coordinator, "viewers")
 
     @property
     def native_value(self) -> int:
         return int((self.coordinator.data or {}).get("webrtc_clients", 0))
 
 
-class TextoSensor(DoorbellEntity, SensorEntity):
-    """Un campo de texto de diagnostico.
+class TextSensor(DoorbellEntity, SensorEntity):
+    """A diagnostic text field.
 
-    ⚠️ `panel_fw` **solo aparece si hay panel** (§1.2-ter), y su ausencia significa «no hay panel»,
-    no «no se sabe». Se devuelve `None` en ese caso en vez de una cadena vacia o un guion: un
-    cliente que pinte «-» esta afirmando algo que el portero nunca dijo.
+    ⚠️ `panel_fw` **only appears if there is a panel** (§1.2-ter), and its absence means "no
+    panel", not "not known". `None` is returned in that case instead of an empty string or a dash:
+    a client that paints "-" is asserting something the doorbell never said.
     """
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, coordinator: DoorbellCoordinator, campo: str, clave_traduccion: str, icono: str) -> None:
-        super().__init__(coordinator, campo)
-        self._campo = campo
-        self._attr_translation_key = clave_traduccion
-        self._attr_icon = icono
+    def __init__(self, coordinator: DoorbellCoordinator, field: str, translation_key_name: str, icon: str) -> None:
+        super().__init__(coordinator, field)
+        self._field = field
+        self._attr_translation_key = translation_key_name
+        self._attr_icon = icon
 
     @property
     def native_value(self) -> str | None:
-        return (self.coordinator.data or {}).get(self._campo) or None
+        return (self.coordinator.data or {}).get(self._field) or None

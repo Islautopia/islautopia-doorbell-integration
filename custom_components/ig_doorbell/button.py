@@ -1,20 +1,20 @@
-"""Abrir la puerta.
+"""Open the door.
 
-## Por que un boton y no un interruptor
+## Why a button and not a switch
 
-Porque el portero **no sabe si la puerta esta abierta**. Un interruptor tiene estado y este no
-tendria ninguno que decir: quedaria encendido o apagado segun lo ultimo que alguien pulso, que es
-una afirmacion que nadie ha hecho. Un boton es honesto -- se pulsa, ocurre, y no finge saber nada
-despues.
+Because the doorbell **does not know whether the door is open**. A switch has state and this one
+would have nothing to report: it would sit on or off depending on whoever last pressed it, which
+is a claim nobody made. A button is honest - it is pressed, it happens, and it does not pretend to
+know anything afterwards.
 
-## ⚠️ La doble pulsacion de §1.8 NO se implementa aqui, y no es un olvido
+## ⚠️ §1.8's double-tap is NOT implemented here, and it is not an oversight
 
-Esa regla protege contra el toque accidental **en la pantalla de un cliente**: un movil en el
-bolsillo, un nino, un dedo que rebota. Un boton de Home Assistant se pulsa desde un dashboard o
-desde una automatizacion, y una automatizacion no se equivoca de dedo. Meter una confirmacion aqui
-la haria imposible de usar desde una automatizacion, que es justo para lo que existe esta entidad.
+That rule protects against an accidental touch **on a client's screen**: a phone in a pocket, a
+child, a bouncing finger. A Home Assistant button is pressed from a dashboard or from an
+automation, and an automation does not fat-finger it. Adding a confirmation here would make it
+unusable from an automation, which is exactly what this entity exists for.
 
-Lo que si se respeta es lo otro de §1.8: **si `door_m=2` el boton no se dibuja**.
+What IS honoured from §1.8 is the other half: **if `door_m=2` the button is not drawn**.
 """
 from __future__ import annotations
 
@@ -37,36 +37,36 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntities
 ) -> None:
     c: DoorbellCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    if not c.tiene_cerradura:
-        # NO se dibuja apagado: no se dibuja. Es la regla que este contrato aplica al boton de
-        # abrir con `door_m=2` (§1.4-ter), a la fila de Llaves sin panel (§1.20) y a los eventos no
-        # notificables (§3.6.4) -- ofrecer un control que no puede funcionar es peor que no
-        # ofrecerlo.
-        _LOGGER.info("Ese portero no tiene cerradura configurada (door_m=2): sin boton de abrir")
+    if not c.has_lock:
+        # NOT drawn disabled: not drawn at all. This is the rule the contract applies to the open
+        # button with `door_m=2` (§1.4-ter), to the Keys row with no panel (§1.20), and to
+        # non-notifiable events (§3.6.4) - offering a control that cannot work is worse than not
+        # offering it.
+        _LOGGER.info("That doorbell has no lock configured (door_m=2): no open button")
         return
-    async_add_entities([AbrirPuertaButton(c)])
+    async_add_entities([OpenDoorButton(c)])
 
 
-class AbrirPuertaButton(DoorbellEntity, ButtonEntity):
-    """Abre la puerta."""
+class OpenDoorButton(DoorbellEntity, ButtonEntity):
+    """Opens the door."""
 
     _attr_translation_key = "open_door"
     _attr_icon = "mdi:door-open"
 
     def __init__(self, coordinator: DoorbellCoordinator) -> None:
-        super().__init__(coordinator, "abrir")
+        super().__init__(coordinator, "open")
 
     async def async_press(self) -> None:
         # The doorbell's LAN session (net.py): works with the internet down, never via the VPS.
-        sesion = self.coordinator.sesion
+        session = self.coordinator.session
         try:
-            await api.async_open_door(sesion, self.coordinator.device_id, self.coordinator.credential)
+            await api.async_open_door(session, self.coordinator.device_id, self.coordinator.credential)
         except api.NoLockConfiguredError as err:
-            # Se puede llegar aqui aunque la entidad exista: `door_m` pudo cambiar desde el ultimo
-            # sondeo. Se dice lo que pasa, no un codigo (§1.0 punto 5).
+            # This can be reached even though the entity exists: `door_m` may have changed since
+            # the last poll. What happened is stated, not a code (§1.0 point 5).
             raise HomeAssistantError("That doorbell no longer has a lock configured") from err
         except api.DoorbellApiError as err:
-            # ⚠️ Un fallo se PROPAGA, nunca se traga. Hay alguien esperando fuera, y un boton que
-            # se pulsa y no dice nada se lee como que la puerta se abrio (§1.8: un tiempo agotado
-            # es un tiempo agotado, nunca un "abierta").
+            # ⚠️ A failure is PROPAGATED, never swallowed. Someone may be waiting outside, and a
+            # button that is pressed and says nothing reads as the door having opened (§1.8: a
+            # timeout is a timeout, never an "opened").
             raise HomeAssistantError(f"Could not open the door: {err}") from err

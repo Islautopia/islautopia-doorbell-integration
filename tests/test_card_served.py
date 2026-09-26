@@ -3,7 +3,7 @@
 Checked on the real `async_setup`: the card file is served, its URL goes into the frontend's
 extra-module list (what makes it load on every page with no resource), the URL changes when the
 file changes (cache busting), and the route does not tell browsers to keep a copy for a month.
-tools/mutantes.py breaks each of those in turn.
+tools/mutants.py breaks each of those in turn.
 """
 from __future__ import annotations
 

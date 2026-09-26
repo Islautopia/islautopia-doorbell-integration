@@ -42,22 +42,22 @@ class SignalError(api.DoorbellApiError):
     """The doorbell refused the command or did not answer it."""
 
 
-async def async_orden(
-    sesion: aiohttp.ClientSession,
+async def async_send_command(
+    session: aiohttp.ClientSession,
     device_id: str,
     credential: str,
-    mensaje: dict,
-    respuesta: str,
+    message: dict,
+    response_type: str,
     *,
-    plazo: float = 8.0,
+    timeout_s: float = 8.0,
 ) -> dict:
-    """Send `mensaje` on a fresh signalling session and return the doorbell's `respuesta` message."""
+    """Send `message` on a fresh signalling session and return the doorbell's `response_type` message."""
     base = f"https://{api.doorbell_hostname(device_id)}:8443"
     token = quote(credential)
     slot: int | None = None
 
     async def _post(msg: dict) -> None:
-        async with sesion.post(
+        async with session.post(
             f"{base}/webrtc/signal/post?token={token}",
             data=json.dumps(msg),
             headers={"Content-Type": "application/json"},
@@ -69,7 +69,7 @@ async def async_orden(
                 raise SignalError(f"signal POST -> HTTP {r.status}")
 
     try:
-        resp = await sesion.get(f"{base}/webrtc/signal?token={token}", timeout=_SSE_TIMEOUT)
+        resp = await session.get(f"{base}/webrtc/signal?token={token}", timeout=_SSE_TIMEOUT)
     except (aiohttp.ClientError, OSError, TimeoutError) as err:
         raise api.DoorbellApiError(f"Could not reach the doorbell: {err}") from err
     try:
@@ -78,36 +78,36 @@ async def async_orden(
         if resp.status != 200:
             raise SignalError(f"signal SSE -> HTTP {resp.status}")
 
-        async def _leer() -> dict:
+        async def _read() -> dict:
             nonlocal slot
-            enviado = False
-            async for linea in resp.content:
-                linea = linea.strip()
-                if not linea.startswith(b"data:"):
+            sent = False
+            async for line in resp.content:
+                line = line.strip()
+                if not line.startswith(b"data:"):
                     continue
                 try:
-                    msg = json.loads(linea[5:])
+                    msg = json.loads(line[5:])
                 except ValueError:
                     continue
-                tipo = msg.get("type")
-                if tipo == "error" and msg.get("reason") == "sessions_full":
+                msg_type = msg.get("type")
+                if msg_type == "error" and msg.get("reason") == "sessions_full":
                     raise SignalError("sessions_full")
-                if tipo == "offer" and slot is None and isinstance(msg.get("slot"), int):
+                if msg_type == "offer" and slot is None and isinstance(msg.get("slot"), int):
                     slot = msg["slot"]
-                    await _post({**mensaje, "slot": slot})
-                    enviado = True
-                elif enviado and tipo == respuesta:
+                    await _post({**message, "slot": slot})
+                    sent = True
+                elif sent and msg_type == response_type:
                     return msg
             raise SignalError("the doorbell closed the signalling session")
 
         try:
-            return await asyncio.wait_for(_leer(), plazo)
+            return await asyncio.wait_for(_read(), timeout_s)
         except TimeoutError as err:
-            raise SignalError(f"no {respuesta} within {plazo:.0f} s") from err
+            raise SignalError(f"no {response_type} within {timeout_s:.0f} s") from err
     finally:
         if slot is not None:
             try:
                 await _post({"type": "bye", "slot": slot})
             except Exception:  # noqa: BLE001 - best effort; the doorbell reaps it at 20 s anyway
-                _LOGGER.debug("bye after %s failed", mensaje.get("type"), exc_info=True)
+                _LOGGER.debug("bye after %s failed", message.get("type"), exc_info=True)
         resp.close()

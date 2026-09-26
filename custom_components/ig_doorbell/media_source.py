@@ -75,10 +75,10 @@ class DoorbellMediaSource(MediaSource):
     def _paired_doorbells(self) -> list[dict]:
         """Every config entry that is a paired doorbell, in a stable order.
 
-        Se le pregunta a Home Assistant que entradas existen y se busca cada una, en vez de
-        recorrer todo lo guardado bajo nuestra clave de dominio: ahi hay ademas objetos vivos (el
-        coordinador), y cualquier cosa que alguien guarde manana con un `device_id` dentro
-        coincidiria en silencio. Mismo razonamiento que `_find_entry_data` en websocket_api.py.
+        Home Assistant is asked which entries exist and each one is looked up, instead of walking
+        everything stored under our domain key: there are also live objects there (the
+        coordinator), and anything anyone stores tomorrow with a `device_id` inside would silently
+        match. Same reasoning as `_find_entry_data` in websocket_api.py.
         """
         stored = self.hass.data.get(DOMAIN, {})
         found = []
@@ -88,8 +88,8 @@ class DoorbellMediaSource(MediaSource):
                 # The doorbell's own name (`dname`) when known: a manually added doorbell's entry
                 # title is its device id, which says nothing to the person browsing.
                 coord = data.get("coordinator")
-                titulo = (coord.nombre_portero if coord is not None else None) or entry.title
-                found.append({**data, "title": titulo})
+                doorbell_title = (coord.doorbell_name if coord is not None else None) or entry.title
+                found.append({**data, "title": doorbell_title})
         return found
 
     def _doorbell_by_id(self, device_id: str) -> dict:
@@ -146,7 +146,7 @@ class DoorbellMediaSource(MediaSource):
         credential = doorbell[CONF_CREDENTIAL]
         # The doorbell's LAN session (net.py). No fallback to the shared session: that one
         # resolves names through public DNS, which is exactly what Phase 0 removed.
-        session = doorbell.get("sesion")
+        session = doorbell.get("session")
         if session is None:
             raise MediaSourceError("The doorbell is still being set up; try again in a moment")
 
@@ -225,7 +225,7 @@ class DoorbellMediaSource(MediaSource):
 
         device_id, filename = item.identifier.split("/", 1)
         doorbell = self._doorbell_by_id(device_id)
-        session = doorbell.get("sesion")
+        session = doorbell.get("session")
         if session is None:
             raise Unresolvable("The doorbell is still being set up; try again in a moment")
         try:

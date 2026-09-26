@@ -1,14 +1,14 @@
-"""El modo del portero (§1.2, campo `m`).
+"""The doorbell's mode (§1.2, field `m`).
 
-Gobierna que hace el aparato al llamar --que suena, que se ve en el anillo, y si se avisa a los
-telefonos (§3.5)-- asi que es de lo poco del portero que un usuario de Home Assistant quiere
-automatizar de verdad: «en No molestar a las 23:00» es una automatizacion de dos lineas.
+Governs what the device does when it rings - what sounds, what shows on the ring, and whether
+phones are notified (§3.5) - so it is one of the few things about the doorbell a Home Assistant
+user actually wants to automate: "do not disturb at 23:00" is a two-line automation.
 
-## ⚠️ Cambiarlo EXIGE que el emparejamiento sea de administrador
+## ⚠️ Changing it REQUIRES the pairing to be an administrator
 
-`save_states` pide rol admin (§1.16-bis: lo que se lee es de cualquiera, lo que escribe en el
-portero es de administrador). Un emparejamiento que no lo sea puede LEER el modo y no cambiarlo, y
-el `403` se traduce a un error visible en vez de un no-op silencioso.
+`save_states` requires the admin role (§1.16-bis: reading is open to anyone, writing to the
+doorbell is administrator-only). A pairing that is not one can READ the mode and not change it,
+and the `403` is translated into a visible error instead of a silent no-op.
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 
 from . import api
-from .const import DOMAIN, MODOS
+from .const import DOMAIN, MODES
 from .coordinator import DoorbellCoordinator
 from .entity import AddEntities, DoorbellEntity
 
@@ -31,40 +31,40 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntities
 ) -> None:
     c: DoorbellCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    async_add_entities([ModoSelect(c)])
+    async_add_entities([ModeSelect(c)])
 
 
-class ModoSelect(DoorbellEntity, SelectEntity):
-    """Normal / Away / Do not disturb / Custom -- states are translation keys (const.MODOS)."""
+class ModeSelect(DoorbellEntity, SelectEntity):
+    """Normal / Away / Do not disturb / Custom -- states are translation keys (const.MODES)."""
 
     _attr_translation_key = "mode"
     _attr_icon = "mdi:home-clock"
-    _attr_options = list(MODOS.values())
+    _attr_options = list(MODES.values())
 
     def __init__(self, coordinator: DoorbellCoordinator) -> None:
-        super().__init__(coordinator, "modo")
+        super().__init__(coordinator, "mode")
 
     @property
     def current_option(self) -> str | None:
-        """El modo vigente, o None si el portero devuelve uno que no conocemos.
+        """The current mode, or None if the doorbell returns one we do not know.
 
-        `None` y no un texto inventado: un modo nuevo del firmware debe verse como «no lo se» y no
-        como «Normal», que seria afirmar algo falso sobre el aparato de la puerta.
+        `None` and not a made-up label: a mode new to the firmware must read as "I don't know",
+        not as "Normal", which would assert something false about the device at the door.
         """
-        return MODOS.get((self.coordinator.data or {}).get("m"))
+        return MODES.get((self.coordinator.data or {}).get("m"))
 
     async def async_select_option(self, option: str) -> None:
-        numero = next((k for k, v in MODOS.items() if v == option), None)
-        if numero is None:
+        number = next((k for k, v in MODES.items() if v == option), None)
+        if number is None:
             raise HomeAssistantError(f"Unknown mode: {option}")
 
         # The doorbell's LAN session (net.py): works with the internet down, never via the VPS.
-        sesion = self.coordinator.sesion
+        session = self.coordinator.session
         try:
-            # Guardado PARCIAL: solo `m`. Mandar el estado entero convertiria cualquier lectura de
-            # hace 30 s en una escritura que pisa lo que otro acaba de cambiar desde el dashboard.
+            # PARTIAL save: only `m`. Sending the whole state would turn any reading up to 30 s
+            # stale into a write that stomps whatever someone else just changed from the dashboard.
             await api.async_save_states(
-                sesion, self.coordinator.device_id, self.coordinator.credential, {"m": str(numero)}
+                session, self.coordinator.device_id, self.coordinator.credential, {"m": str(number)}
             )
         except api.NotAllowedError as err:
             raise HomeAssistantError(
@@ -90,21 +90,21 @@ class ModoSelect(DoorbellEntity, SelectEntity):
         # the doorbell's real mode AND the service call fails with a readable reason, so the card
         # (or whoever called it) can say so instead of failing in silence.
         try:
-            estado = await api.async_get_states(
-                sesion, self.coordinator.device_id, self.coordinator.credential
+            state = await api.async_get_states(
+                session, self.coordinator.device_id, self.coordinator.credential
             )
         except api.DoorbellApiError:
             # The write was accepted (200) but the read-back failed: fall back to the normal
             # refresh rather than claiming a failure that did not happen.
             await self.coordinator.async_request_refresh()
             return
-        self.coordinator.async_set_updated_data({**(self.coordinator.data or {}), **estado})
+        self.coordinator.async_set_updated_data({**(self.coordinator.data or {}), **state})
         try:
-            aplicado = int(estado.get("m")) == numero
+            applied = int(state.get("m")) == number
         except (TypeError, ValueError):
-            aplicado = False
-        if not aplicado:
+            applied = False
+        if not applied:
             raise HomeAssistantError(
                 f"The doorbell did not apply the mode '{option}' (it reports "
-                f"'{MODOS.get(estado.get('m'), estado.get('m'))}')."
+                f"'{MODES.get(state.get('m'), state.get('m'))}')."
             )

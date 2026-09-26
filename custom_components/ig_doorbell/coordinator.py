@@ -1,23 +1,23 @@
-"""Le pregunta al portero por su estado, y de ahi viven todas las entidades.
+"""Asks the doorbell for its state, and every entity lives off that.
 
-## Por que hay sondeo si el webhook empuja
+## Why poll at all if the webhook pushes
 
-Porque son dos cosas distintas. El webhook trae **lo que ocurre** -- alguien llamo, hay un paquete,
-se abrio la puerta-- y el sondeo trae **como esta** -- en que modo, cuanta gente mira, si hay panel
-de calle, que firmware corre. Lo segundo cambia sin que nadie avise: el modo se toca desde el
-dashboard del propio portero, el planificador de §1.12-ter lo cambia solo, y un panel aparece en
-cuanto alguien enchufa un cable.
+Because they are two different things. The webhook brings **what happens** - someone rang, there
+is a package, the door opened - and polling brings **how things are** - what mode, how many people
+are watching, whether there is a street panel, what firmware is running. The second kind changes
+without anyone announcing it: the mode is touched from the doorbell's own dashboard, §1.12-ter's
+scheduler changes it on its own, and a panel shows up the moment someone plugs in a cable.
 
-Y hace un tercer trabajo que antes hacia el LWT de MQTT: **la disponibilidad**. Si `get_states`
-falla, las entidades pasan a no disponibles. Eso sale gratis del sondeo, mientras que con MQTT
-habia que configurar un mensaje postumo -- una pieza mas que podia quedarse sin configurar.
+And it does a third job that used to be MQTT's LWT: **availability**. If `get_states` fails, the
+entities go unavailable. That comes free from polling, whereas with MQTT you had to configure a
+last-will message - one more piece that could be left unconfigured.
 
-## Por que 30 s y no 5
+## Why 30 s and not 5
 
-Casi todo lo que cambia deprisa llega empujado. Sondear mas a menudo castigaria al portero para
-refrescar cosas que casi nunca se mueven, y `esp_http_server` **atiende de una en una**: una
-peticion lenta deja al aparato entero sin contestar a nada mas mientras dura. Ese efecto ya se
-midio con el listado de grabaciones, donde un `/api/device_id` de 0,31 s paso a tardar 22.
+Almost everything that changes fast arrives pushed. Polling more often would punish the doorbell
+to refresh things that almost never move, and `esp_http_server` **serves one request at a time**:
+a slow request leaves the whole device unable to answer anything else while it runs. That effect
+was already measured with the recordings listing, where a 0.31 s `/api/device_id` went up to 22.
 """
 from __future__ import annotations
 
@@ -30,13 +30,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from . import api
-from .const import DOMAIN, INTERVALO_SONDEO, nombre_generico
+from .const import DOMAIN, POLL_INTERVAL, generic_name
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class DoorbellCoordinator(DataUpdateCoordinator[dict]):
-    """Un portero. `data` es `get_states` con `firmware_info` mezclado dentro."""
+    """One doorbell. `data` is `get_states` with `firmware_info` mixed into it."""
 
     def __init__(
         self,
@@ -44,97 +44,96 @@ class DoorbellCoordinator(DataUpdateCoordinator[dict]):
         entry: ConfigEntry,
         device_id: str,
         credential: str,
-        sesion: aiohttp.ClientSession,
-        direccion: str | None = None,
+        session: aiohttp.ClientSession,
+        address: str | None = None,
     ) -> None:
         super().__init__(
             hass,
             _LOGGER,
             name=f"{DOMAIN}_{device_id}",
-            update_interval=timedelta(seconds=INTERVALO_SONDEO),
-            # `config_entry` dejo de ser opcional: sin el, Home Assistant avisa y en las
-            # versiones nuevas se niega a construir el coordinador.
+            update_interval=timedelta(seconds=POLL_INTERVAL),
+            # `config_entry` stopped being optional: without it, Home Assistant warns, and on
+            # newer versions refuses to build the coordinator.
             config_entry=entry,
         )
         self.device_id = device_id
         self.credential = credential
         # The doorbell's LAN address (net.py). Only for display (configuration_url); requests go
         # through the session, whose resolver already maps the name to it.
-        self.direccion = direccion
-        # La sesion de ESTA entrada, con el resolutor que prueba la direccion local antes que
-        # el DNS publico (net.py). No la compartida: un resolutor sobre aquella contestaria por
-        # todas las integraciones de este Home Assistant.
-        self._sesion = sesion
-        # `firmware_info` se pide solo de vez en cuando: la version no cambia sola, y pedirla cada
-        # 30 s seria una peticion de mas contra un aparato que atiende de una en una. Se refresca
-        # tras un OTA porque el portero se reinicia y el sondeo siguiente falla, lo que pone esto a
-        # cero. O sea que la actualizacion se nota sin tener que preguntarla a menudo.
-        self._ciclos_hasta_firmware = 0
+        self.address = address
+        # THIS entry's session, with the resolver that tries the local address before public DNS
+        # (net.py). Not the shared one: a resolver on that one would answer for every integration
+        # on this Home Assistant.
+        self._session = session
+        # `firmware_info` is only asked for once in a while: the version does not change on its
+        # own, and asking every 30 s would be one more request against a device that serves one
+        # at a time. It refreshes after an OTA because the doorbell reboots and the next poll
+        # fails, which resets this to zero. So the update is noticed without asking often.
+        self._cycles_until_firmware = 0
         self._firmware: dict = {}
-        # El rol de ESTA credencial en el portero ("admin"/"user"/"unknown", §3.3-ter) - de ahi
-        # sale lo que la card puede enseñar (REC, hass_todo_en_la_integracion), nunca de si quien
-        # mira el dashboard es administrador de HOME ASSISTANT. Misma cadencia que firmware_info:
-        # no cambia solo, asi que preguntarlo cada 30 s seria una peticion de mas contra un aparato
-        # que atiende de una en una.
-        self._ciclos_hasta_role = 0
+        # THIS credential's role on the doorbell ("admin"/"user"/"unknown", §3.3-ter) - this is
+        # what the card is allowed to show (REC, hass_todo_en_la_integracion), never whether
+        # whoever is looking at the dashboard is a HOME ASSISTANT administrator. Same cadence as
+        # firmware_info: it does not change on its own, so asking every 30 s would be one more
+        # request against a device that serves one at a time.
+        self._cycles_until_role = 0
         self._role = "unknown"
 
     @property
-    def sesion(self) -> aiohttp.ClientSession:
-        """La sesion de este portero, para quien tenga el coordinador y no el hass.data."""
-        return self._sesion
+    def session(self) -> aiohttp.ClientSession:
+        """This doorbell's session, for whoever has the coordinator and not hass.data."""
+        return self._session
 
     async def _async_update_data(self) -> dict:
         try:
-            estado = await api.async_get_states(self._sesion, self.device_id, self.credential)
+            state = await api.async_get_states(self._session, self.device_id, self.credential)
         except api.AuthenticationError as err:
-            # ⚠️ Un 401 sobre una credencial que ANTES funcionaba no es un fallo de red: es que ese
-            # portero ya no reconoce a esta integracion -- reinicio a fabrica, revocacion, o la
-            # ranura desalojada por antiguedad (§1.5, 16 ranuras, sale la mas vieja). En los tres
-            # casos lo unico que se puede hacer es reemparejar, asi que se dice en vez de
-            # reintentar en bucle.
+            # ⚠️ A 401 on a credential that USED TO work is not a network failure: it means that
+            # doorbell no longer recognises this integration - factory reset, revocation, or the
+            # slot evicted by age (§1.5, 16 slots, the oldest goes). In all three cases the only
+            # fix is re-pairing, so that is what is said instead of retrying in a loop.
             raise UpdateFailed(
                 "The doorbell no longer recognises this integration: re-pair it"
             ) from err
         except api.DoorbellApiError as err:
             raise UpdateFailed(str(err)) from err
 
-        if self._ciclos_hasta_firmware <= 0:
+        if self._cycles_until_firmware <= 0:
             try:
                 self._firmware = await api.async_get_firmware_info(
-                    self._sesion, self.device_id, self.credential
+                    self._session, self.device_id, self.credential
                 )
-                self._ciclos_hasta_firmware = 20     # ~10 minutos
+                self._cycles_until_firmware = 20     # ~10 minutes
             except api.DoorbellApiError:
-                # No es motivo para dejar las entidades sin datos: `get_states` ya respondio, asi
-                # que el portero esta vivo. Se reintenta en el ciclo siguiente.
-                _LOGGER.debug("No se pudo leer firmware_info; se reintenta", exc_info=True)
+                # Not a reason to leave the entities without data: `get_states` already answered,
+                # so the doorbell is alive. Retried on the next cycle.
+                _LOGGER.debug("Could not read firmware_info; will retry", exc_info=True)
         else:
-            self._ciclos_hasta_firmware -= 1
+            self._cycles_until_firmware -= 1
 
-        if self._ciclos_hasta_role <= 0:
-            self._role = await api.async_get_role(self._sesion, self.device_id, self.credential)
-            self._ciclos_hasta_role = 20     # ~10 minutos, igual que firmware_info
+        if self._cycles_until_role <= 0:
+            self._role = await api.async_get_role(self._session, self.device_id, self.credential)
+            self._cycles_until_role = 20     # ~10 minutes, same as firmware_info
         else:
-            self._ciclos_hasta_role -= 1
+            self._cycles_until_role -= 1
 
-        # Se mezclan en un solo diccionario para que las entidades no tengan que saber de cual de
-        # las dos rutas sale cada campo. `get_states` manda: si algun dia las dos devolvieran la
-        # misma clave, la de estado es la que se refresca cada 30 s.
-        return {**self._firmware, **estado}
+        # Mixed into a single dict so the entities do not have to know which of the two routes
+        # each field comes from. `get_states` wins: if the two ever returned the same key, the
+        # state one is the one refreshed every 30 s.
+        return {**self._firmware, **state}
 
-    # -- ayudas que usan varias entidades ------------------------------------------------------
+    # -- helpers several entities use -----------------------------------------------------------
 
     @property
-    def nombre_portero(self) -> str:
-        """`dname`, y si el portero no tiene nombre, el generico del propio firmware.
+    def doorbell_name(self) -> str:
+        """`dname`, and if the doorbell has no name, the firmware's own generic one.
 
-        Vacio significa «nadie lo ha bautizado», no un nombre (§1.4-ter): machacar con eso lo que
-        el cliente ya tenia lo dejaria peor que antes. Y el generico -- nunca el id a secas
-        (Inaki, 2026-09-26) -- es el mismo que usa el firmware para su instancia mDNS cuando
-        tampoco el tiene nombre, ver `nombre_generico`.
+        Empty means "nobody has named it", not a name (§1.4-ter): stomping what the client already
+        had with that would leave it worse than before. And the generic name - never the bare id
+        (Inaki, 2026-09-26) - is the same one the firmware uses for its mDNS instance when it too
+        has no name, see `generic_name`.
         """
-        return (self.data or {}).get("dname") or nombre_generico(self.device_id)
+        return (self.data or {}).get("dname") or generic_name(self.device_id)
 
     @property
     def role(self) -> str:
@@ -147,13 +146,13 @@ class DoorbellCoordinator(DataUpdateCoordinator[dict]):
         return self._role
 
     @property
-    def tiene_cerradura(self) -> bool:
-        """`door_m=2` es «ninguna» (§1.2).
+    def has_lock(self) -> bool:
+        """`door_m=2` is "none" (§1.2).
 
-        Con eso el boton de abrir **no se dibuja** (§1.4-ter). Antes de que `door_m` viajara, un
-        cliente solo podia averiguarlo **fallando**: ofrecia el boton, se llevaba un
-        `no_lock_configured`, y entonces lo escondia -- asi que el primer usuario de cada sesion
-        veia un boton que no funciona, y en un videoportero ese es justo el boton que no puede
-        defraudar.
+        With that, the open button **is not drawn** (§1.4-ter). Before `door_m` was carried, a
+        client could only find out by **failing**: it offered the button, got a
+        `no_lock_configured`, and only then hid it - so the first user of every session saw a
+        button that does not work, and on a video doorbell that is exactly the button that cannot
+        disappoint.
         """
         return (self.data or {}).get("door_m", 2) != 2

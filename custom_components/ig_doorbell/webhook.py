@@ -1,27 +1,27 @@
-"""El portero avisa a Home Assistant por webhook (API_CONTRACT.md §4).
+"""The doorbell notifies Home Assistant over a webhook (API_CONTRACT.md §4).
 
-Sustituye a MQTT, y el motivo no es tecnico sino de producto: MQTT obligaba al usuario a tener un
-broker instalado, y esta integracion tiene que funcionar en un Home Assistant recien instalado,
-igual que funcionan las apps. Un requisito previo que la mitad de la gente no cumple no es una
-integracion: es un manual.
+Replaces MQTT, and the reason is not technical but a product one: MQTT required the user to have a
+broker installed, and this integration has to work on a freshly installed Home Assistant, the same
+way the apps do. A prerequisite half the audience does not meet is not an integration: it is a
+manual.
 
-Lo que llega es **el sobre de §3.6.1 sin cambiar una coma**, el mismo que el portero ya compone
-para el relay. Un formato propio para Home Assistant seria un quinto dialecto que mantener.
+What arrives is **the §3.6.1 envelope without changing a comma**, the same one the doorbell already
+builds for the relay. A format of our own for Home Assistant would be a fifth dialect to maintain.
 
-## ⚠️ POR QUE ESTE HANDLER DEVUELVE UN CUERPO, Y NO ES UNA CORTESIA
+## ⚠️ WHY THIS HANDLER RETURNS A BODY, AND IT IS NOT A COURTESY
 
-Medido el 2026-08-24 contra un Home Assistant real: **contesta `200` a un webhook que NO existe**,
-con el cuerpo vacio. Es deliberado por su parte -- asi nadie puede enumerar los webhook de una
-instalacion probandolos.
+Measured 2026-08-24 against a real Home Assistant: **it answers `200` to a webhook that does NOT
+exist**, with an empty body. That is deliberate on its part - so nobody can enumerate an
+installation's webhooks by probing them.
 
-Consecuencia: por codigo de estado el portero **no puede distinguir** «entregado» de «Home
-Assistant se olvido de mi». Un portero cuya integracion se borro seguiria disparando al vacio para
-siempre con su contador de fallos en cero -- los dos extremos diciendo que todo va bien y nada
-ocurriendo, que es la familia de fallo que este proyecto persigue.
+Consequence: by status code alone the doorbell **cannot tell** "delivered" from "Home Assistant
+forgot about me". A doorbell whose integration was removed would keep firing into the void forever
+with its failure counter at zero - both extremes saying everything is fine and nothing happening,
+which is the failure family this project keeps hunting.
 
-**La marca del cuerpo es lo unico que rompe ese empate.** Y un handler de Home Assistant que
-devuelve `None` produce **tambien** un 200 vacio, asi que devolverla es un REQUISITO: olvidarse del
-cuerpo hace que el portero de por muerta una integracion perfectamente viva.
+**The body's marker is the only thing that breaks that tie.** And a Home Assistant handler that
+returns `None` **also** produces an empty 200, so returning it is a REQUIREMENT: forgetting the
+body makes the doorbell pronounce a perfectly alive integration dead.
 """
 from __future__ import annotations
 
@@ -37,160 +37,163 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import (
     CONF_DEVICE_ID,
-    CONF_ENTIDADES,
+    CONF_ENTITIES,
     DOMAIN,
     DOMAIN_CLOSE_SERVICE,
     DOMAIN_OPEN_SERVICE,
-    DOMINIOS_PERMITIDOS,
-    SIGNAL_EVENTO,
-    WEBHOOK_MARCA,
+    ALLOWED_DOMAINS,
+    SIGNAL_EVENT,
+    WEBHOOK_MARKER,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def webhook_id_de(device_id: str) -> str:
-    """El identificador del webhook, derivado del `device_id`.
+def webhook_id_for(device_id: str) -> str:
+    """The webhook's identifier, derived from the `device_id`.
 
-    Derivado y no aleatorio a proposito: hace la operacion **idempotente**. Recargar la entrada de
-    configuracion vuelve a registrar el mismo identificador, asi que la URL que el portero ya tiene
-    guardada sigue siendo valida y no hay que reconfigurarlo en cada reinicio de Home Assistant.
+    Derived and not random on purpose: it makes the operation **idempotent**. Reloading the
+    config entry registers the same identifier again, so the URL the doorbell already has stored
+    stays valid and there is no need to reconfigure it on every Home Assistant restart.
 
-    ⚠️ Y eso significa que **este identificador no es un secreto fuerte**: se puede derivar del
-    `device_id`, que es publico (§0). Lo que lo protege es `local_only=True` mas abajo -- solo se
-    acepta desde la propia red. Un identificador aleatorio seria mas secreto y obligaria a
-    reconfigurar el portero cada vez que se perdiera, que es peor negocio para lo que hay en juego:
-    lo que se puede hacer por aqui es contarle cosas a Home Assistant, no mandarle nada al portero.
+    ⚠️ And that means **this identifier is not a strong secret**: it can be derived from the
+    `device_id`, which is public (§0). What protects it is `local_only=True` below - it is only
+    accepted from the local network. A random identifier would be more secret and would force
+    reconfiguring the doorbell every time it got lost, which is a worse trade for what is at stake
+    here: what can be done through this is telling Home Assistant things, never sending anything
+    to the doorbell.
     """
     return f"ig_doorbell_{device_id}"
 
 
-def _lista_de(hass: HomeAssistant, webhook_id: str) -> list[str] | None:
-    """La lista de entidades de la entrada DUENA de este webhook, o None si no hay entrada.
+def _entity_list_for(hass: HomeAssistant, webhook_id: str) -> list[str] | None:
+    """The entity list of the entry that OWNS this webhook, or None if there is no entry.
 
-    ⚠️ Se busca por el webhook por el que llego la orden, NO por el `device_id` del sobre: el sobre
-    lo escribe quien llama, el webhook lo registramos nosotros. Asi un portero solo puede mover las
-    entidades que se le dieron A EL.
+    ⚠️ Looked up by the webhook the order arrived on, NOT by the envelope's `device_id`: the
+    envelope is written by whoever calls, the webhook is registered by us. So a doorbell can only
+    move the entities that were given TO IT.
     """
     for entry in hass.config_entries.async_entries(DOMAIN):
-        if webhook_id_de(entry.data.get(CONF_DEVICE_ID, "")) == webhook_id:
-            return list(entry.options.get(CONF_ENTIDADES) or [])
+        if webhook_id_for(entry.data.get(CONF_DEVICE_ID, "")) == webhook_id:
+            return list(entry.options.get(CONF_ENTITIES) or [])
     return None
 
 
-async def _accionar_entidad(
-    hass: HomeAssistant, webhook_id: str, entity_id: str, encender: bool
+async def _act_on_entity(
+    hass: HomeAssistant, webhook_id: str, entity_id: str, turn_on: bool
 ) -> tuple[bool, str | None]:
-    """`hass_action`: el portero pide encender o apagar una entidad (contrato 4).
+    """`hass_action`: the doorbell asks to turn an entity on or off (contract 4).
 
-    Devuelve `(hecho, error)`, y eso viaja de vuelta en la respuesta del webhook: el portero la lee
-    para decir si la puerta se abrio DE VERDAD (0.100.4). Por eso el servicio se llama BLOQUEANTE y
-    ANTES de contestar.
+    Returns `(done, error)`, and that travels back in the webhook's response: the doorbell reads
+    it to say whether the door REALLY opened (0.100.4). That is why the service call is BLOCKING
+    and happens BEFORE answering.
 
-    ⚠️ DEFENSA EN LOS DOS LADOS: el portero ya no manda una entidad que no este en su lista, y esto
-    lo vuelve a comprobar contra la lista de ESTA integracion. Un firmware antiguo, uno con un fallo,
-    o alguien en la LAN que conozca la URL del webhook no pueden mover otra cosa.
+    ⚠️ DEFENCE ON BOTH SIDES: the doorbell no longer sends an entity that is not in its list, and
+    this checks it again against THIS integration's list. An old firmware, a buggy one, or someone
+    on the LAN who knows the webhook URL cannot move anything else.
     """
-    dominio = entity_id.split(".", 1)[0] if "." in entity_id else ""
-    lista = _lista_de(hass, webhook_id)
-    if lista is None or entity_id not in lista:
+    domain = entity_id.split(".", 1)[0] if "." in entity_id else ""
+    entity_list = _entity_list_for(hass, webhook_id)
+    if entity_list is None or entity_id not in entity_list:
         _LOGGER.warning(
-            "El portero pide %s %s, que NO esta en la lista de entidades de esta integracion: "
-            "no se hace nada", "encender" if encender else "apagar", entity_id,
+            "The doorbell asks to %s %s, which is NOT in this integration's entity list: "
+            "doing nothing", "turn on" if turn_on else "turn off", entity_id,
         )
         return False, "not_listed"
-    if dominio not in DOMINIOS_PERMITIDOS:
-        _LOGGER.warning("%s no es de un dominio que se encienda y se apague: no se hace nada",
+    if domain not in ALLOWED_DOMAINS:
+        _LOGGER.warning("%s is not from a domain that turns on and off: doing nothing",
                         entity_id)
         return False, "bad_domain"
 
-    estado = hass.states.get(entity_id)
-    if estado is None:
-        _LOGGER.warning("El portero pide %s, que no existe en Home Assistant", entity_id)
+    state = hass.states.get(entity_id)
+    if state is None:
+        _LOGGER.warning("The doorbell asks for %s, which does not exist in Home Assistant", entity_id)
         return False, "entity_missing"
-    if estado.state == "unavailable":
-        # Llamar al servicio sobre una entidad no disponible no da error: simplemente no pasa
-        # nada. Contestar «hecho» ahi es el falso exito que esto existe para evitar.
-        _LOGGER.warning("El portero pide %s, que no esta disponible ahora mismo", entity_id)
+    if state.state == "unavailable":
+        # Calling the service on an unavailable entity does not error: it simply does nothing.
+        # Answering "done" there is the false success this exists to prevent.
+        _LOGGER.warning("The doorbell asks for %s, which is unavailable right now", entity_id)
         return False, "entity_unavailable"
 
-    servicio_dominio, servicio = (DOMAIN_OPEN_SERVICE if encender else DOMAIN_CLOSE_SERVICE)[dominio]
-    _LOGGER.info("El portero pide %s sobre %s -> %s.%s",
-                 "encender" if encender else "apagar", entity_id, servicio_dominio, servicio)
+    service_domain, service = (DOMAIN_OPEN_SERVICE if turn_on else DOMAIN_CLOSE_SERVICE)[domain]
+    _LOGGER.info("The doorbell asks to %s %s -> %s.%s",
+                 "turn on" if turn_on else "turn off", entity_id, service_domain, service)
     try:
         await hass.services.async_call(
-            servicio_dominio, servicio, {"entity_id": entity_id},
-            # ⚠️ BLOQUEANTE A PROPOSITO: el `ok` de la respuesta significa «hecho», no «recibido».
+            service_domain, service, {"entity_id": entity_id},
+            # ⚠️ BLOCKING ON PURPOSE: the response's `ok` means "done", not "received".
             blocking=True,
         )
-    except Exception:  # noqa: BLE001 - el motivo va al registro; al portero, solo que fallo
-        _LOGGER.exception("No se pudo accionar %s", entity_id)
+    except Exception:  # noqa: BLE001 - the reason goes to the log; the doorbell only gets "failed"
+        _LOGGER.exception("Could not act on %s", entity_id)
         return False, "service_failed"
     return True, None
 
 
-async def _manejar(hass: HomeAssistant, webhook_id: str, request: web.Request) -> web.Response:
-    """Un sobre del portero. Devuelve SIEMPRE un cuerpo con la marca -- ver la cabecera."""
+async def _handle(hass: HomeAssistant, webhook_id: str, request: web.Request) -> web.Response:
+    """One envelope from the doorbell. ALWAYS returns a body with the marker - see the header."""
     try:
-        sobre: dict[str, Any] = await request.json()
+        envelope: dict[str, Any] = await request.json()
     except (ValueError, json.JSONDecodeError):
-        # Se contesta con la marca igualmente: el portero necesita saber que **la integracion sigue
-        # viva**, que es una pregunta distinta de si este sobre concreto se entendio.
-        _LOGGER.warning("Sobre ilegible en %s", webhook_id)
-        return web.json_response({WEBHOOK_MARCA: 1, "error": "bad_json"})
+        # Answered with the marker anyway: the doorbell needs to know **the integration is still
+        # alive**, which is a different question from whether this particular envelope was
+        # understood.
+        _LOGGER.warning("Unreadable envelope on %s", webhook_id)
+        return web.json_response({WEBHOOK_MARKER: 1, "error": "bad_json"})
 
-    device_id = sobre.get("device_id", "")
-    tipo = sobre.get("type")
+    device_id = envelope.get("device_id", "")
+    msg_type = envelope.get("type")
 
-    if tipo == "action" and sobre.get("ev") == "hass_action":
-        # La respuesta a una ORDEN dice si se hizo (contrato 4): `ok` y, si no, `error`. El
-        # portero anterior a la 0.100.4 no la lee y le basta la marca; el nuevo la usa para
-        # contestar `open_result` con la verdad.
-        d = sobre.get("d") or {}
-        entidad = d.get("entity")
-        if not entidad or not isinstance(entidad, str):
-            _LOGGER.warning("hass_action sin entidad, se ignora")
-            return web.json_response({WEBHOOK_MARCA: 1, "ok": False, "error": "no_entity"})
-        hecho, error = await _accionar_entidad(hass, webhook_id, entidad, bool(d.get("on")))
-        cuerpo: dict[str, Any] = {WEBHOOK_MARCA: 1, "ok": hecho}
+    if msg_type == "action" and envelope.get("ev") == "hass_action":
+        # The response to a COMMAND says whether it happened (contract 4): `ok` and, if not,
+        # `error`. Firmware before 0.100.4 does not read it and the marker is enough for it; the
+        # newer one uses it to answer `open_result` truthfully.
+        d = envelope.get("d") or {}
+        entity = d.get("entity")
+        if not entity or not isinstance(entity, str):
+            _LOGGER.warning("hass_action with no entity, ignored")
+            return web.json_response({WEBHOOK_MARKER: 1, "ok": False, "error": "no_entity"})
+        done, error = await _act_on_entity(hass, webhook_id, entity, bool(d.get("on")))
+        body: dict[str, Any] = {WEBHOOK_MARKER: 1, "ok": done}
         if error:
-            cuerpo["error"] = error
-        return web.json_response(cuerpo)
+            body["error"] = error
+        return web.json_response(body)
 
-    # Un evento de §1.16. Se reparte por el despachador interno y lo recogen las entidades.
+    # An event from §1.16. Distributed through the internal dispatcher and picked up by the
+    # entities.
     #
-    # NO se filtra por `ev` aqui a proposito: un evento que este firmware no conozca todavia
-    # debe llegar igual a la entidad de eventos, que es donde el usuario lo vera. Filtrar aqui
-    # significaria que una funcion nueva del portero es invisible hasta que se actualice esta
-    # integracion, y eso es exactamente lo que hace que una integracion se quede vieja sola.
-    async_dispatcher_send(hass, SIGNAL_EVENTO.format(device_id=device_id), sobre)
-    return web.json_response({WEBHOOK_MARCA: 1})
+    # NOT filtered by `ev` here on purpose: an event this firmware does not know about yet must
+    # still reach the events entity, which is where the user will see it. Filtering here would
+    # mean a new doorbell feature is invisible until this integration is updated, and that is
+    # exactly what leaves an integration stale on its own.
+    async_dispatcher_send(hass, SIGNAL_EVENT.format(device_id=device_id), envelope)
+    return web.json_response({WEBHOOK_MARKER: 1})
 
 
-async def async_registrar(hass: HomeAssistant, device_id: str, nombre: str) -> str:
-    """Registra el webhook de este portero y devuelve su identificador.
+async def async_register(hass: HomeAssistant, device_id: str, name: str) -> str:
+    """Registers this doorbell's webhook and returns its identifier.
 
-    Idempotente: volver a registrar el mismo identificador se ignora sin ruido, que es lo que hace
-    falta para que recargar la entrada no rompa nada.
+    Idempotent: registering the same identifier again is ignored quietly, which is what is needed
+    so reloading the entry does not break anything.
     """
-    wid = webhook_id_de(device_id)
+    wid = webhook_id_for(device_id)
 
     async def _handler(hass_: HomeAssistant, wid_: str, request: web.Request) -> web.Response:
-        return await _manejar(hass_, wid_, request)
+        return await _handle(hass_, wid_, request)
 
     try:
         webhook.async_register(
-            hass, DOMAIN, f"IG Doorbell {nombre}", wid, _handler,
+            hass, DOMAIN, f"IG Doorbell {name}", wid, _handler,
             allowed_methods=["POST"],
-            # Solo desde la propia red. Es lo que compensa que el identificador sea derivable del
-            # `device_id`, que es publico -- ver `webhook_id_de`.
+            # Only from the local network. This is what compensates for the identifier being
+            # derivable from the `device_id`, which is public - see `webhook_id_for`.
             local_only=True,
         )
     except ValueError:
-        _LOGGER.debug("El webhook %s ya estaba registrado", wid)
+        _LOGGER.debug("Webhook %s was already registered", wid)
     return wid
 
 
-def desregistrar(hass: HomeAssistant, device_id: str) -> None:
-    """Suelta el webhook. Se llama al descargar la entrada."""
-    webhook.async_unregister(hass, webhook_id_de(device_id))
+def unregister(hass: HomeAssistant, device_id: str) -> None:
+    """Releases the webhook. Called when the entry is unloaded."""
+    webhook.async_unregister(hass, webhook_id_for(device_id))

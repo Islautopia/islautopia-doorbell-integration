@@ -3,19 +3,19 @@
     "step": {
       "init": {
         "menu_options": {
-          "entidades": "Entités que la sonnette peut actionner"
+          "entities": "Entités que la sonnette peut actionner"
         }
       },
-      "entidades": {
+      "entities": {
         "title": "Entités que la sonnette peut actionner",
         "description": "Choisissez les entités que la sonnette doit pouvoir actionner : pour déverrouiller la porte, ou depuis une étape de l'une de ses séquences. Seules celles-ci seront proposées dans les applications. Jusqu'à {max}.",
         "data": {
-          "entidades": "Entités"
+          "entities": "Entités"
         }
       }
     },
     "error": {
-      "demasiadas": "Trop d'entités : choisissez-en {max} au maximum"
+      "too_many": "Trop d'entités : choisissez-en {max} au maximum"
     }
   },
   "entity": {

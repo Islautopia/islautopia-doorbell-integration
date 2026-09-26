@@ -1,18 +1,19 @@
-"""Base comun de las entidades: identidad, disponibilidad y el enganche al webhook."""
+"""Common base for the entities: identity, availability, and the hook into the webhook."""
 from __future__ import annotations
 
 from homeassistant.helpers.device_registry import DeviceInfo
 
-# ⚠️ El callback con el que una plataforma da de alta sus entidades CAMBIO DE NOMBRE: Home
-# Assistant introdujo `AddConfigEntryEntitiesCallback` y dejo `AddEntitiesCallback` en desuso. Se
-# importa el nuevo y se cae al viejo, y se re-exporta desde aqui para que las cinco plataformas no
-# repitan el mismo bloque -- una defensa repartida en cinco sitios se cae en cuanto uno se queda
-# atras, y aqui el modo de fallo es que la integracion **no carga**, sin nada que lo explique.
+# ⚠️ The callback a platform uses to register its entities CHANGED NAME: Home Assistant
+# introduced `AddConfigEntryEntitiesCallback` and deprecated `AddEntitiesCallback`. The new one is
+# imported and falls back to the old one, re-exported from here so the five platforms do not
+# repeat the same block - a defence spread across five places falls the moment one of them falls
+# behind, and here the failure mode is that the integration **does not load**, with nothing to
+# explain why.
 try:  # HA >= 2025.2
     from homeassistant.helpers.entity_platform import (
         AddConfigEntryEntitiesCallback as AddEntities,
     )
-except ImportError:  # pragma: no cover - HA anterior
+except ImportError:  # pragma: no cover - older HA
     from homeassistant.helpers.entity_platform import AddEntitiesCallback as AddEntities
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -21,44 +22,44 @@ from .coordinator import DoorbellCoordinator
 
 
 class DoorbellEntity(CoordinatorEntity[DoorbellCoordinator]):
-    """Toda entidad de un portero cuelga de aqui."""
+    """Every entity of a doorbell hangs off this."""
 
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator: DoorbellCoordinator, clave: str) -> None:
+    def __init__(self, coordinator: DoorbellCoordinator, key: str) -> None:
         super().__init__(coordinator)
-        self._clave = clave
-        self._attr_unique_id = f"{coordinator.device_id}_{clave}"
+        self._key = key
+        self._attr_unique_id = f"{coordinator.device_id}_{key}"
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Se enganchan al MISMO dispositivo que ya registra __init__.py.
+        """Hooks into the SAME device __init__.py already registers.
 
-        Un solo identificador, el nuestro, igual que en `__init__.py`. Hubo un segundo -- el del
-        autodescubrimiento de MQTT-- para que Home Assistant fusionara los dos dispositivos; se
-        retiro el 2026-08-24 al medirse lo que costaba: borrar el dispositivo de MQTT se llevaba
-        nuestra entrada de configuracion. El porque entero esta en `__init__.py`.
+        A single identifier, our own, same as in `__init__.py`. There used to be a second one -
+        the one from MQTT auto-discovery - so that Home Assistant would merge the two devices; it
+        was removed on 2026-08-24 once what it cost was measured: deleting the MQTT device took our
+        config entry down with it. The whole reasoning lives in `__init__.py`.
         """
-        datos = self.coordinator.data or {}
+        data = self.coordinator.data or {}
         return DeviceInfo(
             identifiers={(DOMAIN, self.coordinator.device_id)},
             manufacturer="Islautopia",
-            model=f"IG Doorbell {datos.get('hw_version', '')}".strip(),
-            name=self.coordinator.nombre_portero,
-            sw_version=datos.get("fw_version"),
+            model=f"IG Doorbell {data.get('hw_version', '')}".strip(),
+            name=self.coordinator.doorbell_name,
+            sw_version=data.get("fw_version"),
             # The doorbell's own dashboard at its LAN address. Not the cloud hostname: following
             # that link would make the browser ask our cloud's DNS where a device in the house is.
             configuration_url=(
-                f"http://{self.coordinator.direccion}/" if self.coordinator.direccion else None
+                f"http://{self.coordinator.address}/" if self.coordinator.address else None
             ),
         )
 
     @property
     def available(self) -> bool:
-        """Disponible = el ultimo sondeo respondio.
+        """Available = the last poll answered.
 
-        Esto es lo que sustituye al LWT de MQTT, y sale gratis: con el broker habia que configurar
-        un mensaje postumo, o sea una pieza mas que podia quedarse sin configurar y dejar entidades
-        diciendo un estado de hace horas.
+        This is what replaces MQTT's LWT, and it comes for free: with the broker you had to
+        configure a last-will message, one more piece that could be left unconfigured and leave
+        entities reporting a state from hours ago.
         """
         return self.coordinator.last_update_success

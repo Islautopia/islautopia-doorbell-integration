@@ -111,9 +111,9 @@ async def async_pair_app(
     url = f"https://{doorbell_hostname(device_id)}:8443/api/pair_app"
     async with session.post(url, data={"label": label}, timeout=_TIMEOUT) as resp:
         if resp.status == 409:
-            cuerpo = await resp.json(content_type=None)
-            if isinstance(cuerpo, dict) and cuerpo.get("error") == "label_already_used":
-                raise LabelInUseError(cuerpo.get("label") or label)
+            body = await resp.json(content_type=None)
+            if isinstance(body, dict) and body.get("error") == "label_already_used":
+                raise LabelInUseError(body.get("label") or label)
             raise DeviceNotPairedError(
                 "The doorbell is not paired with the cloud yet - wait for it to finish its own "
                 "registration and try again"
@@ -154,8 +154,8 @@ async def async_unpair_app(session: aiohttp.ClientSession, device_id: str, label
         async with session.get(f"{base}/api/paired_apps", timeout=_TIMEOUT) as resp:
             if resp.status != 200:
                 return False
-            datos = await resp.json(content_type=None)
-        apps = datos.get("apps", []) if isinstance(datos, dict) else []
+            data = await resp.json(content_type=None)
+        apps = data.get("apps", []) if isinstance(data, dict) else []
         slots = [a.get("slot") for a in apps if isinstance(a, dict) and a.get("label") == label]
         if len(slots) != 1 or not isinstance(slots[0], int):
             return False
@@ -304,25 +304,24 @@ async def async_check_recording_playable(
 
 
 # ==================================================================================================
-# ESTADO Y CONTROL -- lo que alimenta las entidades (2026-08-24)
+# STATE AND CONTROL -- what feeds the entities (2026-08-24)
 #
-# Estas cinco llamadas no existian porque hasta hoy `get_states`, `save_states` y `/open` solo
-# aceptaban COOKIE DE SESION, y esta integracion guarda una credencial de `pair_app` y nunca la
-# contrasena de administrador -- que es justo lo que el emparejamiento existe para evitar. Era la
-# asimetria del hueco 9 del contrato, la misma que ya mordio con `firmware_info` y con las cuatro
-# rutas del DVR. El firmware la cerro el 2026-08-24 y por eso esta integracion puede por fin tener
-# entidades.
+# These five calls did not exist because until then `get_states`, `save_states` and `/open` only
+# accepted a SESSION COOKIE, and this integration stores a `pair_app` credential and never the
+# administrator password - which is exactly what pairing exists to avoid. It was the asymmetry of
+# contract hole 9, the same one that already bit with `firmware_info` and the four DVR routes. The
+# firmware closed it on 2026-08-24, and that is why this integration can finally have entities.
 # ==================================================================================================
 
 
 async def async_get_states(
     session: aiohttp.ClientSession, device_id: str, credential: str
 ) -> dict:
-    """GET /api/get_states (contrato §1.2). Cookie **o** `?token=`, sin filtro de rol.
+    """GET /api/get_states (contract §1.2). Cookie **or** `?token=`, no role filter.
 
-    Es todo el estado configurable del portero en una sola llamada, asi que es lo que alimenta a
-    casi todas las entidades. Sin filtro de rol porque es de solo lectura y no devuelve ninguna
-    contrasena -- `wifi_pass` no sale por ninguna ruta.
+    It is all of the doorbell's configurable state in a single call, so it is what feeds almost
+    every entity. No role filter because it is read-only and returns no password whatsoever -
+    `wifi_pass` never comes out through any route.
     """
     url = (
         f"https://{doorbell_hostname(device_id)}:8443"
@@ -377,7 +376,7 @@ async def async_get_role(
 async def async_get_firmware_info(
     session: aiohttp.ClientSession, device_id: str, credential: str
 ) -> dict:
-    """GET /api/firmware_info (contrato §1.2-ter). Version, hardware, y el panel de calle si lo hay."""
+    """GET /api/firmware_info (contract §1.2-ter). Version, hardware, and the street panel if any."""
     url = (
         f"https://{doorbell_hostname(device_id)}:8443"
         f"/api/firmware_info?token={quote(credential)}"
@@ -394,20 +393,20 @@ async def async_get_firmware_info(
 
 
 async def async_save_states(
-    session: aiohttp.ClientSession, device_id: str, credential: str, campos: dict[str, str]
+    session: aiohttp.ClientSession, device_id: str, credential: str, fields: dict[str, str]
 ) -> None:
-    """POST /api/save_states (contrato §1.2). **Exige rol admin.**
+    """POST /api/save_states (contract §1.2). **Requires the admin role.**
 
-    Guardado PARCIAL: solo se escribe lo que va en el cuerpo, y omitir un campo lo deja intacto --
-    nunca lo resetea. Por eso aqui se manda un diccionario y no el estado entero: mandar todo
-    convertiria cualquier lectura desfasada en una escritura que pisa lo que otro acaba de cambiar.
+    PARTIAL save: only what is in the body gets written, and leaving a field out keeps it intact -
+    never resets it. That is why a dict is sent here and not the whole state: sending everything
+    would turn any stale reading into a write that stomps what someone else just changed.
     """
     url = (
         f"https://{doorbell_hostname(device_id)}:8443"
         f"/api/save_states?token={quote(credential)}"
     )
     try:
-        async with session.post(url, data=campos, timeout=_TIMEOUT) as resp:
+        async with session.post(url, data=fields, timeout=_TIMEOUT) as resp:
             if resp.status == 401:
                 raise AuthenticationError("Pairing credential rejected by the doorbell")
             if resp.status == 403:
@@ -421,14 +420,14 @@ async def async_save_states(
 async def async_open_door(
     session: aiohttp.ClientSession, device_id: str, credential: str
 ) -> None:
-    """GET /open (contrato §1.2). Cookie **o** `?token=`, **sin filtro de rol**.
+    """GET /open (contract §1.2). Cookie **or** `?token=`, **no role filter**.
 
-    Sin rol a proposito: el mensaje `open` de la senalizacion nunca lo ha comprobado, asi que
-    exigirlo aqui permitiria la misma accion por un camino y la negaria por el otro.
+    No role on purpose: the signalling `open` message has never checked it, so requiring it here
+    would allow the same action through one path and deny it through the other.
 
-    `409 no_lock_configured` NO es un fallo de la peticion: es que ese portero no tiene cerradura
-    (`door_m=2`). Se distingue a proposito para que un cliente pueda **no dibujar el boton** en vez
-    de ofrecer uno que defrauda.
+    `409 no_lock_configured` is NOT a failure of the request: it means that doorbell has no lock
+    (`door_m=2`). Distinguished on purpose so a client can **not draw the button** instead of
+    offering one that disappoints.
     """
     url = f"https://{doorbell_hostname(device_id)}:8443/open?token={quote(credential)}"
     try:
@@ -448,41 +447,41 @@ async def async_set_hass_config(
     device_id: str,
     credential: str,
     *,
-    url_webhook: str,
+    webhook_url: str,
     entities: list[dict[str, str]],
 ) -> None:
-    """POST /api/hass (contrato §4). **Solo HTTPS 8443**, y exige rol admin.
+    """POST /api/hass (contract §4). **HTTPS 8443 only**, and requires the admin role.
 
-    Le dice al portero **a donde mandar sus avisos** y **que entidades de Home Assistant puede
-    accionar**. Una `url_webhook` vacia lo desconfigura, que es como se desempareja Home Assistant.
+    Tells the doorbell **where to send its notices** and **which Home Assistant entities it may
+    act on**. An empty `webhook_url` unconfigures it, which is how Home Assistant gets unpaired.
 
-    ⚠️ LA URL TIENE QUE SER LA INTERNA. `get_url(hass)` puede devolver la externa, y entonces el
-    portero saldria a internet para hablar con una maquina que tiene en la LAN de al lado --
-    rompiendo el principio 1 sin dar ningun error, solo dejando de funcionar el dia que se caiga la
-    linea. En la instalacion de Inaki eso ya pasaria: su `internal_url` es un hostname publico.
+    ⚠️ THE URL MUST BE THE INTERNAL ONE. `get_url(hass)` can return the external one, and then the
+    doorbell would go out to the internet to talk to a machine right next to it on the LAN -
+    breaking principle 1 without giving any error, just stopping working the day the line drops.
+    On Inaki's installation that would already happen: his `internal_url` is a public hostname.
     """
     api_url = (
         f"https://{doorbell_hostname(device_id)}:8443"
         f"/api/hass?token={quote(credential)}"
     )
-    cuerpo = {"url": url_webhook, "entities": entities}
+    body = {"url": webhook_url, "entities": entities}
     try:
-        async with session.post(api_url, json=cuerpo, timeout=_TIMEOUT) as resp:
+        async with session.post(api_url, json=body, timeout=_TIMEOUT) as resp:
             if resp.status == 401:
                 raise AuthenticationError("Pairing credential rejected by the doorbell")
             if resp.status == 403:
                 raise NotAllowedError("This pairing is not an admin of that doorbell")
             if resp.status != 200:
-                cuerpo_err = await resp.text()
-                raise DoorbellApiError(f"POST /api/hass -> HTTP {resp.status}: {cuerpo_err[:120]}")
+                error_body = await resp.text()
+                raise DoorbellApiError(f"POST /api/hass -> HTTP {resp.status}: {error_body[:120]}")
     except aiohttp.ClientError as err:
         raise DoorbellApiError(f"Could not reach the doorbell to configure it: {err}") from err
 
 
 class NoLockConfiguredError(DoorbellApiError):
-    """`door_m=2`: ese portero no tiene cerradura. NO es un fallo de la peticion.
+    """`door_m=2`: that doorbell has no lock. NOT a failure of the request.
 
-    Distinto de un error generico a proposito, por el mismo motivo que el firmware lo distingue:
-    un cliente necesita poder **no dibujar el boton de abrir** en vez de ofrecer uno que defrauda
-    (§1.4-ter). Antes de que `door_m` viajara, la unica forma de saberlo era fallar una vez.
+    Distinct from a generic error on purpose, for the same reason the firmware distinguishes it: a
+    client needs to be able to **not draw the open button** instead of offering one that
+    disappoints (§1.4-ter). Before `door_m` was carried, the only way to know was to fail once.
     """

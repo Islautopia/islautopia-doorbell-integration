@@ -44,26 +44,26 @@
       "init": {
         "title": "IG Doorbell",
         "menu_options": {
-          "entidades": "Entities the doorbell can act on",
-          "direccion": "Doorbell address",
-          "reemparejar": "Re-pair"
+          "entities": "Entities the doorbell can act on",
+          "address": "Doorbell address",
+          "repair": "Re-pair"
         }
       },
-      "entidades": {
+      "entities": {
         "title": "Entities the doorbell can act on",
         "description": "Pick the entities you want to be able to trigger from the doorbell - to unlock the door, or from a step in one of its sequences. Only these will be offered in the apps. Up to {max}.",
         "data": {
-          "entidades": "Entities"
+          "entities": "Entities"
         }
       },
-      "direccion": {
+      "address": {
         "title": "Doorbell address",
         "description": "The doorbell's IP address on your local network. Change it if the doorbell moved (new IP or VLAN). Home Assistant only reaches the doorbell at this address.",
         "data": {
           "host": "Doorbell IP address"
         }
       },
-      "reemparejar": {
+      "repair": {
         "title": "Re-pair",
         "description": "Use this if the access credential was revoked. Enter the doorbell's administrator email/password again.",
         "data": {
@@ -80,7 +80,7 @@
       "invalid_auth": "Wrong administrator email or password",
       "device_not_paired": "The doorbell itself isn't registered yet",
       "cloud_authorize_failed": "The doorbell could not register this pairing",
-      "demasiadas": "Too many entities - pick {max} at most"
+      "too_many": "Too many entities - pick {max} at most"
     }
   },
   "entity": {

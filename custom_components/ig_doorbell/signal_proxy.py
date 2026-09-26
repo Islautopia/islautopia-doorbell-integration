@@ -103,8 +103,8 @@ def async_signed_signal_url(hass: HomeAssistant, device_id: str) -> str:
 def _entry_data(hass: HomeAssistant, device_id: str) -> dict | None:
     """Stored data for a paired doorbell, found by asking which config entries exist.
 
-    Mismo razonamiento que `_find_entry_data` en websocket_api.py: bajo cada `entry_id` hay
-    ademas objetos vivos, asi que recorrer los valores buscando un `device_id` es fragil.
+    Same reasoning as `_find_entry_data` in websocket_api.py: under each `entry_id` there are
+    also live objects, so walking the values looking for a `device_id` is fragile.
     """
     stored = hass.data.get(DOMAIN, {})
     for entry in hass.config_entries.async_entries(DOMAIN):
@@ -135,7 +135,7 @@ class DoorbellSignalProxyView(HomeAssistantView):
         )
         # The doorbell's LAN session (net.py), and no fallback: the shared session resolves the
         # doorbell's name through public DNS, which Phase 0 removed (2026-09-25).
-        session = data.get("sesion")
+        session = data.get("session")
         if session is None:
             return web.Response(status=503, text="Doorbell still being set up")
 
@@ -202,7 +202,7 @@ class DoorbellSignalProxyView(HomeAssistantView):
         )
         # The doorbell's LAN session (net.py), and no fallback: the shared session resolves the
         # doorbell's name through public DNS, which Phase 0 removed (2026-09-25).
-        session = data.get("sesion")
+        session = data.get("session")
         if session is None:
             return web.Response(status=503, text="Doorbell still being set up")
 

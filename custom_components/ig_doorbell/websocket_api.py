@@ -14,9 +14,9 @@ Three commands:
     (the live-view timeout `number` and the events `event`, so a ring can wake a paused card).
   - ig_doorbell/get_local_signal_url: a short-lived signed URL for the signalling proxy.
   - ig_doorbell/get_quick_replies: the doorbell's quick-reply list (id + label), read
-    fresh over the LAN each time - same "card enseña, integración expone" rule as the other two.
-    The card plays one with the existing `play_sequence` service (services.py); this command only
-    supplies the list, never a credential.
+    fresh over the LAN each time - same "the card shows, the integration exposes" rule as the
+    other two. The card plays one with the existing `play_sequence` service (services.py); this
+    command only supplies the list, never a credential.
 """
 from __future__ import annotations
 
@@ -50,15 +50,15 @@ def _find_entry_data(hass: HomeAssistant, device_id: str) -> dict | None:
     instead of walking everything stored under our domain key and accepting whatever happens to
     look like a config entry.
 
-    Y la distincion importa. El diccionario que hay bajo cada `entry_id` no es solo
-    `entry.data`: lleva ademas objetos vivos (el coordinador, el identificador del webhook).
-    Recorrer los VALORES de `hass.data[DOMAIN]` buscando un `device_id` funcionaria hoy por
-    casualidad, y coincidiria en silencio con cualquier cosa que alguien guarde ahi manana con ese
-    campo dentro. Preguntar a Home Assistant que entradas existen no tiene esa propiedad.
+    And the distinction matters. The dict under each `entry_id` is not just `entry.data`: it also
+    carries live objects (the coordinator, the webhook id). Walking the VALUES of
+    `hass.data[DOMAIN]` looking for a `device_id` would work today by coincidence, and would
+    silently match anything anyone stores there tomorrow with that field inside. Asking Home
+    Assistant which entries exist does not have that property.
 
-    Lo escribio antes el escucha compartido de MQTT, que vivia bajo esa misma clave y solo se
-    libraba de coincidir porque no llevaba ningun `device_id` -- suerte, no diseno. MQTT se retiro
-    (contrato §4) y el argumento se mantiene entero, ahora contra el propio coordinador.
+    This was written earlier by MQTT's own shared listener, which lived under that same key and
+    only escaped colliding because it carried no `device_id` at all - luck, not design. MQTT was
+    removed (contract §4) and the argument holds entirely, now against the coordinator itself.
     """
     stored = hass.data.get(DOMAIN, {})
     for entry in hass.config_entries.async_entries(DOMAIN):
@@ -95,16 +95,16 @@ async def websocket_get_connection_info(hass: HomeAssistant, connection, msg) ->
 
     device_id = entry_data[CONF_DEVICE_ID]
     coordinator = entry_data.get("coordinator")
-    registro = er.async_get(hass)
+    registry = er.async_get(hass)
     connection.send_result(
         msg["id"],
         {
             "device_id": device_id,
             "role": coordinator.role if coordinator is not None else "unknown",
-            "live_timeout_entity": registro.async_get_entity_id(
+            "live_timeout_entity": registry.async_get_entity_id(
                 "number", DOMAIN, f"{device_id}_live_timeout"
             ),
-            "events_entity": registro.async_get_entity_id("event", DOMAIN, f"{device_id}_eventos"),
+            "events_entity": registry.async_get_entity_id("event", DOMAIN, f"{device_id}_events"),
         },
     )
 
@@ -156,7 +156,7 @@ async def websocket_get_quick_replies(hass: HomeAssistant, connection, msg) -> N
 
     Read straight from the doorbell over the LAN on every call, never from the VPS and never
     cached here - the doorbell is the only place this list can change (§1.18.2), and Home
-    Assistant already has an authenticated LAN session open (`sesion`). No credential reaches the
+    Assistant already has an authenticated LAN session open (`session`). No credential reaches the
     card: only `id`/`label`/`steps` per item, same as the doorbell already restricts `?quick=1` to.
     """
     entry_data = _find_entry_data(hass, msg["device_id"])
@@ -166,7 +166,7 @@ async def websocket_get_quick_replies(hass: HomeAssistant, connection, msg) -> N
         )
         return
 
-    session = entry_data.get("sesion")
+    session = entry_data.get("session")
     if session is None:
         connection.send_error(msg["id"], "unreachable", "Doorbell still being set up")
         return

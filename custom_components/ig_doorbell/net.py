@@ -51,19 +51,19 @@ class NotOnTheLanError(OSError):
 class LanOnlyResolver(AbstractResolver):
     """Resolve the doorbell's certificate name to its stored LAN address. Nothing else, ever."""
 
-    def __init__(self, mapeo: dict[str, str]) -> None:
+    def __init__(self, address_map: dict[str, str]) -> None:
         # Read once and kept: a new address arrives as a config-entry update, which reloads the
         # integration, which closes this session and builds another.
-        for nombre, direccion in mapeo.items():
+        for name, address in address_map.items():
             # Only literal addresses may go in. The first LAN-first resolver once stored a NAME
             # here, and everything kept working through DNS as if the fix were in place.
-            ip_address(direccion)
-        self._mapeo = dict(mapeo)
+            ip_address(address)
+        self._address_map = dict(address_map)
 
     async def resolve(
         self, host: str, port: int = 0, family: int = socket.AF_INET
     ) -> list[dict]:
-        lan = self._mapeo.get(host)
+        lan = self._address_map.get(host)
         if lan is None:
             # ⚠️ No DNS fallback, by rule (module docstring). Raising here is the whole point.
             raise NotOnTheLanError(
@@ -84,35 +84,35 @@ class LanOnlyResolver(AbstractResolver):
         return None
 
 
-def crear_sesion(hass: HomeAssistant, mapeo: dict[str, str]) -> aiohttp.ClientSession:
+def create_session(hass: HomeAssistant, address_map: dict[str, str]) -> aiohttp.ClientSession:
     """A session for one doorbell, with the LAN-only resolver on it.
 
     ⚠️ NOT `async_get_clientsession(hass)`: that one is shared with every other integration and
     resolves through DNS. This one is per config entry and **must be closed in
     `async_unload_entry`**.
     """
-    conector = aiohttp.TCPConnector(
-        resolver=LanOnlyResolver(mapeo),
+    connector = aiohttp.TCPConnector(
+        resolver=LanOnlyResolver(address_map),
         # Home Assistant's own context: FULL verification against the name in the URL. Connecting
         # by IP without this would relax exactly what API_CONTRACT.md §0 says never to relax.
         ssl=client_context(),
     )
-    return aiohttp.ClientSession(connector=conector)
+    return aiohttp.ClientSession(connector=connector)
 
 
-def es_direccion(valor: str | None) -> bool:
+def is_address(value: str | None) -> bool:
     """True for a literal IPv4/IPv6 address."""
-    if not valor:
+    if not value:
         return False
     try:
-        ip_address(valor)
+        ip_address(value)
     except ValueError:
         return False
     return True
 
 
-async def es_este_portero(
-    sesion: aiohttp.ClientSession, direccion: str, device_id: str
+async def is_this_doorbell(
+    session: aiohttp.ClientSession, address: str, device_id: str
 ) -> bool:
     """`GET http://<ip>/api/device_id` answers with THIS doorbell's id.
 
@@ -120,18 +120,18 @@ async def es_este_portero(
     effect. The id must MATCH — an address recycled by DHCP may have another device, even another
     doorbell, behind it.
     """
-    if not es_direccion(direccion):
+    if not is_address(address):
         return False
     try:
-        async with sesion.get(
-            f"http://{direccion}/api/device_id",
+        async with session.get(
+            f"http://{address}/api/device_id",
             # Short on purpose: a doorbell on the same network answers in tens of milliseconds, and
             # a black-hole address would otherwise eat the entry's whole setup budget.
             timeout=aiohttp.ClientTimeout(total=3),
         ) as resp:
             if resp.status != 200:
                 return False
-            datos = await resp.json(content_type=None)
+            data = await resp.json(content_type=None)
     except (aiohttp.ClientError, OSError, TimeoutError, ValueError):
         return False
-    return isinstance(datos, dict) and datos.get("device_id") == device_id
+    return isinstance(data, dict) and data.get("device_id") == device_id

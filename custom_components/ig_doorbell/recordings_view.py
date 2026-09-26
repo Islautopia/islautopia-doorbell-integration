@@ -93,7 +93,7 @@ class DoorbellRecordingView(HomeAssistantView):
     async def get(self, request: web.Request, device_id: str) -> web.StreamResponse:
         hass: HomeAssistant = request.app["hass"]
         data = _entry_data(hass, device_id)
-        if data is None or "sesion" not in data:
+        if data is None or "session" not in data:
             return web.Response(status=404, text="Doorbell not configured here")
         filename = request.query.get("file", "")
         kind = request.query.get("kind", "video")
@@ -103,12 +103,12 @@ class DoorbellRecordingView(HomeAssistantView):
         builder = api.recording_url if kind == "video" else api.thumbnail_url
         url = builder(device_id, data[CONF_CREDENTIAL], filename)
         headers = {}
-        if rango := request.headers.get("Range"):
-            headers["Range"] = rango
+        if range_header := request.headers.get("Range"):
+            headers["Range"] = range_header
 
-        sesion: aiohttp.ClientSession = data["sesion"]
+        session: aiohttp.ClientSession = data["session"]
         try:
-            upstream = await sesion.get(url, headers=headers, timeout=_STREAM_TIMEOUT)
+            upstream = await session.get(url, headers=headers, timeout=_STREAM_TIMEOUT)
         except (aiohttp.ClientError, OSError, TimeoutError) as err:
             _LOGGER.debug("Recording %s from %s: doorbell unreachable: %s", filename, device_id, err)
             return web.Response(status=502, text="Doorbell unreachable from Home Assistant")
@@ -126,9 +126,9 @@ class DoorbellRecordingView(HomeAssistantView):
             )
 
         response = web.StreamResponse(status=upstream.status)
-        for nombre in _FORWARD_HEADERS:
-            if nombre in upstream.headers:
-                response.headers[nombre] = upstream.headers[nombre]
+        for name in _FORWARD_HEADERS:
+            if name in upstream.headers:
+                response.headers[name] = upstream.headers[name]
         # Recordings are private: no shared cache may keep them.
         response.headers["Cache-Control"] = "private, max-age=300"
         await response.prepare(request)

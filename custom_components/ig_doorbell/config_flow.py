@@ -39,28 +39,28 @@ from . import api, net
 from .const import (
     CONF_CREDENTIAL,
     CONF_DEVICE_ID,
-    CONF_ENTIDADES,
+    CONF_ENTITIES,
     CONF_HOST_HINT,
     CONF_LABEL,
     DEFAULT_PAIR_LABEL,
     DOMAIN,
-    DOMINIOS_PERMITIDOS,
+    ALLOWED_DOMAINS,
     DOORBELL_HOSTNAME_SUFFIX,
-    MAX_ENTIDADES,
-    nombre_generico,
+    MAX_ENTITIES,
+    generic_name,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def _direccion_de(host: str) -> str | None:
+async def _address_for(host: str) -> str | None:
     """A literal IP for what the user typed.
 
     A LOCAL name goes through the home's resolver once and the address is what gets stored. Our
     cloud's name is refused: resolving it is asking the VPS where the doorbell is.
     """
     host = (host or "").strip()
-    if net.es_direccion(host):
+    if net.is_address(host):
         return host
     if not host or host.lower().rstrip(".").endswith(DOORBELL_HOSTNAME_SUFFIX):
         return None
@@ -73,7 +73,7 @@ async def _direccion_de(host: str) -> str | None:
     return info[0][4][0] if info else None
 
 
-async def _comprobar_lan(
+async def _check_lan(
     hass: HomeAssistant, ip: str, device_id: str | None = None
 ) -> tuple[str | None, str | None]:
     """Is THIS doorbell reachable directly at `ip`, on both ports? Returns (device_id, error_key).
@@ -81,26 +81,26 @@ async def _comprobar_lan(
     Port 80 `/api/device_id` says which doorbell it is; 8443 must then answer with a certificate
     valid for that doorbell's name, through the LAN mapping only (net.py). Nothing is written.
     """
-    sesion = net.crear_sesion(hass, {})
+    session = net.create_session(hass, {})
     try:
-        encontrado = await asyncio.wait_for(api.async_get_device_id(sesion, ip), 6)
+        found = await asyncio.wait_for(api.async_get_device_id(session, ip), 6)
     except (aiohttp.ClientError, OSError, TimeoutError, api.DoorbellApiError):
         return None, "not_on_lan"
     finally:
-        await sesion.close()
-    if device_id is not None and encontrado != device_id:
+        await session.close()
+    if device_id is not None and found != device_id:
         return None, "other_device"
-    sesion = net.crear_sesion(hass, {api.doorbell_hostname(encontrado): ip})
+    session = net.create_session(hass, {api.doorbell_hostname(found): ip})
     try:
-        await api.async_check_tls(sesion, encontrado)
+        await api.async_check_tls(session, found)
     except api.DoorbellApiError:
-        return encontrado, "no_tls"
+        return found, "no_tls"
     finally:
-        await sesion.close()
-    return encontrado, None
+        await session.close()
+    return found, None
 
 
-def _etiqueta_nueva(hass: HomeAssistant) -> str:
+def _new_label(hass: HomeAssistant) -> str:
     """The pairing label for a NEW entry: "Home Assistant <location name>".
 
     ⚠️ Not the bare "Home Assistant" any more (0.7.0). The doorbell identifies a pairing by
@@ -109,8 +109,8 @@ def _etiqueta_nueva(hass: HomeAssistant) -> str:
     one started getting 401 with nothing explaining why. Existing entries keep their stored label
     (re-pairing must reuse their slot, not open a new one).
     """
-    nombre = (getattr(hass.config, "location_name", "") or "").strip()
-    return f"{DEFAULT_PAIR_LABEL} {nombre}".strip()[:32]
+    name = (getattr(hass.config, "location_name", "") or "").strip()
+    return f"{DEFAULT_PAIR_LABEL} {name}".strip()[:32]
 
 
 async def _async_pair(
@@ -125,19 +125,19 @@ async def _async_pair(
     before the error is reported. Otherwise a failed setup would leave a live credential on the
     doorbell that no Home Assistant entry knows about, eating one of its pairing slots.
     """
-    if not net.es_direccion(ip):
+    if not net.is_address(ip):
         return None, "not_on_lan"
-    session = net.crear_sesion(hass, {api.doorbell_hostname(device_id): ip})
+    session = net.create_session(hass, {api.doorbell_hostname(device_id): ip})
     try:
         await api.async_login(session, device_id, email, password)
         result = await api.async_pair_app(session, device_id, label)
         try:
             await api.async_get_states(session, device_id, result.credential)
         except api.DoorbellApiError:
-            deshecho = await api.async_unpair_app(session, device_id, label)
+            undone = await api.async_unpair_app(session, device_id, label)
             _LOGGER.warning(
                 "Pairing with %s succeeded but the credential does not work over the LAN; "
-                "pairing undone on the doorbell: %s", device_id, deshecho,
+                "pairing undone on the doorbell: %s", device_id, undone,
             )
             return None, "pair_verify_failed"
     except api.AuthenticationError:
@@ -174,11 +174,11 @@ class IslautopiaDoorbellConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         host = ""
         if user_input is not None:
             host = user_input[CONF_HOST].strip()
-            ip = await _direccion_de(host)
+            ip = await _address_for(host)
             if ip is None:
                 errors["base"] = "not_on_lan"
             else:
-                device_id, error = await _comprobar_lan(self.hass, ip)
+                device_id, error = await _check_lan(self.hass, ip)
                 if error:
                     errors["base"] = error
                 else:
@@ -209,7 +209,7 @@ class IslautopiaDoorbellConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(device_id)
         self._abort_if_unique_id_configured(updates={CONF_HOST_HINT: discovery_info.host})
 
-        _, error = await _comprobar_lan(self.hass, discovery_info.host, device_id)
+        _, error = await _check_lan(self.hass, discovery_info.host, device_id)
         if error:
             return self.async_abort(
                 reason=error, description_placeholders={"host": discovery_info.host}
@@ -217,9 +217,9 @@ class IslautopiaDoorbellConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         self._device_id = device_id
         self._host_hint = discovery_info.host
-        # El TXT `name` puede venir vacio (§0-bis, el portero sin `dname` configurado): nunca el
-        # id a secas como respaldo (Inaki, 2026-09-26) - el mismo generico que el propio firmware.
-        self._name_hint = discovery_info.properties.get("name") or nombre_generico(device_id)
+        # The TXT `name` may come empty (§0-bis, the doorbell with no `dname` configured): never
+        # the bare id as a fallback (Inaki, 2026-09-26) - the same generic name the firmware itself uses.
+        self._name_hint = discovery_info.properties.get("name") or generic_name(device_id)
 
         self.context["title_placeholders"] = {"name": self._name_hint}
         return await self.async_step_zeroconf_confirm()
@@ -232,7 +232,7 @@ class IslautopiaDoorbellConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="zeroconf_confirm",
             description_placeholders={
-                "name": self._name_hint or nombre_generico(self._device_id or ""),
+                "name": self._name_hint or generic_name(self._device_id or ""),
             },
         )
 
@@ -241,7 +241,7 @@ class IslautopiaDoorbellConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             assert self._device_id is not None
-            label = _etiqueta_nueva(self.hass)
+            label = _new_label(self.hass)
             result, error = await _async_pair(
                 self.hass, self._device_id, self._host_hint or "",
                 user_input["email"], user_input["password"], label,
@@ -250,12 +250,12 @@ class IslautopiaDoorbellConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = error
             else:
                 assert result is not None
-                # El titulo real (si el portero tiene `dname`) lo corrige `_sincronizar_nombre`
-                # en __init__.py en cuanto arranca la entrada, con el primer `get_states`. Este es
-                # solo el titulo de partida - y nunca el id a secas (Inaki, 2026-09-26), por si se
-                # llega a ver antes de esa primera correccion (alta manual, sin pista de zeroconf).
+                # The real title (if the doorbell has a `dname`) is corrected by `_sync_name`
+                # in __init__.py the moment the entry starts up, with the first `get_states`. This
+                # is only the starting title - and never the bare id (Inaki, 2026-09-26), in case
+                # it is seen before that first correction (manual setup, no zeroconf hint).
                 return self.async_create_entry(
-                    title=self._name_hint or nombre_generico(result.device_id),
+                    title=self._name_hint or generic_name(result.device_id),
                     data={
                         CONF_DEVICE_ID: result.device_id,
                         CONF_CREDENTIAL: result.credential,
@@ -290,59 +290,59 @@ class IslautopiaDoorbellOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         return self.async_show_menu(
-            step_id="init", menu_options=["entidades", "direccion", "reemparejar"]
+            step_id="init", menu_options=["entities", "address", "repair"]
         )
 
-    async def async_step_entidades(
+    async def async_step_entities(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Que entidades de Home Assistant puede accionar el portero (contrato §4).
+        """Which Home Assistant entities the doorbell may act on (contract §4).
 
-        Se eligen AQUI, en Home Assistant, y viajan al portero. El desplegable que ve el usuario en
-        la app lo lee **del portero**, no de Home Assistant. Por eso viaja tambien el nombre
-        visible de cada una: `light.porche_2` no le dice nada a nadie.
+        Chosen HERE, in Home Assistant, and they travel to the doorbell. The dropdown the user
+        sees in the app reads it **from the doorbell**, not from Home Assistant. That is why each
+        one's friendly name travels too: `light.porche_2` says nothing to anyone.
 
-        ⚠️ Y por eso NO viajan dominios enteros: una casa normal tiene cientos de `light.*`.
+        ⚠️ And that is why whole domains do NOT travel: a normal house has hundreds of `light.*`.
         """
         errors: dict[str, str] = {}
         if user_input is not None:
-            elegidas = user_input.get(CONF_ENTIDADES) or []
-            if len(elegidas) > MAX_ENTIDADES:
-                # Se rechaza y se dice, nunca se recorta en silencio.
-                errors["base"] = "demasiadas"
+            chosen = user_input.get(CONF_ENTITIES) or []
+            if len(chosen) > MAX_ENTITIES:
+                # Refused and stated, never silently trimmed.
+                errors["base"] = "too_many"
             else:
-                # ⚠️ Se conservan las demas opciones: un flujo de opciones REEMPLAZA el diccionario
-                # entero, asi que devolver solo lo de este paso borraria lo demas en silencio.
-                opciones = dict(self._entry.options)
-                opciones[CONF_ENTIDADES] = elegidas
-                return self.async_create_entry(title="", data=opciones)
+                # ⚠️ The other options are kept: an options flow REPLACES the whole dict, so
+                # returning only this step's value would silently wipe out the rest.
+                options = dict(self._entry.options)
+                options[CONF_ENTITIES] = chosen
+                return self.async_create_entry(title="", data=options)
 
-        # Solo las que siguen siendo validas: una lista guardada por la 0.7.5 puede traer un
-        # `button` o una `scene`, que ya no se propagan (const.py, DOMINIOS_PERMITIDOS). Mostrarlas
-        # marcadas haria creer que el portero las tiene.
-        actuales = [
-            e for e in (self._entry.options.get(CONF_ENTIDADES) or [])
-            if e.split(".", 1)[0] in DOMINIOS_PERMITIDOS
-        ][:MAX_ENTIDADES]
+        # Only the ones that are still valid: a list saved by 0.7.5 may carry a `button` or a
+        # `scene`, which are no longer propagated (const.py, ALLOWED_DOMAINS). Showing them
+        # checked would suggest the doorbell has them.
+        current = [
+            e for e in (self._entry.options.get(CONF_ENTITIES) or [])
+            if e.split(".", 1)[0] in ALLOWED_DOMAINS
+        ][:MAX_ENTITIES]
         return self.async_show_form(
-            step_id="entidades",
+            step_id="entities",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_ENTIDADES, default=actuales): selector.EntitySelector(
+                    vol.Optional(CONF_ENTITIES, default=current): selector.EntitySelector(
                         selector.EntitySelectorConfig(
-                            # Solo lo que se enciende y se apaga (const.py, DOMINIOS_PERMITIDOS).
-                            # El usuario escribe parte del nombre y marca: es el selector nativo.
-                            domain=list(DOMINIOS_PERMITIDOS),
+                            # Only things that turn on and off (const.py, ALLOWED_DOMAINS).
+                            # The user types part of the name and picks it: the native selector.
+                            domain=list(ALLOWED_DOMAINS),
                             multiple=True,
                         )
                     )
                 }
             ),
             errors=errors,
-            description_placeholders={"max": str(MAX_ENTIDADES)},
+            description_placeholders={"max": str(MAX_ENTITIES)},
         )
 
-    async def async_step_direccion(
+    async def async_step_address(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Change the doorbell's LAN address (DHCP moved it, or it changed VLAN).
@@ -351,15 +351,15 @@ class IslautopiaDoorbellOptionsFlow(config_entries.OptionsFlow):
         doorbell is found again. The new address must answer as THIS doorbell on both ports.
         """
         errors: dict[str, str] = {}
-        actual = self._entry.data.get(CONF_HOST_HINT) or ""
-        pedido = actual
+        current_address = self._entry.data.get(CONF_HOST_HINT) or ""
+        requested_address = current_address
         if user_input is not None:
-            pedido = user_input[CONF_HOST].strip()
-            ip = await _direccion_de(pedido)
+            requested_address = user_input[CONF_HOST].strip()
+            ip = await _address_for(requested_address)
             if ip is None:
                 errors["base"] = "not_on_lan"
             else:
-                _, error = await _comprobar_lan(self.hass, ip, self._entry.data[CONF_DEVICE_ID])
+                _, error = await _check_lan(self.hass, ip, self._entry.data[CONF_DEVICE_ID])
                 if error:
                     errors["base"] = error
                 else:
@@ -368,16 +368,16 @@ class IslautopiaDoorbellOptionsFlow(config_entries.OptionsFlow):
                     )
                     return self.async_create_entry(title="", data=dict(self._entry.options))
         return self.async_show_form(
-            step_id="direccion",
-            data_schema=vol.Schema({vol.Required(CONF_HOST, default=pedido): str}),
+            step_id="address",
+            data_schema=vol.Schema({vol.Required(CONF_HOST, default=requested_address): str}),
             errors=errors,
-            description_placeholders={"host": pedido},
+            description_placeholders={"host": requested_address},
         )
 
-    async def async_step_reemparejar(
+    async def async_step_repair(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Reemparejar - p.ej. tras revocar la credencial desde el panel de la nube."""
+        """Re-pair - e.g. after revoking the credential from the cloud panel."""
         errors: dict[str, str] = {}
         if user_input is not None:
             device_id = self._entry.data[CONF_DEVICE_ID]
@@ -393,12 +393,12 @@ class IslautopiaDoorbellOptionsFlow(config_entries.OptionsFlow):
                 new_data = dict(self._entry.data)
                 new_data[CONF_CREDENTIAL] = result.credential
                 self.hass.config_entries.async_update_entry(self._entry, data=new_data)
-                # ⚠️ `data=dict(self._entry.options)` y NO `data={}`: un flujo de opciones
-                # REEMPLAZA el diccionario entero y se llevaria la lista de entidades.
+                # ⚠️ `data=dict(self._entry.options)` and NOT `data={}`: an options flow REPLACES
+                # the whole dict and would take the entity list down with it.
                 return self.async_create_entry(title="", data=dict(self._entry.options))
 
         return self.async_show_form(
-            step_id="reemparejar",
+            step_id="repair",
             data_schema=vol.Schema({vol.Required("email"): str, vol.Required("password"): str}),
             errors=errors,
             description_placeholders={"host": self._entry.data.get(CONF_HOST_HINT) or ""},

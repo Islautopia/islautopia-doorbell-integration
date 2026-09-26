@@ -71,9 +71,9 @@ class LiveTimeoutNumber(DoorbellEntity, RestoreNumber):
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
-        previo = await self.async_get_last_number_data()
-        if previo is not None and previo.native_value is not None:
-            self._attr_native_value = previo.native_value
+        previous = await self.async_get_last_number_data()
+        if previous is not None and previous.native_value is not None:
+            self._attr_native_value = previous.native_value
 
     async def async_set_native_value(self, value: float) -> None:
         self._attr_native_value = value

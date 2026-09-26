@@ -77,9 +77,9 @@ class ManualRecordingSwitch(DoorbellEntity, SwitchEntity):
     async def async_turn_on(self, **kwargs) -> None:
         if self._session is not None and self._session.recording:
             return  # already recording - a second rec_start would just be an extra round trip
-        sesion = self.coordinator.sesion
+        session = self.coordinator.session
         session = RecSession(
-            sesion, self.coordinator.device_id, self.coordinator.credential, self._actualizado,
+            session, self.coordinator.device_id, self.coordinator.credential, self._on_update,
         )
         try:
             await session.start()
@@ -97,7 +97,7 @@ class ManualRecordingSwitch(DoorbellEntity, SwitchEntity):
         self.async_write_ha_state()
 
     @callback
-    def _actualizado(self) -> None:
+    def _on_update(self) -> None:
         """Called by the held RecSession on every `rec_state` push and on its own close."""
         if self._session is not None and self._session.closed:
             self._session = None

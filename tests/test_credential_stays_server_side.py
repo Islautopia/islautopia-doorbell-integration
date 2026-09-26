@@ -25,10 +25,10 @@ class _FakeCoordinator:
 
     def __init__(self, role: str) -> None:
         self.role = role
-        self.nombre_portero = None   # media_source.py titles the doorbell with it
+        self.doorbell_name = None   # media_source.py titles the doorbell with it
 
 
-def _entrada(hass, role: str = "admin"):
+def _entry(hass, role: str = "admin"):
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id=DEVICE_ID,
@@ -36,24 +36,24 @@ def _entrada(hass, role: str = "admin"):
     )
     entry.add_to_hass(hass)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
-        **entry.data, "sesion": object(), "coordinator": _FakeCoordinator(role),
+        **entry.data, "session": object(), "coordinator": _FakeCoordinator(role),
     }
     return entry
 
 
 async def test_get_connection_info_carries_no_credential(hass, hass_ws_client):
     await async_setup_component(hass, "http", {})
-    _entrada(hass)
+    _entry(hass)
     websocket_api.async_register_websocket_commands(hass)
     ws = await hass_ws_client(hass)
     await ws.send_json({"id": 1, "type": "ig_doorbell/get_connection_info",
                         "device_id": DEVICE_ID})
     msg = await ws.receive_json()
     assert msg["success"], msg
-    texto = str(msg["result"])
-    assert CREDENTIAL not in texto
+    text = str(msg["result"])
+    assert CREDENTIAL not in text
     assert "credential" not in msg["result"]
-    assert "relay" not in texto and "islautopia.com" not in texto
+    assert "relay" not in text and "islautopia.com" not in text
     assert msg["result"]["device_id"] == DEVICE_ID
     assert "live_timeout_entity" in msg["result"]
 
@@ -72,7 +72,7 @@ async def test_get_connection_info_reports_the_pairings_role_not_the_ha_user(has
     because it comes from the coordinator, never from `hass.user.is_admin`.
     """
     await async_setup_component(hass, "http", {})
-    _entrada(hass, role="admin")
+    _entry(hass, role="admin")
     websocket_api.async_register_websocket_commands(hass)
     ws = await hass_ws_client(hass)
     await ws.send_json({"id": 1, "type": "ig_doorbell/get_connection_info",
@@ -94,7 +94,7 @@ async def test_get_connection_info_role_falls_back_to_unknown_without_a_coordina
         data={CONF_DEVICE_ID: DEVICE_ID, CONF_CREDENTIAL: CREDENTIAL, CONF_HOST_HINT: LAN_IP},
     )
     entry.add_to_hass(hass)
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {**entry.data, "sesion": object()}
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {**entry.data, "session": object()}
     websocket_api.async_register_websocket_commands(hass)
     ws = await hass_ws_client(hass)
     await ws.send_json({"id": 1, "type": "ig_doorbell/get_connection_info",
@@ -106,20 +106,20 @@ async def test_get_connection_info_role_falls_back_to_unknown_without_a_coordina
 
 async def test_recording_urls_carry_no_credential_nor_cloud_name(hass):
     await async_setup_component(hass, "http", {})
-    _entrada(hass)
-    fuente = media_source.DoorbellMediaSource(hass)
-    listado = {"total": 1, "offset": 0, "limit": 200, "capped": False,
+    _entry(hass)
+    source = media_source.DoorbellMediaSource(hass)
+    listing = {"total": 1, "offset": 0, "limit": 200, "capped": False,
                "items": [{"file": "01786903743_call.mp4", "type": "call", "ts": 1786903743, "size": 1000}]}
-    with patch.object(media_source.api, "async_list_recordings", AsyncMock(return_value=listado)):
-        nodo = await fuente.async_browse_media(MediaSourceItem(hass, DOMAIN, DEVICE_ID, None))
-    hijo = nodo.children[0]
-    assert CREDENTIAL not in hijo.thumbnail
-    assert "islautopia.com" not in hijo.thumbnail
-    assert hijo.thumbnail.startswith("/api/ig_doorbell/recording/")
-    assert "authSig=" in hijo.thumbnail
+    with patch.object(media_source.api, "async_list_recordings", AsyncMock(return_value=listing)):
+        node = await source.async_browse_media(MediaSourceItem(hass, DOMAIN, DEVICE_ID, None))
+    child = node.children[0]
+    assert CREDENTIAL not in child.thumbnail
+    assert "islautopia.com" not in child.thumbnail
+    assert child.thumbnail.startswith("/api/ig_doorbell/recording/")
+    assert "authSig=" in child.thumbnail
 
     with patch.object(media_source.api, "async_check_recording_playable", AsyncMock()):
-        play = await fuente.async_resolve_media(
+        play = await source.async_resolve_media(
             MediaSourceItem(hass, DOMAIN, f"{DEVICE_ID}/01786903743_call.mp4", None)
         )
     assert CREDENTIAL not in play.url
@@ -130,8 +130,8 @@ async def test_recording_urls_carry_no_credential_nor_cloud_name(hass):
 
 async def test_recording_view_needs_auth_and_adds_the_credential_server_side(hass, hass_client, hass_client_no_auth):
     await async_setup_component(hass, "http", {})
-    entry = _entrada(hass)
-    pedidas = []
+    entry = _entry(hass)
+    requested_urls = []
 
     class _Resp:
         status = 200
@@ -145,24 +145,24 @@ async def test_recording_view_needs_auth_and_adds_the_credential_server_side(has
         def release(self):
             pass
 
-    class _Sesion:
+    class _FakeUpstreamSession:
         async def get(self, url, **kw):
-            pedidas.append(url)
+            requested_urls.append(url)
             return _Resp()
 
-    hass.data[DOMAIN][entry.entry_id]["sesion"] = _Sesion()
+    hass.data[DOMAIN][entry.entry_id]["session"] = _FakeUpstreamSession()
     from custom_components.ig_doorbell.recordings_view import (
         async_register_recordings_view, recording_path,
     )
     async_register_recordings_view(hass)
 
-    anonimo = await hass_client_no_auth()
-    r = await anonimo.get(recording_path(DEVICE_ID, "a.mp4"))
+    anonymous = await hass_client_no_auth()
+    r = await anonymous.get(recording_path(DEVICE_ID, "a.mp4"))
     assert r.status == 401
-    assert pedidas == []
+    assert requested_urls == []
 
-    cliente = await hass_client()
-    r = await cliente.get(recording_path(DEVICE_ID, "a.mp4"))
+    client = await hass_client()
+    r = await client.get(recording_path(DEVICE_ID, "a.mp4"))
     assert r.status == 200
     assert await r.read() == b"mp4!"
-    assert len(pedidas) == 1 and f"token={CREDENTIAL}" in pedidas[0]
+    assert len(requested_urls) == 1 and f"token={CREDENTIAL}" in requested_urls[0]

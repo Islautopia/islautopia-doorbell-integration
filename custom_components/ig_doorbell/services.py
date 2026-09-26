@@ -28,7 +28,7 @@ _SCHEMA_AUDIO = vol.Schema({
 })
 
 # What the doorbell's refusals mean to the person who ran the action (§3.3-bis, §3.3).
-_ERRORES = {
+_ERRORS = {
     "not_found": "That sequence does not exist on the doorbell.",
     "empty_slot": "That quick-reply slot has no audio.",
     "bad_slot": "Quick-reply slot out of range (1-10).",
@@ -37,30 +37,30 @@ _ERRORES = {
 }
 
 
-def _datos(hass: HomeAssistant, ha_device_id: str) -> dict:
+def _entry_data_for(hass: HomeAssistant, ha_device_id: str) -> dict:
     """Entry data for an HA device id (the device selector's value) or our own device id."""
     ours = ha_device_id
-    dispositivo = dr.async_get(hass).async_get(ha_device_id)
-    if dispositivo is not None:
-        ours = next((i[1] for i in dispositivo.identifiers if i[0] == DOMAIN), ha_device_id)
+    device = dr.async_get(hass).async_get(ha_device_id)
+    if device is not None:
+        ours = next((i[1] for i in device.identifiers if i[0] == DOMAIN), ha_device_id)
     stored = hass.data.get(DOMAIN, {})
     for entry in hass.config_entries.async_entries(DOMAIN):
         d = stored.get(entry.entry_id)
-        if isinstance(d, dict) and d.get(CONF_DEVICE_ID) == ours and "sesion" in d:
+        if isinstance(d, dict) and d.get(CONF_DEVICE_ID) == ours and "session" in d:
             return d
     raise ServiceValidationError(f"No IG Doorbell set up for device {ha_device_id}")
 
 
-async def _orden(hass: HomeAssistant, call: ServiceCall, mensaje: dict, respuesta: str) -> None:
-    d = _datos(hass, call.data[ATTR_DEVICE])
+async def _run_command(hass: HomeAssistant, call: ServiceCall, message: dict, response_type: str) -> None:
+    d = _entry_data_for(hass, call.data[ATTR_DEVICE])
     try:
-        r = await signal_client.async_orden(
-            d["sesion"], d[CONF_DEVICE_ID], d[CONF_CREDENTIAL], mensaje, respuesta
+        r = await signal_client.async_send_command(
+            d["session"], d[CONF_DEVICE_ID], d[CONF_CREDENTIAL], message, response_type
         )
     except api.DoorbellApiError as err:
         raise HomeAssistantError(f"The doorbell did not take the command: {err}") from err
     if r.get("error"):
-        raise HomeAssistantError(_ERRORES.get(r["error"], f"The doorbell refused: {r['error']}"))
+        raise HomeAssistantError(_ERRORS.get(r["error"], f"The doorbell refused: {r['error']}"))
 
 
 @callback
@@ -69,11 +69,11 @@ def async_register_services(hass: HomeAssistant) -> None:
         return
 
     async def play_sequence(call: ServiceCall) -> None:
-        await _orden(hass, call, {"type": "play_sequence", "seq_id": call.data["seq_id"]},
+        await _run_command(hass, call, {"type": "play_sequence", "seq_id": call.data["seq_id"]},
                      "play_sequence_result")
 
     async def play_audio(call: ServiceCall) -> None:
-        await _orden(hass, call, {"type": "play_audio", "audio_slot": call.data["audio_slot"]},
+        await _run_command(hass, call, {"type": "play_audio", "audio_slot": call.data["audio_slot"]},
                      "play_audio_result")
 
     hass.services.async_register(DOMAIN, "play_sequence", play_sequence, schema=_SCHEMA_SEQ)
