@@ -135,6 +135,28 @@ integration setup (after EVENT_HOMEASSISTANT_STARTED)
 Port conflicts (`EADDRINUSE`, e.g. the app still running) → repair issue, never a crash.
 Unload closes the server.
 
+### Hard requirements (Iñaki, 2026-09-26)
+
+- **Port configurable** in the options flow, default 8443. If it is taken: a clear
+  repair issue naming the port and the likely holder; nothing else stops working.
+- **Coexistence with every other HTTPS path to the same HA**: the user's own reverse
+  proxy in front of `:8123` (with `use_x_forwarded_for`/`trusted_proxies`), Nabu Casa,
+  HA's own `ssl_certificate`. **Nothing we do may alter HA's `http:` settings.** Mode A
+  meets this by construction: it adds a listener and touches neither `:8123`, the
+  middleware chain, nor the configuration. Baseline on Iñaki's HA before the in-HA
+  test: `:8123` 200; XFF from an untrusted address 400; through his own proxy
+  (trusted) 200. The same three must hold with the integration running.
+
+### 1.1.0: the VPS must not hold the HA's private key
+
+Confirmed in `ig_doorbell_vps/opt/rendezvous/register_api.py`: today `issue_cert()`
+runs `acme.sh --issue ... --keylength ec-256`, so **the VPS generates the key**, keeps
+it at `/root/.acme.sh/<host>_ecc/<host>.key`, and `GET /ha_instance/<id>/cert` returns
+it in the JSON response every 12 h. For 1.1.0: the integration generates its key
+locally and sends only a CSR; the VPS runs `acme.sh --signcsr --csr <file> --dns dns_aws`
+(DNS-01 is unchanged) and returns only the certificate. The key then never leaves the
+HA. Renewals re-send the stored CSR (or a new one with a rotated key).
+
 ## Measured vs assumed
 
 Measured: all tables above. **Assumed / not measured**: running in a real HA OS
