@@ -19,6 +19,19 @@ Source of truth for the doorbell's own interface (WebRTC, signalling, `pair_app`
 - The card has no configuration (since 1.10.0): it finds the doorbells in `hass.devices` by the
   `ig_doorbell` domain and each doorbell's entities by `translation_key`.
 
+## Updating the card (measured 2026-09-26, throwaway HA 2026.9.0 in Docker, Chromium with a persistent profile)
+
+| What happened | What the browser ran |
+|---|---|
+| First load, no Lovelace resource at all (`lovelace/resources` = `[]`) | the card, from `/ig_doorbell/ig-doorbell-card.js?v=9948a64c810f`; listed in `window.customCards` (card picker) as "IG Doorbell"; Waveshare streaming (1080x1200, dot live) |
+| File replaced on disk, **no HA restart**, same browser reloads | the **new** file, under the **old** `?v=` (the hash is computed at startup): the route sends no long-lived cache headers, so the browser revalidates |
+| HA restarted while a page stays open, **no reload** | the **old** build keeps running (a custom element cannot be redefined in a page); the stream recovered by itself |
+| Reload after the restart | the **new** build under a **new** URL (`?v=25515d27e1a7`), streaming again |
+
+So an update needs what HACS asks for anyway — **restart Home Assistant, then reload the page**.
+No cache clearing, no resource to edit. Open wall panels keep the previous card until their page
+reloads.
+
 ## Running the benches
 
 ```

@@ -107,7 +107,7 @@ const igLocales = {
     snd_blocked: "Toca el altavoz para oír", cred_revoked: "El portero rechazó el emparejamiento — vuelve a emparejarlo en Ajustes › Dispositivos y servicios",
     lbl_rec_off: "REC", lbl_rec_on: "Grabando", rec_start_tip: "Empezar a grabar", rec_stop_tip: "Parar la grabación", rec_no_answer: "Home Assistant no aceptó la orden de grabar", recordings_title: "Grabaciones",
     quick_reply_title: "Respuestas rápidas", qr_empty: "El portero no tiene respuestas rápidas configuradas", qr_load_error: "No se pudo obtener la lista del portero", qr_no_answer: "El portero no aceptó la respuesta rápida",
-    db_switch: "Cambiar de portero", db_unnamed: "Portero sin nombre", no_doorbells: "No hay ningún portero. Añade la integración IG Doorbell en Ajustes › Dispositivos y servicios.", ed_nothing: "Esta tarjeta no tiene nada que configurar: muestra todos tus porteros y se cambia de uno a otro desde la propia tarjeta. Los ajustes están en la integración: Ajustes › Dispositivos y servicios › IG Doorbell › Configurar."
+    db_switch: "Cambiar de portero", db_unnamed: "Portero sin nombre", no_doorbells: "No hay ningún portero. Añade la integración Islautopia Garage Doorbell en Ajustes › Dispositivos y servicios.", ed_nothing: "Esta tarjeta no tiene nada que configurar: muestra todos tus porteros y se cambia de uno a otro desde la propia tarjeta. Los ajustes están en la integración: Ajustes › Dispositivos y servicios › Islautopia Garage Doorbell › Configurar."
   },
   en: { // English (global fallback)
     connecting: "Connecting...", live: "Live", open: "Comms Open", error_cam: "Error", no_lock: "No lock configured",
@@ -128,7 +128,7 @@ const igLocales = {
     snd_blocked: "Tap the speaker to listen", cred_revoked: "The doorbell rejected this pairing — re-pair it in Settings › Devices & services",
     lbl_rec_off: "REC", lbl_rec_on: "Recording", rec_start_tip: "Start recording", rec_stop_tip: "Stop recording", rec_no_answer: "Home Assistant did not accept the recording request", recordings_title: "Recordings",
     quick_reply_title: "Quick replies", qr_empty: "The doorbell has no quick replies configured", qr_load_error: "Could not load the list from the doorbell", qr_no_answer: "The doorbell did not accept the quick reply",
-    db_switch: "Switch doorbell", db_unnamed: "Unnamed doorbell", no_doorbells: "No doorbell found. Add the IG Doorbell integration in Settings › Devices & services.", ed_nothing: "There is nothing to configure in this card: it shows all your doorbells and you switch between them from the card itself. Settings live in the integration: Settings › Devices & services › IG Doorbell › Configure."
+    db_switch: "Switch doorbell", db_unnamed: "Unnamed doorbell", no_doorbells: "No doorbell found. Add the Islautopia Garage Doorbell integration in Settings › Devices & services.", ed_nothing: "There is nothing to configure in this card: it shows all your doorbells and you switch between them from the card itself. Settings live in the integration: Settings › Devices & services › Islautopia Garage Doorbell › Configure."
   },
   pt: { // Portuguese
     connecting: "Conectando...", live: "Ao vivo", open: "Comms Abertas", error_cam: "Erro", no_lock: "Sem fechadura configurada",
@@ -149,7 +149,7 @@ const igLocales = {
     snd_blocked: "Toque no altifalante para ouvir", cred_revoked: "O porteiro rejeitou este emparelhamento — volte a emparelhá-lo em Definições › Dispositivos e serviços",
     lbl_rec_off: "REC", lbl_rec_on: "A gravar", rec_start_tip: "Começar a gravar", rec_stop_tip: "Parar a gravação", rec_no_answer: "O Home Assistant não aceitou o pedido de gravação", recordings_title: "Gravações",
     quick_reply_title: "Respostas rápidas", qr_empty: "A campainha não tem respostas rápidas configuradas", qr_load_error: "Não foi possível obter a lista da campainha", qr_no_answer: "A campainha não aceitou a resposta rápida",
-    db_switch: "Mudar de campainha", db_unnamed: "Campainha sem nome", no_doorbells: "Nenhuma campainha encontrada. Adicione a integração IG Doorbell em Definições › Dispositivos e serviços.", ed_nothing: "Este cartão não tem nada para configurar: mostra todas as suas campainhas e muda-se de uma para outra no próprio cartão. As definições estão na integração: Definições › Dispositivos e serviços › IG Doorbell › Configurar."
+    db_switch: "Mudar de campainha", db_unnamed: "Campainha sem nome", no_doorbells: "Nenhuma campainha encontrada. Adicione a integração Islautopia Garage Doorbell em Definições › Dispositivos e serviços.", ed_nothing: "Este cartão não tem nada para configurar: mostra todas as suas campainhas e muda-se de uma para outra no próprio cartão. As definições estão na integração: Definições › Dispositivos e serviços › Islautopia Garage Doorbell › Configurar."
   },
   de: { // German
     connecting: "Verbinde...", live: "Live", open: "Komm. offen", error_cam: "Fehler", no_lock: "Kein Schloss konfiguriert",
@@ -170,7 +170,7 @@ const igLocales = {
     snd_blocked: "Auf den Lautsprecher tippen, um zu hören", cred_revoked: "Die Türsprechanlage hat diese Kopplung abgelehnt — in Einstellungen › Geräte & Dienste neu koppeln",
     lbl_rec_off: "REC", lbl_rec_on: "Aufnahme läuft", rec_start_tip: "Aufnahme starten", rec_stop_tip: "Aufnahme stoppen", rec_no_answer: "Home Assistant hat die Aufnahme-Anfrage nicht angenommen", recordings_title: "Aufnahmen",
     quick_reply_title: "Schnellantworten", qr_empty: "Für die Klingel sind keine Schnellantworten eingerichtet", qr_load_error: "Liste konnte nicht von der Klingel geladen werden", qr_no_answer: "Die Klingel hat die Schnellantwort nicht angenommen",
-    db_switch: "Klingel wechseln", db_unnamed: "Klingel ohne Namen", no_doorbells: "Keine Klingel gefunden. Füge die Integration IG Doorbell unter Einstellungen › Geräte & Dienste hinzu.", ed_nothing: "Diese Karte hat keine Einstellungen: Sie zeigt alle deine Klingeln, und du wechselst direkt in der Karte zwischen ihnen. Die Einstellungen liegen in der Integration: Einstellungen › Geräte & Dienste › IG Doorbell › Konfigurieren."
+    db_switch: "Klingel wechseln", db_unnamed: "Klingel ohne Namen", no_doorbells: "Keine Klingel gefunden. Füge die Integration Islautopia Garage Doorbell unter Einstellungen › Geräte & Dienste hinzu.", ed_nothing: "Diese Karte hat keine Einstellungen: Sie zeigt alle deine Klingeln, und du wechselst direkt in der Karte zwischen ihnen. Die Einstellungen liegen in der Integration: Einstellungen › Geräte & Dienste › Islautopia Garage Doorbell › Konfigurieren."
   },
   fr: { // French
     connecting: "Connexion...", live: "En direct", open: "Comms Ouvertes", error_cam: "Erreur", no_lock: "Aucune serrure configurée",
@@ -191,7 +191,7 @@ const igLocales = {
     snd_blocked: "Touchez le haut-parleur pour écouter", cred_revoked: "Le portier a refusé cet appairage — réappairez-le dans Paramètres › Appareils et services",
     lbl_rec_off: "REC", lbl_rec_on: "Enregistrement", rec_start_tip: "Démarrer l'enregistrement", rec_stop_tip: "Arrêter l'enregistrement", rec_no_answer: "Home Assistant n'a pas accepté la demande d'enregistrement", recordings_title: "Enregistrements",
     quick_reply_title: "Réponses rapides", qr_empty: "Aucune réponse rapide configurée sur la sonnette", qr_load_error: "Impossible de récupérer la liste depuis la sonnette", qr_no_answer: "La sonnette n'a pas accepté la réponse rapide",
-    db_switch: "Changer de sonnette", db_unnamed: "Sonnette sans nom", no_doorbells: "Aucune sonnette trouvée. Ajoutez l'intégration IG Doorbell dans Paramètres › Appareils et services.", ed_nothing: "Cette carte n'a rien à configurer : elle affiche toutes vos sonnettes et l'on passe de l'une à l'autre depuis la carte elle-même. Les réglages sont dans l'intégration : Paramètres › Appareils et services › IG Doorbell › Configurer."
+    db_switch: "Changer de sonnette", db_unnamed: "Sonnette sans nom", no_doorbells: "Aucune sonnette trouvée. Ajoutez l'intégration Islautopia Garage Doorbell dans Paramètres › Appareils et services.", ed_nothing: "Cette carte n'a rien à configurer : elle affiche toutes vos sonnettes et l'on passe de l'une à l'autre depuis la carte elle-même. Les réglages sont dans l'intégration : Paramètres › Appareils et services › Islautopia Garage Doorbell › Configurer."
   },
   ru: { // Russian
     connecting: "Подключение...", live: "В прямом эфире", open: "Связь открыта", error_cam: "Ошибка", no_lock: "Замок не настроен",
@@ -212,7 +212,7 @@ const igLocales = {
     snd_blocked: "Коснитесь динамика, чтобы слышать", cred_revoked: "Домофон отклонил эту привязку — выполните привязку заново в Настройки › Устройства и службы",
     lbl_rec_off: "REC", lbl_rec_on: "Запись", rec_start_tip: "Начать запись", rec_stop_tip: "Остановить запись", rec_no_answer: "Home Assistant не принял запрос на запись", recordings_title: "Записи",
     quick_reply_title: "Быстрые ответы", qr_empty: "На звонке не настроено ни одного быстрого ответа", qr_load_error: "Не удалось получить список со звонка", qr_no_answer: "Звонок не принял быстрый ответ",
-    db_switch: "Сменить звонок", db_unnamed: "Звонок без имени", no_doorbells: "Звонок не найден. Добавьте интеграцию IG Doorbell в разделе Настройки › Устройства и службы.", ed_nothing: "В этой карточке нечего настраивать: она показывает все ваши звонки, а переключаться между ними можно прямо в карточке. Настройки находятся в интеграции: Настройки › Устройства и службы › IG Doorbell › Настроить."
+    db_switch: "Сменить звонок", db_unnamed: "Звонок без имени", no_doorbells: "Звонок не найден. Добавьте интеграцию Islautopia Garage Doorbell в разделе Настройки › Устройства и службы.", ed_nothing: "В этой карточке нечего настраивать: она показывает все ваши звонки, а переключаться между ними можно прямо в карточке. Настройки находятся в интеграции: Настройки › Устройства и службы › Islautopia Garage Doorbell › Настроить."
   },
   zh: { // Mandarin Chinese
     connecting: "连接中...", live: "直播中", open: "通话中", error_cam: "错误", no_lock: "未配置门锁",
@@ -233,7 +233,7 @@ const igLocales = {
     snd_blocked: "点击扬声器以收听", cred_revoked: "门口机拒绝了此配对 — 请在 设置 › 设备与服务 中重新配对",
     lbl_rec_off: "REC", lbl_rec_on: "录制中", rec_start_tip: "开始录制", rec_stop_tip: "停止录制", rec_no_answer: "Home Assistant 未接受录制请求", recordings_title: "录像",
     quick_reply_title: "快捷回复", qr_empty: "门铃未配置任何快捷回复", qr_load_error: "无法从门铃获取列表", qr_no_answer: "门铃未接受该快捷回复",
-    db_switch: "切换门铃", db_unnamed: "未命名的门铃", no_doorbells: "未找到门铃。请在 设置 › 设备与服务 中添加 IG Doorbell 集成。", ed_nothing: "此卡片无需任何配置：它会显示您的所有门铃，并可直接在卡片中切换。设置位于集成中：设置 › 设备与服务 › IG Doorbell › 配置。"
+    db_switch: "切换门铃", db_unnamed: "未命名的门铃", no_doorbells: "未找到门铃。请在 设置 › 设备与服务 中添加 Islautopia Garage Doorbell 集成。", ed_nothing: "此卡片无需任何配置：它会显示您的所有门铃，并可直接在卡片中切换。设置位于集成中：设置 › 设备与服务 › Islautopia Garage Doorbell › 配置。"
   },
   hi: { // Hindi
     connecting: "कनेक्ट हो रहा है...", live: "लाइव", open: "संचार चालू", error_cam: "त्रुटि", no_lock: "कोई लॉक कॉन्फ़िगर नहीं",
@@ -254,7 +254,7 @@ const igLocales = {
     snd_blocked: "सुनने के लिए स्पीकर पर टैप करें", cred_revoked: "डोरबेल ने यह पेयरिंग अस्वीकार कर दी — सेटिंग्स › डिवाइस और सेवाएँ में दोबारा पेयर करें",
     lbl_rec_off: "REC", lbl_rec_on: "रिकॉर्डिंग हो रही है", rec_start_tip: "रिकॉर्डिंग शुरू करें", rec_stop_tip: "रिकॉर्डिंग रोकें", rec_no_answer: "Home Assistant ने रिकॉर्डिंग का अनुरोध स्वीकार नहीं किया", recordings_title: "रिकॉर्डिंग",
     quick_reply_title: "त्वरित उत्तर", qr_empty: "डोरबेल में कोई त्वरित उत्तर कॉन्फ़िगर नहीं है", qr_load_error: "डोरबेल से सूची प्राप्त नहीं हो सकी", qr_no_answer: "डोरबेल ने त्वरित उत्तर स्वीकार नहीं किया",
-    db_switch: "डोरबेल बदलें", db_unnamed: "बिना नाम की डोरबेल", no_doorbells: "कोई डोरबेल नहीं मिली। सेटिंग्स › डिवाइस और सेवाएँ में IG Doorbell इंटीग्रेशन जोड़ें।", ed_nothing: "इस कार्ड में कॉन्फ़िगर करने के लिए कुछ नहीं है: यह आपकी सभी डोरबेल दिखाता है और आप कार्ड से ही उनके बीच बदल सकते हैं। सेटिंग्स इंटीग्रेशन में हैं: सेटिंग्स › डिवाइस और सेवाएँ › IG Doorbell › कॉन्फ़िगर करें।"
+    db_switch: "डोरबेल बदलें", db_unnamed: "बिना नाम की डोरबेल", no_doorbells: "कोई डोरबेल नहीं मिली। सेटिंग्स › डिवाइस और सेवाएँ में Islautopia Garage Doorbell इंटीग्रेशन जोड़ें।", ed_nothing: "इस कार्ड में कॉन्फ़िगर करने के लिए कुछ नहीं है: यह आपकी सभी डोरबेल दिखाता है और आप कार्ड से ही उनके बीच बदल सकते हैं। सेटिंग्स इंटीग्रेशन में हैं: सेटिंग्स › डिवाइस और सेवाएँ › Islautopia Garage Doorbell › कॉन्फ़िगर करें।"
   },
   ar: { // Arabic
     connecting: "جارٍ الاتصال...", live: "مباشر", open: "اتصال مفتوح", error_cam: "خطأ", no_lock: "لا يوجد قفل مُهيأ",
@@ -275,7 +275,7 @@ const igLocales = {
     snd_blocked: "المس مكبر الصوت للاستماع", cred_revoked: "رفض الجهاز هذا الاقتران — أعد الاقتران من الإعدادات › الأجهزة والخدمات",
     lbl_rec_off: "REC", lbl_rec_on: "جارٍ التسجيل", rec_start_tip: "بدء التسجيل", rec_stop_tip: "إيقاف التسجيل", rec_no_answer: "لم يقبل Home Assistant طلب التسجيل", recordings_title: "التسجيلات",
     quick_reply_title: "الردود السريعة", qr_empty: "لا توجد ردود سريعة مُعدة على الجرس", qr_load_error: "تعذر جلب القائمة من الجرس", qr_no_answer: "لم يقبل الجرس الرد السريع",
-    db_switch: "تبديل الجرس", db_unnamed: "جرس بدون اسم", no_doorbells: "لم يتم العثور على أي جرس. أضف تكامل IG Doorbell من الإعدادات › الأجهزة والخدمات.", ed_nothing: "لا يوجد ما يمكن ضبطه في هذه البطاقة: فهي تعرض جميع أجراسك ويمكنك التبديل بينها من البطاقة نفسها. الإعدادات موجودة في التكامل: الإعدادات › الأجهزة والخدمات › IG Doorbell › تكوين."
+    db_switch: "تبديل الجرس", db_unnamed: "جرس بدون اسم", no_doorbells: "لم يتم العثور على أي جرس. أضف تكامل Islautopia Garage Doorbell من الإعدادات › الأجهزة والخدمات.", ed_nothing: "لا يوجد ما يمكن ضبطه في هذه البطاقة: فهي تعرض جميع أجراسك ويمكنك التبديل بينها من البطاقة نفسها. الإعدادات موجودة في التكامل: الإعدادات › الأجهزة والخدمات › Islautopia Garage Doorbell › تكوين."
   }
 };
 
@@ -2134,7 +2134,7 @@ class IgDoorbellView extends HTMLElement {
     if (this._pairingRejected) return; // already reported, don't repaint on every retry
     this._pairingRejected = true;
     this._stickyStatusKey = 'cred_revoked';
-    console.error(`[ig-doorbell-card] this card's pairing has been rejected (${source}) - the doorbell needs to be re-paired in Settings > Devices & services > IG Doorbell`);
+    console.error(`[ig-doorbell-card] this card's pairing has been rejected (${source}) - the doorbell needs to be re-paired in Settings > Devices & services > Islautopia Garage Doorbell`);
     this._resetStatusLine();
   }
 
@@ -6655,7 +6655,7 @@ class IgDoorbellCard extends HTMLElement {
     const legacyKeys = Object.keys(config || {}).filter((k) => !['type', 'view_layout', 'grid_options', 'visibility', 'layout_options'].includes(k));
     if (legacyKeys.length && !this._legacyWarned) {
       this._legacyWarned = true;
-      console.info(`[ig-doorbell-card] this card has no options since 1.10.0; ignoring: ${legacyKeys.join(', ')} (everything is configured in the IG Doorbell integration)`);
+      console.info(`[ig-doorbell-card] this card has no options since 1.10.0; ignoring: ${legacyKeys.join(', ')} (everything is configured in the Islautopia Garage Doorbell integration)`);
     }
     this.config = {};
     this._onPick = this._onPick || ((id) => this._choose(id));
@@ -6848,7 +6848,7 @@ if (!customElements.get(CARD_TAG)) {
       // No preview (1.10.0): with no configuration, the card picker's preview would open a
       // REAL video session against a doorbell just for browsing the list, and it would occupy one of its slots.
       preview: false,
-      description: "Live video, two-way audio and door control for Islautopia Garage Doorbell (IG Doorbell). No options: everything is configured in the IG Doorbell integration."
+      description: "Live video, two-way audio and door control for Islautopia Garage Doorbell (IG Doorbell). No options: everything is configured in the Islautopia Garage Doorbell integration."
     });
   }
 } else {
