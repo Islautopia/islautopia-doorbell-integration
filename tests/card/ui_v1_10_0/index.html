@@ -1,0 +1,11 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>v1.10.0 UI harness (zero config + doorbell switcher; network doubled)</title></head>
+<body style="margin:0;background:#111;">
+  <div id="host" style="width:420px;"></div>
+  <!-- harness.js FIRST here (unlike the older harnesses): it has to wrap RTCPeerConnection and
+       EventSource before the card's module captures anything. It does not touch the card. -->
+  <script src="harness.js"></script>
+  <script src="../../../custom_components/ig_doorbell/frontend/ig-doorbell-card.js"></script>
+</body>
+</html>

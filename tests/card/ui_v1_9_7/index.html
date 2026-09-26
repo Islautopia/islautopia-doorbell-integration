@@ -1,0 +1,14 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>v1.9.7 UI harness (fit to space, bell, optimistic mode; network doubled)</title></head>
+<body>
+  <div id="host"></div>
+  <!-- Carga el fichero REAL de dist/ (no una copia). Solo se doblan fetch/EventSource/WebSocket
+       y el puente hass.connection.sendMessagePromise -- igual criterio que
+       test/idle_release_network, para poder construir y adjuntar la card real sin un Home
+       Assistant ni un portero de verdad delante. harness.js es una copia literal del de
+       test/ui_v1_9_2 (mismo doble de red/hass, nada especifico de esta version). -->
+  <script src="../../../custom_components/ig_doorbell/frontend/ig-doorbell-card.js"></script>
+  <script src="harness.js"></script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 // Build marker (2026-07-12, see COORDINATION.md Q24-quater and the persistent memory
 // hass_card_audio_investigation.md in the firmware repo) - REAL PROBLEM FOUND while
 // investigating whether the Q24-bis audio fix (addTransceiver->addTrack) really reaches the user's
-// actual HA: the manual Lovelace resource (`/local/islautopia-intercom-card.js`, see README.md
+// actual HA: the manual Lovelace resource (`/local/ig-doorbell-card.js`, see README.md
 // "Manual Installation") gets registered with a BARE URL, with no version/cache-bust suffix
 // (unlike the resource installed via HACS, `/hacsfiles/...`, which DOES carry a `?hacstagXXXXXXX`
 // that HACS manages on its own so it can force a reload on every update). Real consequence: a
@@ -25,8 +25,8 @@ const CARD_BUILD_ID = `${CARD_VERSION} 2026-09-26-adaptive-layout`;
 // identifiers, entity platform, media_source).
 const IG_DOMAIN = 'ig_doorbell';
 const CARD_TAG = 'ig-doorbell-card';
-const VIEW_TAG = 'islautopia-intercom-view';
-const EDITOR_TAG = 'islautopia-intercom-card-editor';
+const VIEW_TAG = 'ig-doorbell-view';
+const EDITOR_TAG = 'ig-doorbell-card-editor';
 
 // ⚠️ THIS MARKER LIVES IN THE MODULE, NOT THE ELEMENT, AND THAT'S THE WHOLE POINT (2026-09-07).
 //
@@ -44,7 +44,7 @@ const EDITOR_TAG = 'islautopia-intercom-card-editor';
 // instant that survives the element, rearming and recreating both stop mattering --
 // and a new instance born when 60 s have already passed lets go IMMEDIATELY, instead of
 // handing out another free minute.
-let ULTIMA_INTERACCION_MS = Date.now();
+let LAST_INTERACTION_MS = Date.now();
 
 // ⚠️ THE IDLE PAUSE LIVES IN THE MODULE, PER DOORBELL (1.9.1, measured on the living-room tablet
 // on 2026-09-25). Home Assistant re-inserts -- or recreates -- the card element without
@@ -53,7 +53,7 @@ let ULTIMA_INTERACCION_MS = Date.now();
 // in /api/debug/cores on Ermita 10: sessions 0 -> 1 -> 2 -> 1 every ~20 s with the tablet untouched).
 // An idle pause can only be lifted by a person (touch) or a doorbell ring; never a
 // connectedCallback. It's lost on a full reload, which is correct: reloading means starting over.
-const PAUSA_POR_PORTERO = {};
+const PAUSED_BY_DOORBELL = {};
 
 // ⚠️ REENTRANCY-GUARD FUSE FOR startWebRTC() -- see that function for the full argument.
 //
@@ -69,7 +69,7 @@ const PAUSA_POR_PORTERO = {};
 // another couple of seconds) and well below how long a stuck socket takes to give up. What it
 // buys: past 12 s, ANY later trigger takes over from the stuck one instead of
 // respecting it.
-const ARRANQUE_EN_VUELO_MAX_MS = 12000;
+const START_IN_FLIGHT_MAX_MS = 12000;
 
 // ⚠️ THE IDLE PAUSE IS THE SAME ONE THE APPS USE, NOT A NEW ONE (2026-09-25, §1.4-bis "Live pause").
 // When the deadline expires the card does what an app does when it goes to the background:
@@ -82,23 +82,23 @@ const IDLE_GRACE_MS = 15000;
 // Off-screen WITH a call doesn't hang up during the grace period (the session is the call), but it
 // doesn't go on forever either: 300 s is the doorbell's own safety net for a call with no turn
 // (§1.4-quater rule 2), and past that there's no call left to preserve.
-const CALL_OCULTA_MAX_MS = 300000;
-const OFFSCREEN_PAUSA_MS = 1500;
+const CALL_HIDDEN_MAX_MS = 300000;
+const OFFSCREEN_PAUSE_MS = 1500;
 // Maximum pinch-zoom (1.9.3). x5 on the doorbell's image already shows the sensor's
 // individual pixels; beyond that it just magnifies the blur.
 const ZOOM_MAX = 5;
-const TIMBRE_RECIENTE_MS = 60000;
+const RECENT_RING_MS = 60000;
 // Decorative "Door open · Closing in N s" countdown (formerly the `unlock_duration` option).
 const DOOR_OPEN_DISPLAY_S = 3;
 const LIVE_ACK_MS = 3000;          // rule 1: if there's no live_state within 3 s, resend...
-const LIVE_ACK_REINTENTOS = 3;     // ...up to 3 times
-const RESCATE_RESUME_MS = [6000, 12000];
-const RESCATE_SESION_NUEVA_MS = 24000;
+const LIVE_ACK_RETRIES = 3;     // ...up to 3 times
+const RESCUE_RESUME_MS = [6000, 12000];
+const RESCUE_NEW_SESSION_MS = 24000;
 
-console.log(`[islautopia-intercom-card] module loaded - build=${CARD_BUILD_ID} (compare this value against CARD_BUILD_ID in the repo if you're unsure whether the browser is serving a stale cached copy)`);
+console.log(`[ig-doorbell-card] module loaded - build=${CARD_BUILD_ID} (compare this value against CARD_BUILD_ID in the repo if you're unsure whether the browser is serving a stale cached copy)`);
 
 // Global translation dictionary for Card and Editor (Top 9 Languages + HA Community)
-const islautopiaLocales = {
+const igLocales = {
   es: { // Spanish
     connecting: "Conectando...", live: "En directo", open: "Comms Abiertas", error_cam: "Error", no_lock: "Sin cerradura configurada",
     motion_detected: "Movimiento detectado", audio_active: "Audio activo", idle_status: "Sistema operativo", door_open_prefix: "Puerta abierta · Cerrando en",
@@ -118,7 +118,7 @@ const islautopiaLocales = {
     snd_blocked: "Toca el altavoz para oír", cred_revoked: "El portero rechazó el emparejamiento — vuelve a emparejarlo en Ajustes › Dispositivos y servicios",
     lbl_rec_off: "REC", lbl_rec_on: "Grabando", rec_start_tip: "Empezar a grabar", rec_stop_tip: "Parar la grabación", rec_no_answer: "Home Assistant no aceptó la orden de grabar", recordings_title: "Grabaciones",
     quick_reply_title: "Respuestas rápidas", qr_empty: "El portero no tiene respuestas rápidas configuradas", qr_load_error: "No se pudo obtener la lista del portero", qr_no_answer: "El portero no aceptó la respuesta rápida",
-    db_switch: "Cambiar de portero", db_unnamed: "Portero sin nombre", no_doorbells: "No hay ningún portero. Añade la integración Islautopia Doorbell en Ajustes › Dispositivos y servicios.", ed_nothing: "Esta tarjeta no tiene nada que configurar: muestra todos tus porteros y se cambia de uno a otro desde la propia tarjeta. Los ajustes están en la integración: Ajustes › Dispositivos y servicios › Islautopia Doorbell › Configurar."
+    db_switch: "Cambiar de portero", db_unnamed: "Portero sin nombre", no_doorbells: "No hay ningún portero. Añade la integración IG Doorbell en Ajustes › Dispositivos y servicios.", ed_nothing: "Esta tarjeta no tiene nada que configurar: muestra todos tus porteros y se cambia de uno a otro desde la propia tarjeta. Los ajustes están en la integración: Ajustes › Dispositivos y servicios › IG Doorbell › Configurar."
   },
   en: { // English (global fallback)
     connecting: "Connecting...", live: "Live", open: "Comms Open", error_cam: "Error", no_lock: "No lock configured",
@@ -139,7 +139,7 @@ const islautopiaLocales = {
     snd_blocked: "Tap the speaker to listen", cred_revoked: "The doorbell rejected this pairing — re-pair it in Settings › Devices & services",
     lbl_rec_off: "REC", lbl_rec_on: "Recording", rec_start_tip: "Start recording", rec_stop_tip: "Stop recording", rec_no_answer: "Home Assistant did not accept the recording request", recordings_title: "Recordings",
     quick_reply_title: "Quick replies", qr_empty: "The doorbell has no quick replies configured", qr_load_error: "Could not load the list from the doorbell", qr_no_answer: "The doorbell did not accept the quick reply",
-    db_switch: "Switch doorbell", db_unnamed: "Unnamed doorbell", no_doorbells: "No doorbell found. Add the Islautopia Doorbell integration in Settings › Devices & services.", ed_nothing: "There is nothing to configure in this card: it shows all your doorbells and you switch between them from the card itself. Settings live in the integration: Settings › Devices & services › Islautopia Doorbell › Configure."
+    db_switch: "Switch doorbell", db_unnamed: "Unnamed doorbell", no_doorbells: "No doorbell found. Add the IG Doorbell integration in Settings › Devices & services.", ed_nothing: "There is nothing to configure in this card: it shows all your doorbells and you switch between them from the card itself. Settings live in the integration: Settings › Devices & services › IG Doorbell › Configure."
   },
   pt: { // Portuguese
     connecting: "Conectando...", live: "Ao vivo", open: "Comms Abertas", error_cam: "Erro", no_lock: "Sem fechadura configurada",
@@ -160,7 +160,7 @@ const islautopiaLocales = {
     snd_blocked: "Toque no altifalante para ouvir", cred_revoked: "O porteiro rejeitou este emparelhamento — volte a emparelhá-lo em Definições › Dispositivos e serviços",
     lbl_rec_off: "REC", lbl_rec_on: "A gravar", rec_start_tip: "Começar a gravar", rec_stop_tip: "Parar a gravação", rec_no_answer: "O Home Assistant não aceitou o pedido de gravação", recordings_title: "Gravações",
     quick_reply_title: "Respostas rápidas", qr_empty: "A campainha não tem respostas rápidas configuradas", qr_load_error: "Não foi possível obter a lista da campainha", qr_no_answer: "A campainha não aceitou a resposta rápida",
-    db_switch: "Mudar de campainha", db_unnamed: "Campainha sem nome", no_doorbells: "Nenhuma campainha encontrada. Adicione a integração Islautopia Doorbell em Definições › Dispositivos e serviços.", ed_nothing: "Este cartão não tem nada para configurar: mostra todas as suas campainhas e muda-se de uma para outra no próprio cartão. As definições estão na integração: Definições › Dispositivos e serviços › Islautopia Doorbell › Configurar."
+    db_switch: "Mudar de campainha", db_unnamed: "Campainha sem nome", no_doorbells: "Nenhuma campainha encontrada. Adicione a integração IG Doorbell em Definições › Dispositivos e serviços.", ed_nothing: "Este cartão não tem nada para configurar: mostra todas as suas campainhas e muda-se de uma para outra no próprio cartão. As definições estão na integração: Definições › Dispositivos e serviços › IG Doorbell › Configurar."
   },
   de: { // German
     connecting: "Verbinde...", live: "Live", open: "Komm. offen", error_cam: "Fehler", no_lock: "Kein Schloss konfiguriert",
@@ -181,7 +181,7 @@ const islautopiaLocales = {
     snd_blocked: "Auf den Lautsprecher tippen, um zu hören", cred_revoked: "Die Türsprechanlage hat diese Kopplung abgelehnt — in Einstellungen › Geräte & Dienste neu koppeln",
     lbl_rec_off: "REC", lbl_rec_on: "Aufnahme läuft", rec_start_tip: "Aufnahme starten", rec_stop_tip: "Aufnahme stoppen", rec_no_answer: "Home Assistant hat die Aufnahme-Anfrage nicht angenommen", recordings_title: "Aufnahmen",
     quick_reply_title: "Schnellantworten", qr_empty: "Für die Klingel sind keine Schnellantworten eingerichtet", qr_load_error: "Liste konnte nicht von der Klingel geladen werden", qr_no_answer: "Die Klingel hat die Schnellantwort nicht angenommen",
-    db_switch: "Klingel wechseln", db_unnamed: "Klingel ohne Namen", no_doorbells: "Keine Klingel gefunden. Füge die Integration Islautopia Doorbell unter Einstellungen › Geräte & Dienste hinzu.", ed_nothing: "Diese Karte hat keine Einstellungen: Sie zeigt alle deine Klingeln, und du wechselst direkt in der Karte zwischen ihnen. Die Einstellungen liegen in der Integration: Einstellungen › Geräte & Dienste › Islautopia Doorbell › Konfigurieren."
+    db_switch: "Klingel wechseln", db_unnamed: "Klingel ohne Namen", no_doorbells: "Keine Klingel gefunden. Füge die Integration IG Doorbell unter Einstellungen › Geräte & Dienste hinzu.", ed_nothing: "Diese Karte hat keine Einstellungen: Sie zeigt alle deine Klingeln, und du wechselst direkt in der Karte zwischen ihnen. Die Einstellungen liegen in der Integration: Einstellungen › Geräte & Dienste › IG Doorbell › Konfigurieren."
   },
   fr: { // French
     connecting: "Connexion...", live: "En direct", open: "Comms Ouvertes", error_cam: "Erreur", no_lock: "Aucune serrure configurée",
@@ -202,7 +202,7 @@ const islautopiaLocales = {
     snd_blocked: "Touchez le haut-parleur pour écouter", cred_revoked: "Le portier a refusé cet appairage — réappairez-le dans Paramètres › Appareils et services",
     lbl_rec_off: "REC", lbl_rec_on: "Enregistrement", rec_start_tip: "Démarrer l'enregistrement", rec_stop_tip: "Arrêter l'enregistrement", rec_no_answer: "Home Assistant n'a pas accepté la demande d'enregistrement", recordings_title: "Enregistrements",
     quick_reply_title: "Réponses rapides", qr_empty: "Aucune réponse rapide configurée sur la sonnette", qr_load_error: "Impossible de récupérer la liste depuis la sonnette", qr_no_answer: "La sonnette n'a pas accepté la réponse rapide",
-    db_switch: "Changer de sonnette", db_unnamed: "Sonnette sans nom", no_doorbells: "Aucune sonnette trouvée. Ajoutez l'intégration Islautopia Doorbell dans Paramètres › Appareils et services.", ed_nothing: "Cette carte n'a rien à configurer : elle affiche toutes vos sonnettes et l'on passe de l'une à l'autre depuis la carte elle-même. Les réglages sont dans l'intégration : Paramètres › Appareils et services › Islautopia Doorbell › Configurer."
+    db_switch: "Changer de sonnette", db_unnamed: "Sonnette sans nom", no_doorbells: "Aucune sonnette trouvée. Ajoutez l'intégration IG Doorbell dans Paramètres › Appareils et services.", ed_nothing: "Cette carte n'a rien à configurer : elle affiche toutes vos sonnettes et l'on passe de l'une à l'autre depuis la carte elle-même. Les réglages sont dans l'intégration : Paramètres › Appareils et services › IG Doorbell › Configurer."
   },
   ru: { // Russian
     connecting: "Подключение...", live: "В прямом эфире", open: "Связь открыта", error_cam: "Ошибка", no_lock: "Замок не настроен",
@@ -223,7 +223,7 @@ const islautopiaLocales = {
     snd_blocked: "Коснитесь динамика, чтобы слышать", cred_revoked: "Домофон отклонил эту привязку — выполните привязку заново в Настройки › Устройства и службы",
     lbl_rec_off: "REC", lbl_rec_on: "Запись", rec_start_tip: "Начать запись", rec_stop_tip: "Остановить запись", rec_no_answer: "Home Assistant не принял запрос на запись", recordings_title: "Записи",
     quick_reply_title: "Быстрые ответы", qr_empty: "На звонке не настроено ни одного быстрого ответа", qr_load_error: "Не удалось получить список со звонка", qr_no_answer: "Звонок не принял быстрый ответ",
-    db_switch: "Сменить звонок", db_unnamed: "Звонок без имени", no_doorbells: "Звонок не найден. Добавьте интеграцию Islautopia Doorbell в разделе Настройки › Устройства и службы.", ed_nothing: "В этой карточке нечего настраивать: она показывает все ваши звонки, а переключаться между ними можно прямо в карточке. Настройки находятся в интеграции: Настройки › Устройства и службы › Islautopia Doorbell › Настроить."
+    db_switch: "Сменить звонок", db_unnamed: "Звонок без имени", no_doorbells: "Звонок не найден. Добавьте интеграцию IG Doorbell в разделе Настройки › Устройства и службы.", ed_nothing: "В этой карточке нечего настраивать: она показывает все ваши звонки, а переключаться между ними можно прямо в карточке. Настройки находятся в интеграции: Настройки › Устройства и службы › IG Doorbell › Настроить."
   },
   zh: { // Mandarin Chinese
     connecting: "连接中...", live: "直播中", open: "通话中", error_cam: "错误", no_lock: "未配置门锁",
@@ -244,7 +244,7 @@ const islautopiaLocales = {
     snd_blocked: "点击扬声器以收听", cred_revoked: "门口机拒绝了此配对 — 请在 设置 › 设备与服务 中重新配对",
     lbl_rec_off: "REC", lbl_rec_on: "录制中", rec_start_tip: "开始录制", rec_stop_tip: "停止录制", rec_no_answer: "Home Assistant 未接受录制请求", recordings_title: "录像",
     quick_reply_title: "快捷回复", qr_empty: "门铃未配置任何快捷回复", qr_load_error: "无法从门铃获取列表", qr_no_answer: "门铃未接受该快捷回复",
-    db_switch: "切换门铃", db_unnamed: "未命名的门铃", no_doorbells: "未找到门铃。请在 设置 › 设备与服务 中添加 Islautopia Doorbell 集成。", ed_nothing: "此卡片无需任何配置：它会显示您的所有门铃，并可直接在卡片中切换。设置位于集成中：设置 › 设备与服务 › Islautopia Doorbell › 配置。"
+    db_switch: "切换门铃", db_unnamed: "未命名的门铃", no_doorbells: "未找到门铃。请在 设置 › 设备与服务 中添加 IG Doorbell 集成。", ed_nothing: "此卡片无需任何配置：它会显示您的所有门铃，并可直接在卡片中切换。设置位于集成中：设置 › 设备与服务 › IG Doorbell › 配置。"
   },
   hi: { // Hindi
     connecting: "कनेक्ट हो रहा है...", live: "लाइव", open: "संचार चालू", error_cam: "त्रुटि", no_lock: "कोई लॉक कॉन्फ़िगर नहीं",
@@ -265,7 +265,7 @@ const islautopiaLocales = {
     snd_blocked: "सुनने के लिए स्पीकर पर टैप करें", cred_revoked: "डोरबेल ने यह पेयरिंग अस्वीकार कर दी — सेटिंग्स › डिवाइस और सेवाएँ में दोबारा पेयर करें",
     lbl_rec_off: "REC", lbl_rec_on: "रिकॉर्डिंग हो रही है", rec_start_tip: "रिकॉर्डिंग शुरू करें", rec_stop_tip: "रिकॉर्डिंग रोकें", rec_no_answer: "Home Assistant ने रिकॉर्डिंग का अनुरोध स्वीकार नहीं किया", recordings_title: "रिकॉर्डिंग",
     quick_reply_title: "त्वरित उत्तर", qr_empty: "डोरबेल में कोई त्वरित उत्तर कॉन्फ़िगर नहीं है", qr_load_error: "डोरबेल से सूची प्राप्त नहीं हो सकी", qr_no_answer: "डोरबेल ने त्वरित उत्तर स्वीकार नहीं किया",
-    db_switch: "डोरबेल बदलें", db_unnamed: "बिना नाम की डोरबेल", no_doorbells: "कोई डोरबेल नहीं मिली। सेटिंग्स › डिवाइस और सेवाएँ में Islautopia Doorbell इंटीग्रेशन जोड़ें।", ed_nothing: "इस कार्ड में कॉन्फ़िगर करने के लिए कुछ नहीं है: यह आपकी सभी डोरबेल दिखाता है और आप कार्ड से ही उनके बीच बदल सकते हैं। सेटिंग्स इंटीग्रेशन में हैं: सेटिंग्स › डिवाइस और सेवाएँ › Islautopia Doorbell › कॉन्फ़िगर करें।"
+    db_switch: "डोरबेल बदलें", db_unnamed: "बिना नाम की डोरबेल", no_doorbells: "कोई डोरबेल नहीं मिली। सेटिंग्स › डिवाइस और सेवाएँ में IG Doorbell इंटीग्रेशन जोड़ें।", ed_nothing: "इस कार्ड में कॉन्फ़िगर करने के लिए कुछ नहीं है: यह आपकी सभी डोरबेल दिखाता है और आप कार्ड से ही उनके बीच बदल सकते हैं। सेटिंग्स इंटीग्रेशन में हैं: सेटिंग्स › डिवाइस और सेवाएँ › IG Doorbell › कॉन्फ़िगर करें।"
   },
   ar: { // Arabic
     connecting: "جارٍ الاتصال...", live: "مباشر", open: "اتصال مفتوح", error_cam: "خطأ", no_lock: "لا يوجد قفل مُهيأ",
@@ -286,7 +286,7 @@ const islautopiaLocales = {
     snd_blocked: "المس مكبر الصوت للاستماع", cred_revoked: "رفض الجهاز هذا الاقتران — أعد الاقتران من الإعدادات › الأجهزة والخدمات",
     lbl_rec_off: "REC", lbl_rec_on: "جارٍ التسجيل", rec_start_tip: "بدء التسجيل", rec_stop_tip: "إيقاف التسجيل", rec_no_answer: "لم يقبل Home Assistant طلب التسجيل", recordings_title: "التسجيلات",
     quick_reply_title: "الردود السريعة", qr_empty: "لا توجد ردود سريعة مُعدة على الجرس", qr_load_error: "تعذر جلب القائمة من الجرس", qr_no_answer: "لم يقبل الجرس الرد السريع",
-    db_switch: "تبديل الجرس", db_unnamed: "جرس بدون اسم", no_doorbells: "لم يتم العثور على أي جرس. أضف تكامل Islautopia Doorbell من الإعدادات › الأجهزة والخدمات.", ed_nothing: "لا يوجد ما يمكن ضبطه في هذه البطاقة: فهي تعرض جميع أجراسك ويمكنك التبديل بينها من البطاقة نفسها. الإعدادات موجودة في التكامل: الإعدادات › الأجهزة والخدمات › Islautopia Doorbell › تكوين."
+    db_switch: "تبديل الجرس", db_unnamed: "جرس بدون اسم", no_doorbells: "لم يتم العثور على أي جرس. أضف تكامل IG Doorbell من الإعدادات › الأجهزة والخدمات.", ed_nothing: "لا يوجد ما يمكن ضبطه في هذه البطاقة: فهي تعرض جميع أجراسك ويمكنك التبديل بينها من البطاقة نفسها. الإعدادات موجودة في التكامل: الإعدادات › الأجهزة والخدمات › IG Doorbell › تكوين."
   }
 };
 
@@ -305,30 +305,30 @@ const islautopiaLocales = {
 // An unknown type is SHOWN the same way ("status" group), just like the apps do.
 // ==============================================================================
 const IG_EVENT_KINDS = {
-  ring:                { g: 'door',     aviso: true,  icon: 'mdi:doorbell',                  c: 'blue'  },
-  visitor:             { g: 'door',     aviso: true,  icon: 'mdi:account-outline',           c: 'blue'  },
-  package:             { g: 'door',     aviso: true,  icon: 'mdi:package-variant-closed',    c: 'blue'  },
-  person_with_package: { g: 'door',     aviso: false, icon: 'mdi:package-variant-closed',    c: 'blue'  },
-  package_gone:        { g: 'door',     aviso: true,  icon: 'mdi:alert-octagon-outline',     c: 'amber' },
-  call_answered:       { g: 'call',     aviso: true,  icon: 'mdi:phone-incoming',            c: 'green' },
-  call_declined:       { g: 'call',     aviso: false, icon: 'mdi:phone-hangup-outline',      c: 'muted' },
-  call_missed:         { g: 'call',     aviso: true,  icon: 'mdi:phone-missed-outline',      c: 'amber' },
-  visitor_message:     { g: 'call',     aviso: true,  icon: 'mdi:voicemail',                 c: 'blue'  },
-  door_opened:         { g: 'lock',     aviso: true,  icon: 'mdi:lock-open-variant-outline', c: 'green' },
-  device_offline:      { g: 'health',   aviso: true,  icon: 'mdi:cloud-off-outline',         c: 'red'   },
-  device_online:       { g: 'health',   aviso: true,  icon: 'mdi:cloud-check-outline',       c: 'green' },
-  storage_problem:     { g: 'health',   aviso: true,  icon: 'mdi:sd',                        c: 'red'   },
-  firmware_available:  { g: 'health',   aviso: true,  icon: 'mdi:update',                    c: 'blue'  },
-  unexpected_reboot:   { g: 'health',   aviso: true,  icon: 'mdi:restart-alert',             c: 'amber' },
-  client_paired:       { g: 'security', aviso: true,  icon: 'mdi:devices',                   c: 'amber' },
-  user_added:          { g: 'security', aviso: true,  icon: 'mdi:account-plus-outline',      c: 'blue'  },
-  user_revoked:        { g: 'security', aviso: true,  icon: 'mdi:account-remove-outline',    c: 'amber' },
-  login_failed:        { g: 'security', aviso: false, icon: 'mdi:shield-alert-outline',      c: 'red'   },
-  key_denied:          { g: 'security', aviso: true,  icon: 'mdi:key-remove',                c: 'amber' },
-  key_locked:          { g: 'security', aviso: true,  icon: 'mdi:lock-alert-outline',        c: 'red'   },
-  mode_changed:        { g: 'status',   aviso: true,  icon: 'mdi:tune-variant',              c: 'muted' },
-  ring_suppressed:     { g: 'status',   aviso: true,  icon: 'mdi:bell-off-outline',          c: 'amber' },
-  viewer_joined:       { g: 'status',   aviso: false, icon: 'mdi:eye-outline',               c: 'muted' },
+  ring:                { g: 'door',     notice: true,  icon: 'mdi:doorbell',                  c: 'blue'  },
+  visitor:             { g: 'door',     notice: true,  icon: 'mdi:account-outline',           c: 'blue'  },
+  package:             { g: 'door',     notice: true,  icon: 'mdi:package-variant-closed',    c: 'blue'  },
+  person_with_package: { g: 'door',     notice: false, icon: 'mdi:package-variant-closed',    c: 'blue'  },
+  package_gone:        { g: 'door',     notice: true,  icon: 'mdi:alert-octagon-outline',     c: 'amber' },
+  call_answered:       { g: 'call',     notice: true,  icon: 'mdi:phone-incoming',            c: 'green' },
+  call_declined:       { g: 'call',     notice: false, icon: 'mdi:phone-hangup-outline',      c: 'muted' },
+  call_missed:         { g: 'call',     notice: true,  icon: 'mdi:phone-missed-outline',      c: 'amber' },
+  visitor_message:     { g: 'call',     notice: true,  icon: 'mdi:voicemail',                 c: 'blue'  },
+  door_opened:         { g: 'lock',     notice: true,  icon: 'mdi:lock-open-variant-outline', c: 'green' },
+  device_offline:      { g: 'health',   notice: true,  icon: 'mdi:cloud-off-outline',         c: 'red'   },
+  device_online:       { g: 'health',   notice: true,  icon: 'mdi:cloud-check-outline',       c: 'green' },
+  storage_problem:     { g: 'health',   notice: true,  icon: 'mdi:sd',                        c: 'red'   },
+  firmware_available:  { g: 'health',   notice: true,  icon: 'mdi:update',                    c: 'blue'  },
+  unexpected_reboot:   { g: 'health',   notice: true,  icon: 'mdi:restart-alert',             c: 'amber' },
+  client_paired:       { g: 'security', notice: true,  icon: 'mdi:devices',                   c: 'amber' },
+  user_added:          { g: 'security', notice: true,  icon: 'mdi:account-plus-outline',      c: 'blue'  },
+  user_revoked:        { g: 'security', notice: true,  icon: 'mdi:account-remove-outline',    c: 'amber' },
+  login_failed:        { g: 'security', notice: false, icon: 'mdi:shield-alert-outline',      c: 'red'   },
+  key_denied:          { g: 'security', notice: true,  icon: 'mdi:key-remove',                c: 'amber' },
+  key_locked:          { g: 'security', notice: true,  icon: 'mdi:lock-alert-outline',        c: 'red'   },
+  mode_changed:        { g: 'status',   notice: true,  icon: 'mdi:tune-variant',              c: 'muted' },
+  ring_suppressed:     { g: 'status',   notice: true,  icon: 'mdi:bell-off-outline',          c: 'amber' },
+  viewer_joined:       { g: 'status',   notice: false, icon: 'mdi:eye-outline',               c: 'muted' },
 };
 const IG_EVENT_GROUPS = ['door', 'call', 'lock', 'health', 'security', 'status'];
 const IG_EV_RANGES = ['lastHour', 'last6Hours', 'day', 'week'];
@@ -494,13 +494,13 @@ function getLocalText(hass, key) {
   const lang = (hass && hass.language) ? hass.language.substring(0, 2) : 'en';
 
   // 2. If the detected language does NOT exist in our dictionary, we force English ('en')
-  const table = islautopiaLocales[lang] || islautopiaLocales.en;
+  const table = igLocales[lang] || igLocales.en;
   // 3. Fallback PER KEY, not just per language (2026-07-26): before, a key present in 'en'
   //    but forgotten in another language returned `undefined` and literally rendered "undefined" in
   //    the UI. With 15 new keys x 9 languages in this same change (multi-client/quality), the
   //    real risk of someone missing one in the future stops being theoretical - better an
   //    English text than an "undefined" on screen.
-  return (table[key] !== undefined) ? table[key] : islautopiaLocales.en[key];
+  return (table[key] !== undefined) ? table[key] : igLocales.en[key];
 }
 
 // ==============================================================================
@@ -617,12 +617,12 @@ function qualityModeMeta(wire) {
 // across N places").
 const MODE_META = {
   normal: { icon: 'mdi:home-outline', colorVar: '--ig-lime' },
-  ausente: { icon: 'mdi:logout', colorVar: '--ig-amber' },
-  noche: { icon: 'mdi:weather-night', colorVar: '--ig-indigo' },
+  away: { icon: 'mdi:logout', colorVar: '--ig-amber' },
+  night: { icon: 'mdi:weather-night', colorVar: '--ig-indigo' },
   custom: { icon: 'mdi:tune', colorVar: '--ig-cyan' }, // mdi:tune-variant doesn't exist in the real Material Design Icons set
 };
 
-class IslautopiaIntercomView extends HTMLElement {
+class IgDoorbellView extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     // Mode chip / motion chip (2026-07-10, see COORDINATION.md Q22-bis) are read from
@@ -633,21 +633,21 @@ class IslautopiaIntercomView extends HTMLElement {
   }
 
   // ⚠️ SINCE 1.10.0 HOME ASSISTANT NO LONGER CREATES THIS ELEMENT (2026-09-26). The card creates it
-  // (IslautopiaIntercomCard, below), ONE INSTANCE PER DOORBELL VIEWED: `config` is internal and
+  // (IgDoorbellCard, below), ONE INSTANCE PER DOORBELL VIEWED: `config` is internal and
   // only carries `device_id` (the one for the doorbell chosen in the selector). The card has no
   // user configuration -- Iñaki's decision: it's configured in ONE place, the integration.
   setConfig(config) {
     if (!config || !config.device_id) {
-      throw new Error('islautopia-intercom-view: internal config without device_id');
+      throw new Error('ig-doorbell-view: internal config without device_id');
     }
     // Real bug found and fixed (2026-07-10, see COORDINATION.md - user report: when
     // resizing the card's width, the card grows but the video stays the same size
     // as always). Cause: this card does NOT use Shadow DOM (this.innerHTML directly on the
-    // element itself, "light" DOM) and the custom element itself (<islautopia-intercom-card>) never
+    // element itself, "light" DOM) and the custom element itself (<ig-doorbell-card>) never
     // had its own display/width declared. Autonomous Custom Elements default to
     // `display: inline` unless declared otherwise (neither the browser nor HA does that
     // automatically for you) - an inline element sizes itself to its CONTENT, not to the
-    // available width of the container that holds it. All the internal CSS (.intercom-container,
+    // available width of the container that holds it. All the internal CSS (.ig-container,
     // .video-wrapper, video { width:100% }) WAS correct and relative, but "100%" of an
     // inline element with no width of its own resolves to the content's intrinsic width, not to the
     // space HA gives it (e.g. when resizing the width in a "Sections"-type dashboard). Fixed
@@ -674,27 +674,27 @@ class IslautopiaIntercomView extends HTMLElement {
     // mid-conversation would be a bug, not a saving.
     // ⚠️ SINCE 1.9.0 THIS IS ONLY THE FALLBACK (2026-09-25). The deadline comes from the integration's
     // `number.<doorbell>_live_view_timeout` entity (which an automation can change),
-    // see _plazoInactividadMs(). This only applies if the integration is older and doesn't offer it.
+    // see _idleTimeoutMs(). This only applies if the integration is older and doesn't offer it.
     // 120 s, the same default value as the entity (its reasoning is in the integration's number.py).
     // (1.10.0) The YAML `idle_release_seconds` option is gone: the deadline is now set on the
     // integration's entity, which is the only place where this card gets configured.
     this._idleReleaseMs = 120000;
-    // The pause (1.9.1): null | { motivo: 'oculta'|'inactividad', fase: 'gracia'|'colgada', micAbierto }.
-    // 'gracia' = live_pause sent, session alive; 'colgada' = bye, slot released.
-    this._pausa = null;
-    this._pausaGraciaTimer = null;
+    // The pause (1.9.1): null | { reason: 'hidden'|'idle', phase: 'grace'|'hung_up', micOpen }.
+    // 'grace' = live_pause sent, session alive; 'hung_up' = bye, slot released.
+    this._pauseState = null;
+    this._pauseGraceTimer = null;
     this._idleGraceMs = IDLE_GRACE_MS;
     this._livePauseWanted = false;
     this._livePauseAck = null;
-    this._rescateTimers = [];
+    this._rescueTimers = [];
 
     // Legacy go2rtc/gateway mode COMPLETELY REMOVED (2026-07-10, explicit decision by the
     // user - see COORDINATION.md in ig_hassio_addons): the project speaks native WebRTC
     // directly with the device/relay, never go2rtc - keeping that dead branch around only added
     // confusion. The only mode supported now: native (the doorbell's own protocol,
-    // ICE-Lite+DTLS-SRTP+RTP, via the islautopia_doorbell integration).
+    // ICE-Lite+DTLS-SRTP+RTP, via the ig_doorbell integration).
 
-    this.intercomActive = false;
+    this.talkActive = false;
     this.pc = null;
     this.nativeSSE = null;
     this._slot = null;
@@ -732,7 +732,7 @@ class IslautopiaIntercomView extends HTMLElement {
     //   · `_connGen` -- goes up on EVERY _teardownConnectionObjects(). An in-flight invocation compares
     //     its generation against this one before publishing anything to `this.*`; if it doesn't match,
     //     it CLOSES ITS OWN and leaves silently instead of abandoning it. This is what collects the garbage.
-    //   · `_arranqueEnVueloGen` -- the generation of the startWebRTC() currently in progress, or `null`.
+    //   · `_startInFlightGen` -- the generation of the startWebRTC() currently in progress, or `null`.
     //     This is what avoids GENERATING one: while there's one in flight AND it's still the current one,
     //     subsequent triggers get discarded instead of opening a second connection.
     //
@@ -742,8 +742,8 @@ class IslautopiaIntercomView extends HTMLElement {
     //  it would eat that reconnection and the card would be left staring at a corpse.
     // ══════════════════════════════════════════════════════════════════════════════════════════
     this._connGen = 0;
-    this._arranqueEnVueloGen = null;
-    this._arranqueEnVueloAt = 0;
+    this._startInFlightGen = null;
+    this._startInFlightAt = 0;
     this.localAudioStream = null;
     this.dummyAudioTrack = null;
 
@@ -849,14 +849,14 @@ class IslautopiaIntercomView extends HTMLElement {
   getCardSize() { return cardSizeFromHeight(this.offsetHeight); }
 
   connectedCallback() {
-    if (this._destroyed) return;  // (1.10.0) instance of a doorbell that's no longer being viewed: see _destruir()
+    if (this._destroyed) return;  // (1.10.0) instance of a doorbell that's no longer being viewed: see _destroy()
     // The SAME element that was removed comes back into view (Home Assistant reuses its views): the
     // "off-screen" pause resumes. The idle one does NOT: that one is a person's.
-    if (this._pausa && this._pausa.motivo === 'oculta') {
+    if (this._pauseState && this._pauseState.reason === 'hidden') {
       this._registerVisibilityStreamHandler();
       this._registerOffscreenStreamHandler();
       this._registerUnloadHandler();
-      this._reanudar('the card is back in the DOM');
+      this._resume('the card is back in the DOM');
       if (this.content) this._registerFullscreenListeners();
       return;
     }
@@ -864,7 +864,7 @@ class IslautopiaIntercomView extends HTMLElement {
     if (this.content) this._registerFitObservers();
     this._registerVisibilityStreamHandler();
     this._registerOffscreenStreamHandler();
-    if (this.content && !this.pc && !this._restaurarPausaGuardada()) this.startWebRTC('connectedCallback');
+    if (this.content && !this.pc && !this._restoreSavedPause()) this.startWebRTC('connectedCallback');
   }
 
   // ══════════════════════════════════════════════════════════════════════════════════════════
@@ -911,9 +911,9 @@ class IslautopiaIntercomView extends HTMLElement {
     // and the slot is released; with a call it doesn't hang up (the session is the call).
     this._onVisibilityForStream = () => {
       if (document.visibilityState === 'hidden') {
-        this._pausar('oculta');
-      } else if (document.visibilityState === 'visible' && this._pausa && this._pausa.motivo === 'oculta') {
-        this._reanudar('became visible again');
+        this._pause('hidden');
+      } else if (document.visibilityState === 'visible' && this._pauseState && this._pauseState.reason === 'hidden') {
+        this._resume('became visible again');
       }
     };
     document.addEventListener('visibilitychange', this._onVisibilityForStream);
@@ -947,7 +947,7 @@ class IslautopiaIntercomView extends HTMLElement {
   //      tears down anything: it's `live_pause`, and coming back is `live_resume` in < 1 s, so waiting 30 s
   //      only served to send video to nobody (Iñaki's rule from 2026-09-25: off-screen, pause
   //      immediately). The margin avoids pausing on a layout flicker.
-  //   2. **Never while in fullscreen.** _portalABody() moves the CONTAINER to <body> when an
+  //   2. **Never while in fullscreen.** _portalToBody() moves the CONTAINER to <body> when an
   //      ancestor traps `position:fixed`, and then the card's own element is left with no
   //      area -- i.e. the observer would say "not visible" while the video fills the whole screen.
   //      Without this line, watching in fullscreen for more than 30 s would cut the video by itself.
@@ -967,7 +967,7 @@ class IslautopiaIntercomView extends HTMLElement {
         // Only lifts the "off-screen" pause. The idle one belongs to a person or to
         // a ring: a layout flicker (the sourceless <video> changing size) is NOT
         // someone coming back, and treating it as such was the loop measured on the tablet (1.9.0).
-        if (this._pausa && this._pausa.motivo === 'oculta' && document.visibilityState === 'visible') this._reanudar('the card is on screen again');
+        if (this._pauseState && this._pauseState.reason === 'hidden' && document.visibilityState === 'visible') this._resume('the card is on screen again');
         return;
       }
       if (this._offscreenTimer) return;               // a countdown is already running
@@ -982,9 +982,9 @@ class IslautopiaIntercomView extends HTMLElement {
         // just happened, it's not leaving the view.
         if (this._offscreenVisible) return;
         if (this._fsTransitionUntil && Date.now() < this._fsTransitionUntil) return;
-        console.info('[islautopia-intercom-card] the card has left the view: live_pause');
-        this._pausar('oculta');
-      }, OFFSCREEN_PAUSA_MS);
+        console.info('[ig-doorbell-card] the card has left the view: live_pause');
+        this._pause('hidden');
+      }, OFFSCREEN_PAUSE_MS);
     });
     this._offscreenObserver.observe(this);
   }
@@ -1006,26 +1006,26 @@ class IslautopiaIntercomView extends HTMLElement {
     // tore down the session (and the mic, and the turn). Now it's the same pause as hiding:
     // `live_pause` right away, `bye` after the grace period if there's no call; and if Home Assistant re-inserts
     // this same element, connectedCallback() resumes it in the same state. If it never re-inserts it,
-    // the grace period hangs up anyway (and with a call, the CALL_OCULTA_MAX_MS cap).
+    // the grace period hangs up anyway (and with a call, the CALL_HIDDEN_MAX_MS cap).
     // (1.10.0) An instance destroyed by a doorbell change has already hung up and released everything: the
     // card being removed from the DOM afterwards can't pause anything again (and it would mark the
-    // old doorbell's pause in PAUSA_POR_PORTERO, which is module-level).
+    // old doorbell's pause in PAUSED_BY_DOORBELL, which is module-level).
     if (this._destroyed) return;
-    this._pausar('oculta');                     // leaving the DOM = pausing, not tearing down
-    this._soltarListeners();
+    this._pause('hidden');                     // leaving the DOM = pausing, not tearing down
+    this._releaseListeners();
   }
 
   // Everything this instance hangs OUTSIDE of itself (document, window, observers,
   // UI timers, fullscreen, wake lock). Shared by disconnectedCallback()
-  // and _destruir() -- extracted in 1.10.0 so neither one can forget about one of them.
-  _soltarListeners() {
+  // and _destroy() -- extracted in 1.10.0 so neither one can forget about one of them.
+  _releaseListeners() {
     this._unregisterFitObservers();
     this._unregisterUnloadHandler();
     this._unregisterVisibilityStreamHandler();
     this._unregisterOffscreenStreamHandler();
     this._unregisterIdleActivityListeners();
     this._clearIdleWakeLockTimer();
-    if (this.intercomButton) {
+    if (this.micButton) {
       this._setLiveState('connecting');
     }
     if (this.loader) this.loader.style.opacity = '1';
@@ -1091,7 +1091,7 @@ class IslautopiaIntercomView extends HTMLElement {
     // If the mic was open, the sound was turned on BY THE MIC - when it closes it has to be
     // restored to how it was before (§1.10). It's computed up here because _resetMulticlientState()
     // (below) clears _listenOnly.
-    const micEstabaAbierto = this.intercomActive || this._listenOnly;
+    const micWasOpen = this.talkActive || this._listenOnly;
     // Real bug found and fixed (2026-07-10, see COORDINATION.md - user's suspicion
     // about the audio return channel): this function is the ONLY shared teardown point
     // used by disconnectedCallback(), startWebRTC() and _scheduleReconnect() - but until now it
@@ -1100,9 +1100,9 @@ class IslautopiaIntercomView extends HTMLElement {
     // a reconnection happened (e.g. the aggressive 'disconnected'->reconnect shortcut further below,
     // which can fire from a transient ICE glitch with no action from the user), the new
     // RTCPeerConnection is built from scratch with a new MUTED track (buildNativePeerConnection())
-    // - but since intercomActive/the button's classes were never reset here, the UI kept
+    // - but since talkActive/the button's classes were never reset here, the UI kept
     // showing "mic active" (red icon, 'Comms Open' badge) indefinitely even though the real
-    // outgoing audio had gone back to silence, with toggleIntercom() never being called again
+    // outgoing audio had gone back to silence, with toggleTalk() never being called again
     // to reattach the real microphone to the new sender. It also left the browser's microphone
     // device marked "in use" (OS icon) with no real use behind it. This is closed by centralizing
     // the reset here: any teardown (voluntary or due to reconnection) stops the real stream and returns
@@ -1113,19 +1113,19 @@ class IslautopiaIntercomView extends HTMLElement {
       this.localAudioStream.getTracks().forEach((track) => track.stop());
       this.localAudioStream = null;
     }
-    this.intercomActive = false;
+    this.talkActive = false;
     // Talk turn / counter / quality: PER-SESSION state, never inherited (2026-07-26,
     // §1.4-ter). Goes BEFORE repainting the button so _paintMicState() already sees the clean state.
     this._resetMulticlientState();
-    if (micEstabaAbierto) this._setAudioOn(this._audioOnBeforeMic, 'teardown');
-    if (this.intercomButton) {
-      this.intercomButton.setAttribute('disabled', '');
+    if (micWasOpen) this._setAudioOn(this._audioOnBeforeMic, 'teardown');
+    if (this.micButton) {
+      this.micButton.setAttribute('disabled', '');
       this._paintMicState();
     }
     if (this.audioPill) this.audioPill.style.display = 'none';
     this._updateMotionPill(); // the "never with the mic active" rule no longer applies after this reset
     this._disarmDoorConfirm();     // a half-finished confirmation doesn't survive a session drop
-    this._limpiarEsperaDePuerta(); // nor an "Opening..." from a session that no longer exists
+    this._clearDoorWait(); // nor an "Opening..." from a session that no longer exists
     if (this.unlockButton) {
       this.unlockButton.classList.remove('active-unlock');
       this.unlockButton.setAttribute('disabled', '');
@@ -1134,7 +1134,7 @@ class IslautopiaIntercomView extends HTMLElement {
     }
     if (this._doorCountdownTimer) { clearInterval(this._doorCountdownTimer); this._doorCountdownTimer = null; }
     this._resetStatusLine();
-    if (this.pc) { this._cerrarPeerConnection(this.pc); this.pc = null; }
+    if (this.pc) { this._closePeerConnection(this.pc); this.pc = null; }
     if (this.nativeSSE) {
       // Fixed (2026-07-10, see COORDINATION.md): sending 'bye' here for the local path
       // before closing was missing - only the remote path (below) did it, so switching
@@ -1160,7 +1160,7 @@ class IslautopiaIntercomView extends HTMLElement {
   // hard cap per tab (~6 on older versions, higher today but still finite): past that cap
   // `new AudioContext()` throws and the card is left without an outgoing track -- i.e. no microphone,
   // which would be read as an intercom failure, not a reconnection leak.
-  _cerrarPeerConnection(pc) {
+  _closePeerConnection(pc) {
     if (!pc) return;
     try { pc.close(); } catch (err) { /* best effort */ }
     if (pc.__igAudioCtx) {
@@ -1236,7 +1236,7 @@ class IslautopiaIntercomView extends HTMLElement {
       });
       if (packetsReceived !== null) {
         if (this._prevPacketsReceived === null || packetsReceived > this._prevPacketsReceived) {
-          this._framesVistos = (this._framesVistos || 0) + 1;
+          this._framesSeen = (this._framesSeen || 0) + 1;
           this._recordLifeSignal();
           this._confirmLiveFromMedia();
         }
@@ -1245,7 +1245,7 @@ class IslautopiaIntercomView extends HTMLElement {
     } catch (err) {
       // Non-blocking - getStats() shouldn't fail under normal circumstances; if it fails, it
       // keeps trusting whatever last timestamp it already had (e.g. from signaling).
-      console.warn('[islautopia-intercom-card] getStats() failed during the life watchdog', err);
+      console.warn('[ig-doorbell-card] getStats() failed during the life watchdog', err);
     }
 
     if (this._lastLifeSignalAt !== null && (performance.now() - this._lastLifeSignalAt) >= 20000) {
@@ -1272,14 +1272,14 @@ class IslautopiaIntercomView extends HTMLElement {
   // pass it, and then a trigger from a session that's already been superseded gets discarded: without this,
   // the dying `pc` of an early startup would take down the good startup's session when it closes.
   _scheduleReconnect(reason, gen) {
-    if (this._destroyed) return;  // (1.10.0) instance of a doorbell that's no longer being viewed: see _destruir()
-    if (gen !== undefined && this._relevado(gen)) return;
+    if (this._destroyed) return;  // (1.10.0) instance of a doorbell that's no longer being viewed: see _destroy()
+    if (gen !== undefined && this._superseded(gen)) return;
     // While paused there's no reconnecting: if a session in grace drops, it's considered hung up.
-    if (this._pausa) { if (this._pausa.fase === 'gracia') this._colgarPausa(); return; }
+    if (this._pauseState) { if (this._pauseState.phase === 'grace') this._hangUpPaused(); return; }
     if (this._reconnecting) return;
     this._reconnecting = true;
 
-    console.warn(`[islautopia-intercom-card] native session lost (${reason}) - reconnecting...`);
+    console.warn(`[ig-doorbell-card] native session lost (${reason}) - reconnecting...`);
     this._mark(`_scheduleReconnect: ${reason}`);
     this._teardownConnectionObjects();
 
@@ -1321,7 +1321,7 @@ class IslautopiaIntercomView extends HTMLElement {
     this._updateRecordingsButton();
     this._updateQuickReplyButton();
     this._updateBell();
-    this._vigilarPlazoInactividad();
+    this._watchIdleTimeout();
     this._repaintTextsIfLanguageChanged();
   }
 
@@ -1386,12 +1386,12 @@ class IslautopiaIntercomView extends HTMLElement {
   //
   // How they're found, and why this way:
   //  1. The Home Assistant DEVICE whose `identifiers` contains
-  //     ['islautopia_doorbell', config.device_id] - exactly how the integration registers it
+  //     ['ig_doorbell', config.device_id] - exactly how the integration registers it
   //     (entity.py / __init__.py). `hass.devices` also delivers it to NON-admin users
   //     (measured on the living-room tablet, Kiosko user: 347 devices with `identifiers`).
   //  2. If that gives nothing (an old frontend without `identifiers`), the anchor is the
   //     events entity returned by get_connection_info (`events_entity`), whose `device_id` is the same.
-  //  3. From that device, the entity with `platform === 'islautopia_doorbell'` and the
+  //  3. From that device, the entity with `platform === 'ig_doorbell'` and the
   //     matching `translation_key` ('mode', 'rec', 'events'). NEVER by the entity_id's text:
   //     the user can rename it (and Ermita's already carries an area prefix, «calle_...»),
   //     and the same device also carries MQTT entities from the firmware with similar names
@@ -1403,10 +1403,10 @@ class IslautopiaIntercomView extends HTMLElement {
   _autoEntity(translationKey) {
     const hass = this._hass;
     if (!hass || !hass.entities || !this.config) return null;
-    const ancla = this._connInfo && this._connInfo.events_entity;
+    const anchorEntity = this._connInfo && this._connInfo.events_entity;
     if (this._autoCache && this._autoCache.entities === hass.entities
-        && this._autoCache.devices === hass.devices && this._autoCache.ancla === ancla
-        && this._autoCache.portero === this.config.device_id) {
+        && this._autoCache.devices === hass.devices && this._autoCache.anchorEntity === anchorEntity
+        && this._autoCache.doorbellId === this.config.device_id) {
       return this._autoCache.map[translationKey] || null;
     }
     const map = {};
@@ -1416,7 +1416,7 @@ class IslautopiaIntercomView extends HTMLElement {
       const ids = devices[id] && devices[id].identifiers;
       if (Array.isArray(ids) && ids.some((x) => x && x[0] === IG_DOMAIN && x[1] === this.config.device_id)) { haDevice = id; break; }
     }
-    if (!haDevice && ancla && hass.entities[ancla]) haDevice = hass.entities[ancla].device_id || null;
+    if (!haDevice && anchorEntity && hass.entities[anchorEntity]) haDevice = hass.entities[anchorEntity].device_id || null;
     if (haDevice) {
       for (const eid of Object.keys(hass.entities)) {
         const e = hass.entities[eid];
@@ -1425,10 +1425,10 @@ class IslautopiaIntercomView extends HTMLElement {
         }
       }
     }
-    this._autoCache = { entities: hass.entities, devices: hass.devices, ancla, portero: this.config.device_id, map };
+    this._autoCache = { entities: hass.entities, devices: hass.devices, anchorEntity, doorbellId: this.config.device_id, map };
     if (!this._autoLogged && haDevice) {
       this._autoLogged = true;
-      console.info('[islautopia-intercom-card] doorbell entities found on their own:', JSON.stringify({ device: haDevice, mode: map.mode || null, rec: map.rec || null, events: map.events || null }));
+      console.info('[ig-doorbell-card] doorbell entities found on their own:', JSON.stringify({ device: haDevice, mode: map.mode || null, rec: map.rec || null, events: map.events || null }));
     }
     return map[translationKey] || null;
   }
@@ -1449,8 +1449,8 @@ class IslautopiaIntercomView extends HTMLElement {
 
   _modeKeyFor(label) {
     const l = (label || '').toLowerCase();
-    if (l.includes('ausente') || l.includes('away') || l.includes('fuera')) return 'ausente';
-    if (l.includes('noche') || l.includes('night') || l.includes('do_not_disturb') || l.includes('molestar')) return 'noche';
+    if (l.includes('ausente') || l.includes('away') || l.includes('fuera')) return 'away';
+    if (l.includes('noche') || l.includes('night') || l.includes('do_not_disturb') || l.includes('molestar')) return 'night';
     if (l.includes('custom') || l.includes('personalizado')) return 'custom';
     if (l.includes('normal') || l.includes('home') || l.includes('casa')) return 'normal';
     return null;
@@ -1493,10 +1493,10 @@ class IslautopiaIntercomView extends HTMLElement {
     // The state is a KEY since integration 0.7.0 ('do_not_disturb'): Home Assistant's
     // translation is shown, in the viewer's language - same call as before, one per
     // option (including the current one, for the chip itself).
-    const etiquetaDe = (opt) => {
-      let etiqueta = opt;
-      try { if (this._hass.formatEntityState) etiqueta = this._hass.formatEntityState(stateObj, opt) || opt; } catch (err) { /* legacy frontend */ }
-      return String(etiqueta).replace(/</g, '&lt;');
+    const labelOf = (opt) => {
+      let optLabel = opt;
+      try { if (this._hass.formatEntityState) optLabel = this._hass.formatEntityState(stateObj, opt) || opt; } catch (err) { /* legacy frontend */ }
+      return String(optLabel).replace(/</g, '&lt;');
     };
     const activeKey = this._modeKeyFor(shown);
     const activeMeta = activeKey ? MODE_META[activeKey] : null;
@@ -1504,9 +1504,9 @@ class IslautopiaIntercomView extends HTMLElement {
 
     this.modeRow.style.display = 'flex';
     this.modeRow.innerHTML = `
-      <button type="button" class="${pillCls}" id="mode-pill" title="${etiquetaDe(shown).replace(/"/g, '&quot;')}">
+      <button type="button" class="${pillCls}" id="mode-pill" title="${labelOf(shown).replace(/"/g, '&quot;')}">
         <ha-icon icon="${activeMeta ? activeMeta.icon : 'mdi:tune'}"></ha-icon>
-        <span class="mode-pill-label">${etiquetaDe(shown)}</span>
+        <span class="mode-pill-label">${labelOf(shown)}</span>
         <ha-icon class="mode-pill-caret" icon="mdi:menu-down"></ha-icon>
       </button>
       <div class="mode-menu" id="mode-menu" style="display:none;">
@@ -1517,7 +1517,7 @@ class IslautopiaIntercomView extends HTMLElement {
           const cls = ['mode-opt', active ? 'sel' : '', key ? `mode-${key}` : ''].filter(Boolean).join(' ');
           const icon = meta ? meta.icon : 'mdi:circle-outline';
           const safeOpt = String(opt).replace(/"/g, '&quot;');
-          return `<button type="button" class="${cls}" data-option="${safeOpt}"><ha-icon icon="${icon}"></ha-icon><span>${etiquetaDe(opt)}</span></button>`;
+          return `<button type="button" class="${cls}" data-option="${safeOpt}"><ha-icon icon="${icon}"></ha-icon><span>${labelOf(opt)}</span></button>`;
         }).join('')}
       </div>
     `;
@@ -1592,10 +1592,10 @@ class IslautopiaIntercomView extends HTMLElement {
 
   // ══════════════════════════════════════════════════════════════════════════════════════════
   //  DOORBELL SELECTOR (1.10.0, Iñaki 2026-09-26: «one card, choosing between doorbells in
-  //  real time»). The LIST and the SWITCHING belong to the card (IslautopiaIntercomCard, below); this
+  //  real time»). The LIST and the SWITCHING belong to the card (IgDoorbellCard, below); this
   //  instance only paints the capsule and reports what was chosen. Switching doorbells does NOT happen
-  //  in here: the card DESTROYS this instance (_destruir) and creates another one for the new doorbell. See
-  //  the reasoning in IslautopiaIntercomCard._cambiarA().
+  //  in here: the card DESTROYS this instance (_destroy) and creates another one for the new doorbell. See
+  //  the reasoning in IgDoorbellCard._switchTo().
   // ══════════════════════════════════════════════════════════════════════════════════════════
   _setDoorbells(list, onPick) {
     this._doorbells = Array.isArray(list) ? list : [];
@@ -1675,13 +1675,13 @@ class IslautopiaIntercomView extends HTMLElement {
   //  show up in the other one: there's no "things to clean up" list that could fall short, which is
   //  exactly how the apps failed (the dot). The only thing that has to be cut off is whatever leaks
   //  OUTSIDE the instance: network, mic, timers, document/window listeners and the module's
-  //  state (PAUSA_POR_PORTERO). `_destroyed` also shuts the door on any in-flight callback
+  //  state (PAUSED_BY_DOORBELL). `_destroyed` also shuts the door on any in-flight callback
   //  that might try to start a session or reopen the mic afterwards.
   // ══════════════════════════════════════════════════════════════════════════════════════════
-  _destruir(motivo) {
+  _destroy(reason) {
     if (this._destroyed) return;
-    console.info(`[islautopia-intercom-card] instance of ${this.config && this.config.device_id} destroyed (${motivo})`);
-    this._cancelarPausa();
+    console.info(`[ig-doorbell-card] instance of ${this.config && this.config.device_id} destroyed (${reason})`);
+    this._cancelPause();
     if (this._livePauseAck) { clearTimeout(this._livePauseAck.timer); this._livePauseAck = null; }
     this._clearReconnectTimer();
     this._reconnecting = false;
@@ -1690,14 +1690,14 @@ class IslautopiaIntercomView extends HTMLElement {
     // sendNativeSignal(), which stops sending anything once that mark is set.
     this._teardownConnectionObjects();
     this._destroyed = true;
-    if (this.config) delete PAUSA_POR_PORTERO[this.config.device_id];
+    if (this.config) delete PAUSED_BY_DOORBELL[this.config.device_id];
     if (this._flashTextTimer) { clearTimeout(this._flashTextTimer); this._flashTextTimer = null; }
     if (this.videoEl) {
       try { this.videoEl.pause(); } catch (err) { /* best effort */ }
       this.videoEl.srcObject = null;
     }
     this._toggleDbMenu(false);
-    this._soltarListeners();
+    this._releaseListeners();
   }
 
   _updateMotionPill() {
@@ -1705,7 +1705,7 @@ class IslautopiaIntercomView extends HTMLElement {
     const entityId = this._entityFor('motion');
     const stateObj = entityId && this._hass ? this._hass.states[entityId] : null;
     // Explicitly agreed rule (COORDINATION.md Q22-bis): never visible while the mic is active.
-    const shouldShow = !!stateObj && stateObj.state === 'on' && !this.intercomActive;
+    const shouldShow = !!stateObj && stateObj.state === 'on' && !this.talkActive;
     this.motionPill.style.display = shouldShow ? 'flex' : 'none';
   }
 
@@ -1715,7 +1715,7 @@ class IslautopiaIntercomView extends HTMLElement {
   // rec_stop directly with the doorbell over the signaling session, WebRTCSession.swift /
   // live_session_wiring.dart), this card NEVER opens its own channel to record - it calls the
   // service of the `rec_entity` entity the user configures, which must point to the switch.* that
-  // the islautopia_doorbell integration publishes (in progress, v0.7.2 as of this change: there
+  // the ig_doorbell integration publishes (in progress, v0.7.2 as of this change: there
   // is already `rec_session.py` in that integration, which keeps the session open for as long as the
   // recording lasts, but the `switch` entity that exposes it doesn't exist yet - see `switch.py`,
   // missing). While that entity doesn't exist, `rec_entity` is left UNCONFIGURED (hidden), never
@@ -1777,9 +1777,9 @@ class IslautopiaIntercomView extends HTMLElement {
   _updateRecordingsButton() {
     if (!this.recordingsButton) return;
     const isAdmin = !!(this._connInfo && this._connInfo.role === 'admin');
-    const antes = this.recordingsButton.style.display;
+    const displayBefore = this.recordingsButton.style.display;
     this.recordingsButton.style.display = isAdmin ? '' : 'none';
-    if (antes !== this.recordingsButton.style.display) this._scheduleFit();   // changes the height to distribute
+    if (displayBefore !== this.recordingsButton.style.display) this._scheduleFit();   // changes the height to distribute
     this._updateBottomRowVisibility();
   }
 
@@ -1793,9 +1793,9 @@ class IslautopiaIntercomView extends HTMLElement {
   _updateQuickReplyButton() {
     if (!this.qrButton) return;
     const show = !!this._connInfo;
-    const antes = this.qrButton.style.display;
+    const displayBefore = this.qrButton.style.display;
     this.qrButton.style.display = show ? '' : 'none';
-    if (antes !== this.qrButton.style.display) this._scheduleFit();
+    if (displayBefore !== this.qrButton.style.display) this._scheduleFit();
     this._updateBottomRowVisibility();
   }
 
@@ -1804,14 +1804,14 @@ class IslautopiaIntercomView extends HTMLElement {
   // .quick-btn.half): no special case is needed for that width.
   _updateBottomRowVisibility() {
     if (!this.recordingsAction) return;
-    const algunoVisible = (this.recordingsButton && this.recordingsButton.style.display !== 'none')
+    const anyVisible = (this.recordingsButton && this.recordingsButton.style.display !== 'none')
       || (this.qrButton && this.qrButton.style.display !== 'none');
-    this.recordingsAction.style.display = algunoVisible ? '' : 'none';
+    this.recordingsAction.style.display = anyVisible ? '' : 'none';
   }
 
   // Opens Home Assistant's NATIVE media browser against the media_source the integration
   // already publishes (media_source.py/DoorbellMediaSource: identifier `<device_id>` = THIS
-  // doorbell's folder, `media-source://islautopia_doorbell/<device_id>`) -- never a player of our
+  // doorbell's folder, `media-source://ig_doorbell/<device_id>`) -- never a player of our
   // own (Iñaki's decision, 2026-09-25: "recordings as such are phase 2; this is just the
   // access"). The panel URL is the one `ha-panel-media-browser.ts` in the
   // frontend really builds (createMediaPanelUrl): `/media-browser/<entity-or-"browser">/<encoded type,id>`,
@@ -1832,7 +1832,7 @@ class IslautopiaIntercomView extends HTMLElement {
   // ==============================================================================
   // Quick reply (v1.9.8, Iñaki 2026-09-25): "Recordings and Quick Replies" as two
   // buttons on the same row (see the #bottom-row markup and _updateQuickReplyButton() further
-  // up). The list ALWAYS comes from the integration (islautopia_doorbell/get_quick_replies,
+  // up). The list ALWAYS comes from the integration (ig_doorbell/get_quick_replies,
   // websocket_api.py), which in turn reads it from the doorbell via `GET /api/sequences?quick=1`
   // (API_CONTRACT.md §1.18.8) -- NEVER from `/api/list_audios`, the retired 10-slot mechanism
   // (the landmine that made Android say "there are none" while having them: it read that old route).
@@ -1878,7 +1878,7 @@ class IslautopiaIntercomView extends HTMLElement {
       this._qrError = null;
     } catch (err) {
       if (gen !== this._qrGen) return;
-      console.warn('[islautopia-intercom-card] get_quick_replies', err);
+      console.warn('[ig-doorbell-card] get_quick_replies', err);
       this._qrError = true;
       if (this._qrItems === undefined) this._qrItems = null;   // first attempt: nothing to show yet
     }
@@ -1899,12 +1899,12 @@ class IslautopiaIntercomView extends HTMLElement {
     } else if (this._qrItems.length === 0) {
       body = `<div class="ev-empty"><ha-icon icon="mdi:message-off-outline"></ha-icon><div class="ev-empty-t">${T('qr_empty')}</div></div>`;
     } else {
-      const bloqueado = this._qrPlaying != null;
+      const qrLocked = this._qrPlaying != null;
       body = this._qrItems.map((it) => {
-        const enVuelo = this._qrPlaying === it.id;
-        const icon = enVuelo ? 'mdi:loading' : 'mdi:message-reply-text-outline';
-        return `<button type="button" class="ev-row qr-row" data-id="${it.id}"${bloqueado ? ' disabled' : ''}>` +
-          `<span class="ev-ic c-blue"><ha-icon icon="${icon}"${enVuelo ? ' class="qr-spin"' : ''}></ha-icon></span>` +
+        const inFlight = this._qrPlaying === it.id;
+        const icon = inFlight ? 'mdi:loading' : 'mdi:message-reply-text-outline';
+        return `<button type="button" class="ev-row qr-row" data-id="${it.id}"${qrLocked ? ' disabled' : ''}>` +
+          `<span class="ev-ic c-blue"><ha-icon icon="${icon}"${inFlight ? ' class="qr-spin"' : ''}></ha-icon></span>` +
           `<div class="ev-txt"><div class="ev-t">${esc(it.label)}</div></div></button>`;
       }).join('');
     }
@@ -1925,7 +1925,7 @@ class IslautopiaIntercomView extends HTMLElement {
     });
   }
 
-  // Fires the sequence with the SAME service that already existed (islautopia_doorbell.play_sequence,
+  // Fires the sequence with the SAME service that already existed (ig_doorbell.play_sequence,
   // the integration's services.py) -- this card has no HTTP route of its own, same as REC/Recordings
   // ("the card shows, the integration exposes"). If there's a ring sounding right now, the firmware
   // (seq_engine_quick_reply(), §1.18.1) cuts the announcement and does NOT chain the no-answer one with
@@ -1950,9 +1950,9 @@ class IslautopiaIntercomView extends HTMLElement {
       this._closeQuickReplies();
     }).catch((err) => {
       this._qrPlaying = null;
-      const detalle = err && err.message ? String(err.message) : '';
-      this._qrNotice = detalle || getLocalText(this._hass, 'qr_no_answer');
-      console.error('[islautopia-intercom-card] play_sequence', err);
+      const detailText = err && err.message ? String(err.message) : '';
+      this._qrNotice = detailText || getLocalText(this._hass, 'qr_no_answer');
+      console.error('[ig-doorbell-card] play_sequence', err);
       if (this._qrOpen) this._renderQuickReplies();
     });
   }
@@ -1970,7 +1970,7 @@ class IslautopiaIntercomView extends HTMLElement {
     const service = recording ? 'turn_off' : 'turn_on';
     Promise.resolve(this._hass.callService(domain, service, { entity_id: entityId }))
       .catch((err) => {
-        console.error(`[islautopia-intercom-card] Home Assistant rejected ${domain}.${service} on ${entityId}`, err);
+        console.error(`[ig-doorbell-card] Home Assistant rejected ${domain}.${service} on ${entityId}`, err);
         this._flashStatusLine('rec_no_answer', 6000);
       });
   }
@@ -1995,7 +1995,7 @@ class IslautopiaIntercomView extends HTMLElement {
   // If frames are arriving, there's no error: it says what it sees.
   _confirmLiveFromMedia() {
     if (this._liveStateKey !== 'error_cam' && this._liveStateKey !== 'connecting') return;
-    this._setLiveState(this.intercomActive ? 'open' : 'live');
+    this._setLiveState(this.talkActive ? 'open' : 'live');
   }
 
   _setLiveState(stateKey) {
@@ -2066,23 +2066,23 @@ class IslautopiaIntercomView extends HTMLElement {
     if (!this.statusLine || this._stickyStatusKey) return;
     if (this._doorCountdownTimer) { clearInterval(this._doorCountdownTimer); this._doorCountdownTimer = null; }
     if (this._retryCountdownTimer) { clearInterval(this._retryCountdownTimer); this._retryCountdownTimer = null; }
-    let restante = Math.max(1, Math.round(ms / 1000));
-    const pintar = () => {
-      this.statusLine.textContent = `${getLocalText(this._hass, 'retry_prefix')} ${restante}s`;
+    let secondsLeft = Math.max(1, Math.round(ms / 1000));
+    const paintCountdown = () => {
+      this.statusLine.textContent = `${getLocalText(this._hass, 'retry_prefix')} ${secondsLeft}s`;
       this.statusLine.classList.remove('open');
       this.statusLine.classList.add('warn');
     };
-    pintar();
+    paintCountdown();
     this._retryCountdownTimer = setInterval(() => {
-      restante -= 1;
-      if (restante <= 0) {
+      secondsLeft -= 1;
+      if (secondsLeft <= 0) {
         clearInterval(this._retryCountdownTimer);
         this._retryCountdownTimer = null;
         // It doesn't revert to "Sistema operativo": it's genuinely reconnecting at this very instant.
         this.statusLine.textContent = getLocalText(this._hass, 'connecting');
         return;
       }
-      pintar();
+      paintCountdown();
     }, 1000);
   }
 
@@ -2111,7 +2111,7 @@ class IslautopiaIntercomView extends HTMLElement {
       this.statusLine.classList.add('warn');
       return;
     }
-    if (this._pausa) {
+    if (this._pauseState) {
       this.statusLine.classList.remove('open');
       this.statusLine.classList.add('warn');
       this.statusLine.textContent = getLocalText(this._hass, 'paused_tap');
@@ -2141,11 +2141,11 @@ class IslautopiaIntercomView extends HTMLElement {
   //   - local: Home Assistant's signaling proxy returns 401 (it passes it through as-is from the
   //     doorbell, precisely so a client can say "re-pair")
   // ==============================================================================
-  _reportPairingRejected(origen) {
+  _reportPairingRejected(source) {
     if (this._pairingRejected) return; // already reported, don't repaint on every retry
     this._pairingRejected = true;
     this._stickyStatusKey = 'cred_revoked';
-    console.error(`[islautopia-intercom-card] this card's pairing has been rejected (${origen}) - the doorbell needs to be re-paired in Settings > Devices & services > IG Doorbell`);
+    console.error(`[ig-doorbell-card] this card's pairing has been rejected (${source}) - the doorbell needs to be re-paired in Settings > Devices & services > IG Doorbell`);
     this._resetStatusLine();
   }
 
@@ -2179,7 +2179,7 @@ class IslautopiaIntercomView extends HTMLElement {
     if (this._talkUnsupported) {
       // We already know (in THIS session) that this doorbell doesn't arbitrate the turn - mic goes direct, without
       // making the user wait 3s again.
-      this._startIntercom();
+      this._startTalk();
       return;
     }
     this._talkPending = true;
@@ -2203,12 +2203,12 @@ class IslautopiaIntercomView extends HTMLElement {
       // indeed reasonable, and it stays.
       if (this._clients === null) {
         this._talkUnsupported = true;
-        console.warn('[islautopia-intercom-card] the device did not answer talk_request within 3s and has never sent session_info - assuming firmware predating the talk-turn contract, opening the mic with no arbitration');
+        console.warn('[ig-doorbell-card] the device did not answer talk_request within 3s and has never sent session_info - assuming firmware predating the talk-turn contract, opening the mic with no arbitration');
         this._flashStatusLine('talk_legacy', 5000);
       } else {
-        console.warn('[islautopia-intercom-card] no response to talk_request within 3s, but this doorbell DOES speak the talk-turn contract (it has sent session_info) - treated as a lost message, not older firmware: the mic opens and the turn will keep being requested normally');
+        console.warn('[ig-doorbell-card] no response to talk_request within 3s, but this doorbell DOES speak the talk-turn contract (it has sent session_info) - treated as a lost message, not older firmware: the mic opens and the turn will keep being requested normally');
       }
-      this._startIntercom();
+      this._startTalk();
     }, 3000);
   }
 
@@ -2274,8 +2274,8 @@ class IslautopiaIntercomView extends HTMLElement {
     //
     // The slot is NOT adopted from this message: it's set by `session_info`, which IS unambiguously
     // ours. Until then, _reconcileTalkTurn() already withholds any opinion.
-    const esNuestroPorPeticion = this._talkPending && this._slot === null;
-    if (msg && !this._talkMsgIsForUs(msg) && !esNuestroPorPeticion) return;
+    const oursByRequest = this._talkPending && this._slot === null;
+    if (msg && !this._talkMsgIsForUs(msg) && !oursByRequest) return;
     // NEVER open the mic without the user having requested it. A talk_granted that isn't a reply to
     // one of our own talk_requests can be (a) the reconfirmation of a turn we already had
     // (§1.4-ter: repeating talk_request is the natural way to say "I'm still here"), or (b) - over the
@@ -2284,14 +2284,14 @@ class IslautopiaIntercomView extends HTMLElement {
     // client can receive messages that aren't its own. Opening someone's microphone because of a
     // message meant for someone else would be a privacy failure, not just a UI bug.
     if (!this._talkPending) {
-      if (this.intercomActive) { this._talkHeld = true; this._talkGrantedAt = performance.now(); }
+      if (this.talkActive) { this._talkHeld = true; this._talkGrantedAt = performance.now(); }
       return;
     }
     if (this._talkTimer) { clearTimeout(this._talkTimer); this._talkTimer = null; }
     this._talkHeld = true;
     this._talkGrantedAt = performance.now();
     this._talkPending = false;
-    this._startIntercom();
+    this._startTalk();
   }
 
   _handleTalkDenied(msg) {
@@ -2302,7 +2302,7 @@ class IslautopiaIntercomView extends HTMLElement {
     if (this._talkTimer) { clearTimeout(this._talkTimer); this._talkTimer = null; }
     this._talkPending = false;
     this._talkHeld = false;
-    console.warn(`[islautopia-intercom-card] talk turn denied by the device (reason=${(msg && msg.reason) || 'no reason given'})`);
+    console.warn(`[ig-doorbell-card] talk turn denied by the device (reason=${(msg && msg.reason) || 'no reason given'})`);
     // HONEST intermediate state, not a silent failure: the speaker gets unmuted (the doorbell CAN
     // BE HEARD) but the mic stays closed, and it says why. Without this state, "busy" would be
     // a button that does nothing.
@@ -2330,7 +2330,7 @@ class IslautopiaIntercomView extends HTMLElement {
     }
     if (this._talkerSlot >= 0) this._talkFreeHintShown = false; // rearms the notice for next time
 
-    if (!this.intercomActive) { this._paintMicState(); return; }
+    if (!this.talkActive) { this._paintMicState(); return; }
     if (this._slot === null) { this._paintMicState(); return; } // with no own slot nothing can be asserted
     if (this._talkerSlot === this._slot) { this._paintMicState(); return; }
     // Anti-race grace period: an "old" talk_state (emitted right before our talk_granted)
@@ -2344,10 +2344,10 @@ class IslautopiaIntercomView extends HTMLElement {
   }
 
   // The doorbell can be heard, but with no mic. Reuses the same mic-closing path as
-  // _stopIntercom() to avoid duplicating the replaceTrack/stop-tracks logic.
+  // _stopTalk() to avoid duplicating the replaceTrack/stop-tracks logic.
   _enterListenOnly() {
     this._closeMicHardware();
-    this.intercomActive = false;
+    this.talkActive = false;
     this._listenOnly = true;
     // Turn denied: the mic closes but you KEEP HEARING. This is exactly the independence
     // between listening and talking that §1.10 calls for, and the user already made the gesture (tapped the mic).
@@ -2361,9 +2361,9 @@ class IslautopiaIntercomView extends HTMLElement {
   // Renders the mic button according to the turn's real state. A single place that decides
   // icon/class/label, so they can't drift out of sync across the 6 paths that touch it.
   _paintMicState() {
-    if (!this.intercomButton) return;
-    const btn = this.intercomButton;
-    btn.classList.toggle('active-intercom', !!this.intercomActive);
+    if (!this.micButton) return;
+    const btn = this.micButton;
+    btn.classList.toggle('active-talk', !!this.talkActive);
     btn.classList.toggle('requesting', !!this._talkPending);
     btn.classList.toggle('listen-only', !!this._listenOnly);
     // "Busy with someone else" = someone has the turn and it isn't us. It does NOT disable the button
@@ -2371,23 +2371,23 @@ class IslautopiaIntercomView extends HTMLElement {
     // disabled by a remote state is exactly the "stuck forever" outcome to avoid if
     // the release notice got lost.
     const busyByOther = this._talkerSlot >= 0 && this._slot !== null && this._talkerSlot !== this._slot;
-    btn.classList.toggle('busy-other', !!busyByOther && !this.intercomActive);
-    btn.title = busyByOther && !this.intercomActive ? getLocalText(this._hass, 'talk_busy') : '';
+    btn.classList.toggle('busy-other', !!busyByOther && !this.talkActive);
+    btn.title = busyByOther && !this.talkActive ? getLocalText(this._hass, 'talk_busy') : '';
 
-    if (this.intercomIcon) {
-      this.intercomIcon.setAttribute('icon',
+    if (this.micIcon) {
+      this.micIcon.setAttribute('icon',
         this._talkPending ? 'mdi:microphone-question'
-          : this.intercomActive ? 'mdi:microphone'
+          : this.talkActive ? 'mdi:microphone'
             : this._listenOnly ? 'mdi:ear-hearing'
               : 'mdi:microphone-off');
     }
     if (this.micLabel) {
       const key = this._talkPending ? 'talk_requesting'
-        : this.intercomActive ? 'lbl_mic_on'
+        : this.talkActive ? 'lbl_mic_on'
           : this._listenOnly ? 'lbl_mic_listen'
             : 'lbl_mic_off';
       this.micLabel.textContent = getLocalText(this._hass, key);
-      this.micLabel.classList.toggle('on-cyan', !!this.intercomActive);
+      this.micLabel.classList.toggle('on-cyan', !!this.talkActive);
       this.micLabel.classList.toggle('on-amber', !!this._listenOnly || !!this._talkPending);
     }
   }
@@ -2467,7 +2467,7 @@ class IslautopiaIntercomView extends HTMLElement {
       // gets armed; while it isn't, the selector stays hidden and the user can't request anything). A
       // doorbell with older firmware works perfectly fine without this feature - bothering the
       // user with a notice about something they never asked for would be noise, not information.
-      console.warn('[islautopia-intercom-card] the device did not confirm any quality_state after 2 attempts - firmware predating the quality contract (2026-07-26): the quality selector is not shown in this session');
+      console.warn('[ig-doorbell-card] the device did not confirm any quality_state after 2 attempts - firmware predating the quality contract (2026-07-26): the quality selector is not shown in this session');
     }, 4000);
   }
 
@@ -2635,7 +2635,7 @@ class IslautopiaIntercomView extends HTMLElement {
         // It can reject even if `fullscreenEnabled` says yes (e.g. if the browser doesn't
         // consider there to have been a user gesture). It's not fatal: it falls back to level 2, which
         // works just as well inside the window.
-        console.warn('[islautopia-intercom-card] native fullscreen rejected, falling back to our own CSS fallback', err);
+        console.warn('[ig-doorbell-card] native fullscreen rejected, falling back to our own CSS fallback', err);
       }
     }
 
@@ -2649,7 +2649,7 @@ class IslautopiaIntercomView extends HTMLElement {
     // position:fixed relative TO THAT ANCESTOR (standard CSS behavior, not a browser
     // bug), and in Home Assistant a theme, card-mod, or the side drawer itself can
     // introduce one without the card knowing.
-    if (this._respaldoLlenaLaVentana()) { this._acquireWakeLock(); return; }
+    if (this._fallbackFillsWindow()) { this._acquireWakeLock(); return; }
 
     // ...and if it's trapped, it does NOT give up: the container gets pulled out to <body>, where by
     // definition there's no ancestor that can trap it, and it measures again.
@@ -2660,7 +2660,7 @@ class IslautopiaIntercomView extends HTMLElement {
     // the card, not on anything the user could understand or change. A feature that
     // disables itself and doesn't say why is worse than one that fails loudly.
     //
-    // The CONTAINER moves, never the card's own element: pulling <islautopia-intercom-card>
+    // The CONTAINER moves, never the card's own element: pulling <ig-doorbell-card>
     // out of the DOM would fire disconnectedCallback() and take down the whole WebRTC session. The <video>
     // moves with the container and doesn't get cut off: it keeps its srcObject, and the move is synchronous, so
     // the element is never out of the document when the browser checks whether it
@@ -2670,9 +2670,9 @@ class IslautopiaIntercomView extends HTMLElement {
     // The move only happens once the normal path has already failed: in the ordinary case the DOM
     // isn't touched at all.
     this._mark('fullscreen: the fallback is trapped by an ancestor - moving to <body> and measuring again');
-    this._portalABody();
-    if (this._respaldoLlenaLaVentana()) {
-      console.info('[islautopia-intercom-card] an ancestor was trapping fullscreen; resolved by moving the card to <body>.');
+    this._portalToBody();
+    if (this._fallbackFillsWindow()) {
+      console.info('[ig-doorbell-card] an ancestor was trapping fullscreen; resolved by moving the card to <body>.');
       this._acquireWakeLock();
       return;
     }
@@ -2682,10 +2682,10 @@ class IslautopiaIntercomView extends HTMLElement {
     // Here it really is an honest dead end, and the icon gets removed -- but it's a verdict
     // about the PAGE, stable, not something that could change because the user opens the microphone.
     console.warn(
-      '[islautopia-intercom-card] fullscreen is not possible on this page: not even ' +
+      '[ig-doorbell-card] fullscreen is not possible on this page: not even ' +
       'hanging the container off <body> manages to fill the window. Common cause: a ' +
       'transform/filter/contain applied to <html> or <body> by a theme. Suspicious ancestors: ' +
-      JSON.stringify(this._ancestrosSospechosos()) + '. The icon is being removed instead of offering a mode that does not work.'
+      JSON.stringify(this._suspiciousAncestors()) + '. The icon is being removed instead of offering a mode that does not work.'
     );
     this._fsActive = false;
     this._applyFullscreenUI();
@@ -2705,13 +2705,13 @@ class IslautopiaIntercomView extends HTMLElement {
   //    thickness, and zero risky ancestors.
   //  - documentElement.clientHeight doesn't work either: in quirks mode it returns the DOCUMENT's
   //    height, not the viewport's (measured: 4506px with a window 900px tall).
-  _respaldoLlenaLaVentana() {
+  _fallbackFillsWindow() {
     const rect = this.content.getBoundingClientRect();
-    const sonda = document.createElement('div');
-    sonda.style.cssText = 'position:fixed;inset:0;visibility:hidden;pointer-events:none;';
-    document.body.appendChild(sonda);
-    const ref = sonda.getBoundingClientRect();
-    sonda.remove();
+    const probeEl = document.createElement('div');
+    probeEl.style.cssText = 'position:fixed;inset:0;visibility:hidden;pointer-events:none;';
+    document.body.appendChild(probeEl);
+    const ref = probeEl.getBoundingClientRect();
+    probeEl.remove();
 
     // Part 2, and it's not redundant: the probe has a blind spot that was genuinely seen when it
     // was triggered (a transform on <body>). There the probe gets trapped exactly like the
@@ -2725,10 +2725,10 @@ class IslautopiaIntercomView extends HTMLElement {
     // random box", not measure precisely -- and it's compared against window.innerWidth/Height,
     // which DO work here: the scrollbar is 10-17px and quirks mode doesn't affect them.
     // The two traps that ruined the exact comparison don't come anywhere near this margin.
-    const sondaEsSensata = ref.height >= window.innerHeight * 0.6
+    const probeIsSane = ref.height >= window.innerHeight * 0.6
       && ref.width >= window.innerWidth * 0.6;
 
-    return sondaEsSensata
+    return probeIsSane
       && Math.abs(rect.width - ref.width) <= 2
       && Math.abs(rect.height - ref.height) <= 2
       && Math.abs(rect.left - ref.left) <= 2
@@ -2737,20 +2737,20 @@ class IslautopiaIntercomView extends HTMLElement {
 
   // Diagnostics for when it fails: names the culprit instead of leaving a "couldn't do it". Meant
   // to be read via remote debugging from the companion app, where there's no DevTools at hand.
-  _ancestrosSospechosos() {
+  _suspiciousAncestors() {
     const out = [];
     let n = this.content;
     let guard = 0;
     while (n && guard++ < 200) {
       if (n.nodeType === 1) {
         const cs = getComputedStyle(n);
-        const malo = {};
-        if (cs.transform && cs.transform !== 'none') malo.transform = cs.transform;
-        if (cs.filter && cs.filter !== 'none') malo.filter = cs.filter;
-        if (cs.perspective && cs.perspective !== 'none') malo.perspective = cs.perspective;
-        if (cs.contain && cs.contain !== 'none') malo.contain = cs.contain;
-        if (cs.willChange && cs.willChange !== 'auto') malo.willChange = cs.willChange;
-        if (Object.keys(malo).length) out.push({ tag: n.tagName.toLowerCase(), ...malo });
+        const offending = {};
+        if (cs.transform && cs.transform !== 'none') offending.transform = cs.transform;
+        if (cs.filter && cs.filter !== 'none') offending.filter = cs.filter;
+        if (cs.perspective && cs.perspective !== 'none') offending.perspective = cs.perspective;
+        if (cs.contain && cs.contain !== 'none') offending.contain = cs.contain;
+        if (cs.willChange && cs.willChange !== 'auto') offending.willChange = cs.willChange;
+        if (Object.keys(offending).length) out.push({ tag: n.tagName.toLowerCase(), ...offending });
       }
       n = n.parentNode || null;
       if (n && n.nodeType === 11) n = n.host;
@@ -2760,7 +2760,7 @@ class IslautopiaIntercomView extends HTMLElement {
 
   // Moving the CONTAINER to <body> and back to its place. The next sibling is remembered, not
   // just the parent, so it can be put back exactly where it was.
-  _portalABody() {
+  _portalToBody() {
     if (this._fsHost) return;
     this._fsHome = { parent: this.content.parentNode, next: this.content.nextSibling };
     this._fsHost = document.createElement('div');
@@ -2769,7 +2769,7 @@ class IslautopiaIntercomView extends HTMLElement {
     this._fsHost.appendChild(this.content);
   }
 
-  _deshacerPortal() {
+  _undoPortal() {
     if (!this._fsHost) return;
     if (this._fsHome && this._fsHome.parent) {
       this._fsHome.parent.insertBefore(this.content, this._fsHome.next);
@@ -2819,8 +2819,8 @@ class IslautopiaIntercomView extends HTMLElement {
   // `ig-fs-pseudo` only adds the `position:fixed` that level 1 doesn't need (in native it's set by
   // the browser).
   // The mode classes go on the CONTAINER, not on the card's element, and that's not a detail:
-  // when it's necessary to move the container to <body> (see _portalABody) it stops being a descendant
-  // of the element, so any rule hanging off `islautopia-intercom-card[data-fs]` would stop
+  // when it's necessary to move the container to <body> (see _portalToBody) it stops being a descendant
+  // of the element, so any rule hanging off `ig-doorbell-card[data-fs]` would stop
   // applying exactly in the case it's trying to save. The `data-fs` attribute DOES stay on the
   // element: in native fullscreen it's the one the browser resizes.
   _applyFullscreenUI() {
@@ -2850,7 +2850,7 @@ class IslautopiaIntercomView extends HTMLElement {
     } else {
       // Putting the container back in its place BEFORE removing the classes, so that a frame with
       // the card already without the mode styles but still hanging off <body> never gets to be seen.
-      this._deshacerPortal();
+      this._undoPortal();
       this.removeAttribute('data-fs');
       this.classList.remove('ig-fs-native-layout');
       this.content.classList.remove('ig-fs', 'ig-fs-pseudo');
@@ -2902,32 +2902,32 @@ class IslautopiaIntercomView extends HTMLElement {
     this._zGesture = null;
     this._zLastTap = null;
     const fw = this.feedWrap;
-    const esControl = (t) => !!(t && t.closest && t.closest('button, a, input, select, .hud-top, .hud-bottom, .actions-row, .status-line'));
-    const punto = (ev) => { const r = fw.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
+    const isControl = (t) => !!(t && t.closest && t.closest('button, a, input, select, .hud-top, .hud-bottom, .actions-row, .status-line'));
+    const pointOf = (ev) => { const r = fw.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
 
     fw.addEventListener('pointerdown', (ev) => {
       if (ev.pointerType === 'mouse' && ev.button !== 0) return;
-      if (esControl(ev.target)) return;
-      this._zPtrs.set(ev.pointerId, punto(ev));
+      if (isControl(ev.target)) return;
+      this._zPtrs.set(ev.pointerId, pointOf(ev));
       try { fw.setPointerCapture(ev.pointerId); } catch (err) { /* pointer already released */ }
       this._zStartGesture();
-      if (this._zPtrs.size === 1) this._zDown = { ...punto(ev), t: Date.now(), moved: false };
+      if (this._zPtrs.size === 1) this._zDown = { ...pointOf(ev), t: Date.now(), moved: false };
     });
     fw.addEventListener('pointermove', (ev) => {
       if (!this._zPtrs.has(ev.pointerId)) return;
-      this._zPtrs.set(ev.pointerId, punto(ev));
+      this._zPtrs.set(ev.pointerId, pointOf(ev));
       if (this._zDown) {
-        const p = punto(ev);
+        const p = pointOf(ev);
         if (Math.hypot(p.x - this._zDown.x, p.y - this._zDown.y) > 10) this._zDown.moved = true;
       }
       this._zApplyGesture();
     });
-    const fin = (ev) => {
+    const onPointerEnd = (ev) => {
       if (!this._zPtrs.has(ev.pointerId)) return;
       this._zPtrs.delete(ev.pointerId);
       if (ev.type === 'pointerup' && this._zPtrs.size === 0 && this._zDown && !this._zDown.moved
           && (Date.now() - this._zDown.t) < 300 && !this._zWasMulti) {
-        const p = punto(ev);
+        const p = pointOf(ev);
         const prev = this._zLastTap;
         if (prev && (Date.now() - prev.t) < 350 && Math.hypot(p.x - prev.x, p.y - prev.y) < 40) {
           this._zLastTap = null;
@@ -2939,8 +2939,8 @@ class IslautopiaIntercomView extends HTMLElement {
       if (this._zPtrs.size === 0) { this._zDown = null; this._zWasMulti = false; }
       this._zStartGesture();
     };
-    fw.addEventListener('pointerup', fin);
-    fw.addEventListener('pointercancel', fin);
+    fw.addEventListener('pointerup', onPointerEnd);
+    fw.addEventListener('pointercancel', onPointerEnd);
     // See the ⚠️ above: with two fingers the gesture is ours even if the card is embedded.
     fw.addEventListener('touchmove', (ev) => {
       if (ev.touches && ev.touches.length >= 2 && ev.cancelable) ev.preventDefault();
@@ -2949,7 +2949,7 @@ class IslautopiaIntercomView extends HTMLElement {
     fw.addEventListener('wheel', (ev) => {
       if (!ev.ctrlKey) return;
       ev.preventDefault();
-      const p = punto(ev);
+      const p = pointOf(ev);
       this._zZoomAt(this._zoom.s * Math.exp(-ev.deltaY / 200), p.x, p.y);
     }, { passive: false });
     this._zPaint();
@@ -3024,12 +3024,12 @@ class IslautopiaIntercomView extends HTMLElement {
   _zPaint() {
     if (!this._zoomEl || !this._zoom) return;
     const z = this._zoom;
-    const ampliado = z.s > 1.001;
-    this._zoomEl.style.transform = ampliado ? `translate(${z.x}px, ${z.y}px) scale(${z.s})` : '';
+    const zoomedIn = z.s > 1.001;
+    this._zoomEl.style.transform = zoomedIn ? `translate(${z.x}px, ${z.y}px) scale(${z.s})` : '';
     // See the ⚠️ in _setupZoom: zoomed or in fullscreen, the gesture is entirely ours.
-    const nuestro = ampliado || this._fsActive || (this._zPtrs && this._zPtrs.size >= 2);
-    this.feedWrap.style.touchAction = nuestro ? 'none' : 'pan-x pan-y';
-    this.feedWrap.classList.toggle('ig-zoomed', ampliado);
+    const ownGesture = zoomedIn || this._fsActive || (this._zPtrs && this._zPtrs.size >= 2);
+    this.feedWrap.style.touchAction = ownGesture ? 'none' : 'pan-x pan-y';
+    this.feedWrap.classList.toggle('ig-zoomed', zoomedIn);
   }
 
   _paintFullscreenButton() {
@@ -3075,7 +3075,7 @@ class IslautopiaIntercomView extends HTMLElement {
         document.addEventListener('visibilitychange', this._onVisibilityForWakeLock);
       }
     } catch (err) {
-      console.warn('[islautopia-intercom-card] could not keep the screen awake (wake lock)', err);
+      console.warn('[ig-doorbell-card] could not keep the screen awake (wake lock)', err);
     }
   }
 
@@ -3097,16 +3097,16 @@ class IslautopiaIntercomView extends HTMLElement {
   //
   // Only interaction restarts it. The stream's lifecycle arms the countdown if none existed,
   // but doesn't touch it if one is already running.
-  _armIdleWakeLockTimer(reiniciar = false) {
-    if (reiniciar) ULTIMA_INTERACCION_MS = Date.now();
+  _armIdleWakeLockTimer(restartClock = false) {
+    if (restartClock) LAST_INTERACTION_MS = Date.now();
     this._clearIdleWakeLockTimer();
-    const plazo = this._plazoInactividadMs();
-    this._plazoAplicadoMs = plazo;
-    if (!plazo) return;                               // 0 = disabled (phones)
+    const timeoutMs = this._idleTimeoutMs();
+    this._appliedIdleTimeoutMs = timeoutMs;
+    if (!timeoutMs) return;                               // 0 = disabled (phones)
     this._registerIdleActivityListeners();
     // The deadline is ABSOLUTE from the last real interaction, not from this call. Rearming it doesn't
     // hand out extra time, and a newly created instance inherits whatever genuinely remains.
-    const restante = plazo - (Date.now() - ULTIMA_INTERACCION_MS);
+    const secondsLeft = timeoutMs - (Date.now() - LAST_INTERACTION_MS);
     this._idleWakeLockTimer = setTimeout(() => {
       this._idleWakeLockTimer = null;
       // ⚠️ THE GUARD AGAINST FALSE TRIGGERS, AND IT GOES IN HERE ON PURPOSE (2026-09-07).
@@ -3116,7 +3116,7 @@ class IslautopiaIntercomView extends HTMLElement {
       // than leaving the screen on for too long, and it's also the kind that doesn't reproduce by
       // counting seconds.
       //
-      // And the failure mode is real, not theoretical: the deadline is ABSOLUTE from `ULTIMA_INTERACCION_MS`,
+      // And the failure mode is real, not theoretical: the deadline is ABSOLUTE from `LAST_INTERACTION_MS`,
       // but the timer was computed with the value from a while ago. Any path that
       // updates the mark without rearming (and until today _onIdleActivity() was exactly that when
       // there was no wake lock) leaves this trigger pointing at a time that's no longer the right one.
@@ -3124,10 +3124,10 @@ class IslautopiaIntercomView extends HTMLElement {
       // So instead of trusting the clock, the data is checked again: if there's still time left, nothing
       // gets released and it rearms with whatever genuinely remains. A clock that arms too early is
       // free; one that fires too early isn't. This check is what makes "arming the countdown in more places" safe.
-      const plazoAhora = this._plazoInactividadMs();
-      const pendiente = plazoAhora - (Date.now() - ULTIMA_INTERACCION_MS);
-      if (!plazoAhora) return;                        // it was disabled while it was running
-      if (pendiente > 0) {
+      const timeoutNowMs = this._idleTimeoutMs();
+      const remainingMs = timeoutNowMs - (Date.now() - LAST_INTERACTION_MS);
+      if (!timeoutNowMs) return;                        // it was disabled while it was running
+      if (remainingMs > 0) {
         this._armIdleWakeLockTimer();
         return;
       }
@@ -3135,8 +3135,8 @@ class IslautopiaIntercomView extends HTMLElement {
       // active"). Mic open, turn granted or requested: talking to whoever's at the door without
       // touching the screen is exactly the normal case, and cutting it would be the worst possible bug in this
       // feature. It counts as interaction and gets checked again after a full deadline.
-      if (this._llamadaActiva()) {
-        ULTIMA_INTERACCION_MS = Date.now();
+      if (this._callActive()) {
+        LAST_INTERACTION_MS = Date.now();
         this._armIdleWakeLockTimer();
         return;
       }
@@ -3155,13 +3155,13 @@ class IslautopiaIntercomView extends HTMLElement {
       // stream. And it's also what Inaki genuinely asked for -- «turn off the screen AND stop consuming
       // the stream», not just the first part.
       if (!this.pc && !this._reconnecting) return;
-      this._pausar('inactividad');
-    }, Math.max(0, restante));
+      this._pause('idle');
+    }, Math.max(0, secondsLeft));
   }
 
   // The current deadline, in ms. Set by the integration's entity (an automation can change it);
   // the YAML's `idle_release_seconds` only if the integration is older and doesn't offer it.
-  _plazoInactividadMs() {
+  _idleTimeoutMs() {
     const ent = this._connInfo && this._connInfo.live_timeout_entity;
     const st = ent && this._hass && this._hass.states ? this._hass.states[ent] : null;
     const v = st ? Number(st.state) : NaN;
@@ -3169,28 +3169,28 @@ class IslautopiaIntercomView extends HTMLElement {
     return this._idleReleaseMs;
   }
 
-  _llamadaActiva() {
-    return !!(this.intercomActive || this._talkHeld || this._talkPending);
+  _callActive() {
+    return !!(this.talkActive || this._talkHeld || this._talkPending);
   }
 
   // If an automation changes the deadline while the card is open, it applies right away (rearming is cheap and
   // the deadline is absolute, so it doesn't hand out extra time).
-  _vigilarPlazoInactividad() {
-    if (!this.pc || this._pausa) return;
-    const plazo = this._plazoInactividadMs();
-    if (plazo !== this._plazoAplicadoMs) this._armIdleWakeLockTimer();
+  _watchIdleTimeout() {
+    if (!this.pc || this._pauseState) return;
+    const timeoutMs = this._idleTimeoutMs();
+    if (timeoutMs !== this._appliedIdleTimeoutMs) this._armIdleWakeLockTimer();
   }
 
   // A SINGLE pause for both rules (1.9.1). `live_pause` RIGHT AWAY; `bye` after the grace period unless a
   // call is in progress. See IDLE_GRACE_MS and Iñaki's rule in _registerVisibilityStreamHandler.
-  _pausar(motivo) {
-    if (this._destroyed) return;  // (1.10.0) instance of a doorbell that's no longer being viewed: see _destruir()
-    if (this._pausa) {
+  _pause(reason) {
+    if (this._destroyed) return;  // (1.10.0) instance of a doorbell that's no longer being viewed: see _destroy()
+    if (this._pauseState) {
       // An idle pause doesn't degrade to "hidden": it would still be a person's.
       return;
     }
-    const llamada = this._llamadaActiva();
-    const micAbierto = !!(this.intercomActive || this._talkHeld || this._talkPending);
+    const inCall = this._callActive();
+    const micOpen = !!(this.talkActive || this._talkHeld || this._talkPending);
     this._clearIdleWakeLockTimer();
     this._clearOffscreenTimer();
     if (!this.pc) {
@@ -3198,32 +3198,32 @@ class IslautopiaIntercomView extends HTMLElement {
       this._clearReconnectTimer();
       this._reconnecting = false;
       this._teardownConnectionObjects();
-      this._pausa = { motivo, fase: 'colgada', micAbierto: false };
-      if (motivo === 'inactividad') PAUSA_POR_PORTERO[this.config.device_id] = true;
-      this._pintarPausa();
+      this._pauseState = { reason, phase: 'hung_up', micOpen: false };
+      if (reason === 'idle') PAUSED_BY_DOORBELL[this.config.device_id] = true;
+      this._paintPause();
       return;
     }
-    console.info(`[islautopia-intercom-card] pause (${motivo})${llamada ? ' with a call: not hanging up' : ''}`);
-    this._pausa = { motivo, fase: 'gracia', micAbierto };
-    if (motivo === 'inactividad') PAUSA_POR_PORTERO[this.config.device_id] = true;
+    console.info(`[ig-doorbell-card] pause (${reason})${inCall ? ' with a call: not hanging up' : ''}`);
+    this._pauseState = { reason, phase: 'grace', micOpen };
+    if (reason === 'idle') PAUSED_BY_DOORBELL[this.config.device_id] = true;
     // The mic doesn't stay open with the view closed (and the doorbell releases the turn with
     // live_pause anyway, §1.4-bis). It's remembered so it can be reopened on return.
-    if (micAbierto) this._stopIntercom();
-    this._enviarLivePause(true);
+    if (micOpen) this._stopTalk();
+    this._sendLivePause(true);
     // Stopping the <video> releases the browser's implicit keep-awake: the screen can turn off now.
     if (this.videoEl) { try { this.videoEl.pause(); } catch (err) { /* best effort */ } }
     this._releaseWakeLock();
-    this._pintarPausa();
-    if (this._pausaGraciaTimer) clearTimeout(this._pausaGraciaTimer);
-    this._pausaGraciaTimer = null;
-    if (!llamada) this._pausaGraciaTimer = setTimeout(() => this._colgarPausa(), this._idleGraceMs);
-    else this._pausaGraciaTimer = setTimeout(() => this._colgarPausa(), CALL_OCULTA_MAX_MS);
+    this._paintPause();
+    if (this._pauseGraceTimer) clearTimeout(this._pauseGraceTimer);
+    this._pauseGraceTimer = null;
+    if (!inCall) this._pauseGraceTimer = setTimeout(() => this._hangUpPaused(), this._idleGraceMs);
+    else this._pauseGraceTimer = setTimeout(() => this._hangUpPaused(), CALL_HIDDEN_MAX_MS);
   }
 
-  _colgarPausa() {
-    this._pausaGraciaTimer = null;
-    if (!this._pausa || this._pausa.fase !== 'gracia') return;
-    this._pausa.fase = 'colgada';
+  _hangUpPaused() {
+    this._pauseGraceTimer = null;
+    if (!this._pauseState || this._pauseState.phase !== 'grace') return;
+    this._pauseState.phase = 'hung_up';
     // ⚠️ CLOSING THE PEER ISN'T ENOUGH: THE <video> HAS TO BE RELEASED TOO (measured 2026-09-07, dumpsys power).
     if (this.videoEl) {
       try { this.videoEl.pause(); } catch (err) { /* best effort */ }
@@ -3232,97 +3232,97 @@ class IslautopiaIntercomView extends HTMLElement {
     this._clearReconnectTimer();
     this._reconnecting = false;
     this._teardownConnectionObjects();    // sends `bye`: the slot is released NOW, not after 20 s
-    this._pintarPausa();
+    this._paintPause();
   }
 
   // Coming back: a tap, a ring, or (only for the "hidden" one) returning to the view. Within the
   // grace period, `live_resume` with the bounded rescue and the mic/turn as they were; after that, a new session.
-  _reanudar(motivo) {
-    if (this._destroyed) return;  // (1.10.0) instance of a doorbell that's no longer being viewed: see _destruir()
-    const p = this._pausa;
+  _resume(reason) {
+    if (this._destroyed) return;  // (1.10.0) instance of a doorbell that's no longer being viewed: see _destroy()
+    const p = this._pauseState;
     if (!p) return;
-    this._pausa = null;
-    delete PAUSA_POR_PORTERO[this.config.device_id];
-    if (this._pausaGraciaTimer) { clearTimeout(this._pausaGraciaTimer); this._pausaGraciaTimer = null; }
-    ULTIMA_INTERACCION_MS = Date.now();
+    this._pauseState = null;
+    delete PAUSED_BY_DOORBELL[this.config.device_id];
+    if (this._pauseGraceTimer) { clearTimeout(this._pauseGraceTimer); this._pauseGraceTimer = null; }
+    LAST_INTERACTION_MS = Date.now();
     this._resetStatusLine();
-    if (p.fase === 'gracia' && this.pc) {
-      this._enviarLivePause(false);
+    if (p.phase === 'grace' && this.pc) {
+      this._sendLivePause(false);
       if (this.videoEl) { try { const pr = this.videoEl.play(); if (pr && pr.catch) pr.catch(() => {}); } catch (err) { /* best effort */ } }
       this._setLiveState('live');
       if (this.loader) this.loader.style.opacity = '0';
-      this._rescateTrasReanudar();
+      this._rescueAfterResume();
       this._armIdleWakeLockTimer();
-      if (p.micAbierto) this._requestTalkTurn();       // "in the same state": the turn is requested again
+      if (p.micOpen) this._requestTalkTurn();       // "in the same state": the turn is requested again
       return;
     }
-    if (this.isConnected && this.content) this.startWebRTC(`resuming (${motivo})`);
+    if (this.isConnected && this.content) this.startWebRTC(`resuming (${reason})`);
   }
 
-  _cancelarPausa() {
-    if (this._pausaGraciaTimer) { clearTimeout(this._pausaGraciaTimer); this._pausaGraciaTimer = null; }
-    this._pausa = null;
-    this._pararRescate();
+  _cancelPause() {
+    if (this._pauseGraceTimer) { clearTimeout(this._pauseGraceTimer); this._pauseGraceTimer = null; }
+    this._pauseState = null;
+    this._stopRescue();
   }
 
   // A new (or re-inserted) element for a doorbell paused for idleness does NOT start on its own.
-  _restaurarPausaGuardada() {
-    if (!this.config || !PAUSA_POR_PORTERO[this.config.device_id]) return false;
-    if (!this._pausa) this._pausa = { motivo: 'inactividad', fase: 'colgada', micAbierto: false };
+  _restoreSavedPause() {
+    if (!this.config || !PAUSED_BY_DOORBELL[this.config.device_id]) return false;
+    if (!this._pauseState) this._pauseState = { reason: 'idle', phase: 'hung_up', micOpen: false };
     this._registerIdleActivityListeners();
-    this._pintarPausa();
+    this._paintPause();
     return true;
   }
 
-  _pintarPausa() {
+  _paintPause() {
     this._setLiveState('paused');
     if (this.loader) this.loader.style.opacity = '0';
     this._resetStatusLine();
   }
 
   // Contract rule 1: a live_pause/live_resume without its live_state is a message that wasn't applied.
-  _enviarLivePause(pausar) {
-    this._livePauseWanted = !!pausar;
+  _sendLivePause(wantPaused) {
+    this._livePauseWanted = !!wantPaused;
     if (this._livePauseAck) { clearTimeout(this._livePauseAck.timer); this._livePauseAck = null; }
-    const enviar = (intento) => {
-      if (!this.nativeSSE || this._livePauseWanted !== !!pausar) return;
-      this.sendNativeSignal({ type: pausar ? 'live_pause' : 'live_resume' });
+    const sendAttempt = (attempt) => {
+      if (!this.nativeSSE || this._livePauseWanted !== !!wantPaused) return;
+      this.sendNativeSignal({ type: wantPaused ? 'live_pause' : 'live_resume' });
       const timer = setTimeout(() => {
-        if (this._livePauseAck && this._livePauseAck.timer === timer && intento < LIVE_ACK_REINTENTOS) enviar(intento + 1);
+        if (this._livePauseAck && this._livePauseAck.timer === timer && attempt < LIVE_ACK_RETRIES) sendAttempt(attempt + 1);
       }, LIVE_ACK_MS);
-      this._livePauseAck = { pausar: !!pausar, timer };
+      this._livePauseAck = { wantPaused: !!wantPaused, timer };
     };
-    enviar(0);
+    sendAttempt(0);
   }
 
   _onLiveState(msg) {
     if (typeof msg.paused !== 'boolean') return;
-    if (this._livePauseAck && this._livePauseAck.pausar === msg.paused) {
+    if (this._livePauseAck && this._livePauseAck.wantPaused === msg.paused) {
       clearTimeout(this._livePauseAck.timer);
       this._livePauseAck = null;
     }
   }
 
   // Contract rule 3: a BOUNDED rescue if no image arrives after resuming.
-  _rescateTrasReanudar() {
-    this._pararRescate();
+  _rescueAfterResume() {
+    this._stopRescue();
     const pc = this.pc;
     if (!pc) return;
-    const base = this._framesVistos;
-    const sinImagen = () => this.pc === pc && this._framesVistos === base;
-    RESCATE_RESUME_MS.forEach((ms) => {
-      this._rescateTimers.push(setTimeout(() => {
-        if (sinImagen() && !this._livePauseWanted) this._enviarLivePause(false);
+    const base = this._framesSeen;
+    const noPicture = () => this.pc === pc && this._framesSeen === base;
+    RESCUE_RESUME_MS.forEach((ms) => {
+      this._rescueTimers.push(setTimeout(() => {
+        if (noPicture() && !this._livePauseWanted) this._sendLivePause(false);
       }, ms));
     });
-    this._rescateTimers.push(setTimeout(() => {
-      if (sinImagen() && !this._livePauseWanted) this._scheduleReconnect('rescue: no image 24 s after live_resume');
-    }, RESCATE_SESION_NUEVA_MS));
+    this._rescueTimers.push(setTimeout(() => {
+      if (noPicture() && !this._livePauseWanted) this._scheduleReconnect('rescue: no image 24 s after live_resume');
+    }, RESCUE_NEW_SESSION_MS));
   }
 
-  _pararRescate() {
-    (this._rescateTimers || []).forEach((t) => clearTimeout(t));
-    this._rescateTimers = [];
+  _stopRescue() {
+    (this._rescueTimers || []).forEach((t) => clearTimeout(t));
+    this._rescueTimers = [];
   }
 
   _clearIdleWakeLockTimer() {
@@ -3336,11 +3336,11 @@ class IslautopiaIntercomView extends HTMLElement {
       // still held only the countdown restarts. It's never requested with the page hidden -- the browser
       // would reject it there anyway, and besides it would mean requesting a screen for nobody.
       if (document.visibilityState !== 'visible') return;
-      if (this._pausa) { this._reanudar('tap'); return; }
+      if (this._pauseState) { this._resume('tap'); return; }
       // ⚠️ IT ALWAYS REARMS, AND IT USED TO BE AN `else` (2026-09-07). The previous version said
       // `if (!this._wakeLock) this._acquireWakeLock(); else this._armIdleWakeLockTimer(true)`: which
       // meant that on a device with no wake lock -- the wallpanel-- a touch updated
-      // `ULTIMA_INTERACCION_MS` and did NOT rearm anything, leaving a trigger running that was computed with the
+      // `LAST_INTERACTION_MS` and did NOT rearm anything, leaving a trigger running that was computed with the
       // old mark. These are two independent things: rearming the countdown belongs to the interaction, requesting
       // the screen belongs to the wake lock. Requesting it remains best-effort and may not exist.
       this._armIdleWakeLockTimer(true);
@@ -3446,8 +3446,8 @@ class IslautopiaIntercomView extends HTMLElement {
     if (this.unlockButton) this.unlockButton.classList.remove('confirming');
     // The idle icon/label is only returned if the door isn't open right now: if
     // this gets called right before opening, triggerNativeOpen() is in charge.
-    const abierta = this.unlockButton && this.unlockButton.classList.contains('active-unlock');
-    if (!abierta) {
+    const isOpen = this.unlockButton && this.unlockButton.classList.contains('active-unlock');
+    if (!isOpen) {
       if (this.unlockIcon) this.unlockIcon.setAttribute('icon', 'mdi:lock-open-variant');
       if (this.unlockLabel) this.unlockLabel.classList.remove('on-amber');
       this._setDoorLabel(false);
@@ -3470,12 +3470,12 @@ class IslautopiaIntercomView extends HTMLElement {
   // so unmuting always needs a user activation on the page. When the attempt
   // fails, it doesn't pretend it worked: it goes back to muted and says the speaker needs to be tapped.
   // ==============================================================================
-  _setAudioOn(on, motivo) {
-    const quiere = !!on;
-    this._audioOn = quiere;
+  _setAudioOn(on, reason) {
+    const wantOn = !!on;
+    this._audioOn = wantOn;
     if (this.videoEl) {
-      this.videoEl.muted = !quiere;
-      if (quiere && typeof this.videoEl.play === 'function') {
+      this.videoEl.muted = !wantOn;
+      if (wantOn && typeof this.videoEl.play === 'function') {
         // Unmuting with no user activation can make the browser PAUSE the element instead
         // of throwing an error - hence the play() and its catch.
         const p = this.videoEl.play();
@@ -3485,7 +3485,7 @@ class IslautopiaIntercomView extends HTMLElement {
             this._audioOn = false;
             this._paintAudioState();
             this._flashStatusLine('snd_blocked', 5000);
-            console.warn(`[islautopia-intercom-card] the browser did not allow turning on the sound (reason="${motivo}") - the user needs to tap the speaker control`);
+            console.warn(`[ig-doorbell-card] the browser did not allow turning on the sound (reason="${reason}") - the user needs to tap the speaker control`);
           });
         }
       }
@@ -3524,29 +3524,29 @@ class IslautopiaIntercomView extends HTMLElement {
     if (!entityId || !this._hass) { this._ringMarker = null; return; }
     const stateObj = this._hass.states[entityId];
     if (!stateObj) { this._ringMarker = null; return; }
-    const esEvento = entityId.split('.')[0] === 'event';
-    const marca = esEvento ? String(stateObj.state) : (stateObj.state === 'on' ? 'on' : 'off');
-    const previa = this._ringMarker;
-    this._ringMarker = marca;
+    const isEvent = entityId.split('.')[0] === 'event';
+    const marker = isEvent ? String(stateObj.state) : (stateObj.state === 'on' ? 'on' : 'off');
+    const prevMarker = this._ringMarker;
+    this._ringMarker = marker;
     // First read: does NOT fire. On opening the dashboard, a binary_sensor that's been 'on' for a while
     // (or an event with an old timestamp) isn't a call happening right now.
     // ⚠️ EXCEPT to wake up a pause: the ring that brings the panel to the front (a typical
     // automation) can CREATE this card, and for it that ring is its "first read". If it's
-    // from less than TIMBRE_RECIENTE_MS ago, it counts.
-    if (previa === null || previa === undefined) {
-      if (this._pausa && esEvento && stateObj.attributes && stateObj.attributes.event_type === 'ring'
-        && Date.now() - Date.parse(marca) < TIMBRE_RECIENTE_MS && document.visibilityState === 'visible') this._reanudar('recent ring');
+    // from less than RECENT_RING_MS ago, it counts.
+    if (prevMarker === null || prevMarker === undefined) {
+      if (this._pauseState && isEvent && stateObj.attributes && stateObj.attributes.event_type === 'ring'
+        && Date.now() - Date.parse(marker) < RECENT_RING_MS && document.visibilityState === 'visible') this._resume('recent ring');
       return;
     }
     // ⚠️ On the events entity only `ring` counts: the same entity carries packages, visitors,
     // modes... (§1.16), and treating those as a ring would turn on the sound for a package.
-    const hasonado = esEvento
-      ? (marca !== previa && marca !== 'unknown' && marca !== 'unavailable'
+    const hasRung = isEvent
+      ? (marker !== prevMarker && marker !== 'unknown' && marker !== 'unavailable'
         && (!stateObj.attributes || !stateObj.attributes.event_type || stateObj.attributes.event_type === 'ring'))
-      : (marca === 'on' && previa !== 'on');
-    if (!hasonado) return;
+      : (marker === 'on' && prevMarker !== 'on');
+    if (!hasRung) return;
     // A new ring wakes up a card paused for idleness, by itself.
-    if (this._pausa && document.visibilityState === 'visible') this._reanudar('ring');
+    if (this._pauseState && document.visibilityState === 'visible') this._resume('ring');
     if (this._audioOn) return; // it was already audible: nothing to announce
     this._setAudioOn(true, 'ring');
     if (this._audioOn) this._flashStatusLine('snd_ring', 6000);
@@ -3567,13 +3567,13 @@ class IslautopiaIntercomView extends HTMLElement {
   // That would undo the whole point of the change.
   // ==============================================================================
   _rotStorageKey() {
-    return `islautopia-intercom-rot-${this.config && this.config.device_id ? this.config.device_id : 'sin-id'}`;
+    return `ig-doorbell-rot-${this.config && this.config.device_id ? this.config.device_id : 'no-id'}`;
   }
 
   _recallRotation() {
     try {
-      const guardado = localStorage.getItem(this._rotStorageKey());
-      const n = guardado === null ? null : parseInt(guardado, 10);
+      const savedValue = localStorage.getItem(this._rotStorageKey());
+      const n = savedValue === null ? null : parseInt(savedValue, 10);
       if (n === 0 || n === 90 || n === 180 || n === 270) return n;
     } catch (err) { /* localStorage might be blocked; that's not a reason not to work */ }
     return 90; // first time and only the first time: the product's mounting is portrait
@@ -3587,14 +3587,14 @@ class IslautopiaIntercomView extends HTMLElement {
     if (rot !== 0 && rot !== 90 && rot !== 180 && rot !== 270) {
       // A weird value gets ignored instead of rendered: rendering it tilted with nothing explaining it is
       // worse than not rotating at all. Same criterion as the firmware, which doesn't store it either (§1.9).
-      console.warn(`[islautopia-intercom-card] "rot" with an unsupported value (${rot}) - ignored, keeping ${this._rot}°`);
+      console.warn(`[ig-doorbell-card] "rot" with an unsupported value (${rot}) - ignored, keeping ${this._rot}°`);
       return;
     }
-    const cambia = (rot !== this._rot) || !this._rotConfirmed;
+    const rotChanged = (rot !== this._rot) || !this._rotConfirmed;
     this._rot = rot;
     this._rotConfirmed = true;
     this._rememberRotation(rot);
-    if (!cambia) return;
+    if (!rotChanged) return;
     if (this.feedWrap) this.feedWrap.setAttribute('data-rot', String(rot));
     // WITHOUT animation, on purpose (§1.9): an animated transition turns a one-time error
     // into an effect that looks intentional and repeats on every startup.
@@ -3741,7 +3741,7 @@ class IslautopiaIntercomView extends HTMLElement {
 
   _recallAspect() {
     try {
-      const v = parseFloat(localStorage.getItem(`islautopia-intercom-aspect-${this.config && this.config.device_id || 'sin-id'}`));
+      const v = parseFloat(localStorage.getItem(`ig-doorbell-aspect-${this.config && this.config.device_id || 'no-id'}`));
       if (v > 0.2 && v < 5) return v;
     } catch (err) { /* no storage: assumed */ }
     return (this._rot === 90 || this._rot === 270) ? 9 / 16 : 16 / 9;
@@ -3750,7 +3750,7 @@ class IslautopiaIntercomView extends HTMLElement {
   _rememberAspect(a) {
     if (Math.abs((this._lastAspectSaved || 0) - a) < 0.001) return;
     this._lastAspectSaved = a;
-    try { localStorage.setItem(`islautopia-intercom-aspect-${this.config && this.config.device_id || 'sin-id'}`, String(a)); } catch (err) { /* idem */ }
+    try { localStorage.setItem(`ig-doorbell-aspect-${this.config && this.config.device_id || 'no-id'}`, String(a)); } catch (err) { /* idem */ }
   }
 
   _fitToSpace() {
@@ -3785,11 +3785,11 @@ class IslautopiaIntercomView extends HTMLElement {
     if (real > 0 && Math.abs(delta) > 0.5) {
       let feedH = plan.feedH + delta;
       if (plan.layout === 'side') {
-        feedH = Math.min(feedH, (width - IslautopiaIntercomView.SIDE_COL_W - gap) / aspect);
+        feedH = Math.min(feedH, (width - IgDoorbellView.SIDE_COL_W - gap) / aspect);
       } else {
         feedH = Math.min(feedH, width / aspect, this._feedCap());
       }
-      feedH = Math.round(Math.max(Math.min(plan.minH || IslautopiaIntercomView.MIN_FEED_H, width / aspect), feedH));
+      feedH = Math.round(Math.max(Math.min(plan.minH || IgDoorbellView.MIN_FEED_H, width / aspect), feedH));
       if (Math.abs(feedH - plan.feedH) >= 1) {
         plan.feedH = feedH;
         if (plan.layout === 'side') plan.imgW = Math.round(feedH * aspect);
@@ -3801,7 +3801,7 @@ class IslautopiaIntercomView extends HTMLElement {
   // Picks ONE of the three layouts (see the block comment above STACK_CONTROLS_H) from the space
   // alone. Arithmetic on estimates; _fitToSpace() then corrects the height with a real measurement.
   _planLayout({ width, aspect, avail, padY, gap }) {
-    const K = IslautopiaIntercomView;
+    const K = IgDoorbellView;
     const coarse = this._coarsePointer();
     const natural = width / aspect;
     const cap = this._feedCap();
@@ -3858,7 +3858,7 @@ class IslautopiaIntercomView extends HTMLElement {
     c.classList.toggle('ig-stack', L === 'stack');
     c.classList.toggle('ig-side', L === 'side');
     c.classList.toggle('ig-short', L === 'overlay' && !!plan.short);
-    c.classList.toggle('ig-side-compact', L === 'side' && plan.feedH < IslautopiaIntercomView.SIDE_FULL_H);
+    c.classList.toggle('ig-side-compact', L === 'side' && plan.feedH < IgDoorbellView.SIDE_FULL_H);
     this._placeControls(L, !!plan.short);
     const fw = this.feedWrap;
     if (plan.feedH === null) {
@@ -3880,7 +3880,7 @@ class IslautopiaIntercomView extends HTMLElement {
   }
 
   // Moves the three groups (header, buttons, Recordings row) to where the layout wants them.
-  // MOVING, never cloning: every listener and every reference (this.intercomButton...) stays valid.
+  // MOVING, never cloning: every listener and every reference (this.micButton...) stays valid.
   _placeControls(layout, short) {
     const c = this.content;
     const top = this.topRow; const act = this.actionsRow; const rec = this.recordingsAction;
@@ -3951,15 +3951,15 @@ class IslautopiaIntercomView extends HTMLElement {
     return (this._connInfo && this._connInfo.events_entity) || this._autoEntity('events') || null;
   }
 
-  _bellSeenKey() { return `islautopia-intercom-bell-seen-${this.config && this.config.device_id || 'sin-id'}`; }
+  _bellSeenKey() { return `ig-doorbell-bell-seen-${this.config && this.config.device_id || 'no-id'}`; }
   _bellSeen() {
     try { const v = parseInt(localStorage.getItem(this._bellSeenKey()), 10); return Number.isFinite(v) ? v : 0; } catch (err) { return 0; }
   }
   _setBellSeen(ms) { try { localStorage.setItem(this._bellSeenKey(), String(ms)); } catch (err) { /* idem */ } }
 
-  _isAviso(ev) {
+  _isNotice(ev) {
     const k = IG_EVENT_KINDS[ev];
-    return k ? k.aviso : true;   // unknown: it's shown, just like in the apps
+    return k ? k.notice : true;   // unknown: it's shown, just like in the apps
   }
 
   _updateBell() {
@@ -3969,14 +3969,14 @@ class IslautopiaIntercomView extends HTMLElement {
     this._bellBtn.style.display = st ? '' : 'none';
     if (!st) return;
     if (this._bellLastState !== st.state) {
-      const primera = this._bellLastState === undefined;
+      const firstTime = this._bellLastState === undefined;
       this._bellLastState = st.state;
-      if (primera) {
+      if (firstTime) {
         this._checkUnread();
       } else {
         const ev = st.attributes && st.attributes.event_type;
         const ts = Date.parse(st.state) || Date.now();
-        if (ev && this._isAviso(ev) && ts > this._bellSeen()) this._bellUnread = true;
+        if (ev && this._isNotice(ev) && ts > this._bellSeen()) this._bellUnread = true;
         if (this._evOpen) this._loadEvents();
       }
     }
@@ -4026,10 +4026,10 @@ class IslautopiaIntercomView extends HTMLElement {
       const now = Date.now();
       const items = await this._fetchEvents(now - 7 * 86400000, now);
       const seen = this._bellSeen();
-      this._bellUnread = items.some((e) => this._isAviso(e.ev) && e.ts > seen);
+      this._bellUnread = items.some((e) => this._isNotice(e.ev) && e.ts > seen);
       this._paintBell();
     } catch (err) {
-      console.warn('[islautopia-intercom-card] bell: could not read the events history', err);
+      console.warn('[ig-doorbell-card] bell: could not read the events history', err);
     } finally {
       this._bellChecking = false;
     }
@@ -4110,12 +4110,12 @@ class IslautopiaIntercomView extends HTMLElement {
     try {
       const items = await this._fetchEvents(a, b);
       if (gen !== this._evGen) return;
-      this._evItems = items.filter((e) => this._isAviso(e.ev));
+      this._evItems = items.filter((e) => this._isNotice(e.ev));
       this._evError = null;
     } catch (err) {
       if (gen !== this._evGen) return;
       this._evError = (err && err.message === 'no_entity') ? 'no_entity' : 'load_err';
-      console.warn('[islautopia-intercom-card] events history', err);
+      console.warn('[ig-doorbell-card] events history', err);
     }
     if (this._evOpen) this._renderEvents();
   }
@@ -4142,37 +4142,37 @@ class IslautopiaIntercomView extends HTMLElement {
     const items = this._evItems || [];
     const present = IG_EVENT_GROUPS.filter((g) => items.some((e) => this._evPresent(e).g === g));
     if (this._evGroup && !present.includes(this._evGroup)) present.push(this._evGroup);
-    const visibles = items.filter((e) => !this._evGroup || this._evPresent(e).g === this._evGroup);
-    const navegable = this._evRange === 'day' || this._evRange === 'week';
-    const hora = new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit' });
-    const dia = new Intl.DateTimeFormat(lang, { weekday: 'long', day: 'numeric', month: 'long' });
-    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const visibleItems = items.filter((e) => !this._evGroup || this._evPresent(e).g === this._evGroup);
+    const pageable = this._evRange === 'day' || this._evRange === 'week';
+    const timeFmt = new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit' });
+    const dayFmt = new Intl.DateTimeFormat(lang, { weekday: 'long', day: 'numeric', month: 'long' });
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
 
     let body;
     if (this._evError) {
       body = `<div class="ev-empty"><ha-icon icon="mdi:alert-circle-outline"></ha-icon><div>${T(this._evError)}</div></div>`;
     } else if (this._evItems === null) {
       body = `<div class="ev-empty"><div>${T('loading')}</div></div>`;
-    } else if (!visibles.length) {
+    } else if (!visibleItems.length) {
       body = `<div class="ev-empty"><ha-icon icon="mdi:bell-outline"></ha-icon><div class="ev-empty-t">${T('empty')}</div><div class="ev-empty-h">${T('empty_hint')}</div></div>`;
     } else {
-      let ultimoDia = null;
-      const multiDia = this._evRange === 'week' || new Date(visibles[0].ts).toDateString() !== new Date(visibles[visibles.length - 1].ts).toDateString();
-      body = visibles.map((e) => {
+      let lastDay = null;
+      const multiDay = this._evRange === 'week' || new Date(visibleItems[0].ts).toDateString() !== new Date(visibleItems[visibleItems.length - 1].ts).toDateString();
+      body = visibleItems.map((e) => {
         const pr = this._evPresent(e);
         const d = new Date(e.ts);
-        let cab = '';
-        if (multiDia && d.toDateString() !== ultimoDia) {
-          ultimoDia = d.toDateString();
+        let dayHeader = '';
+        if (multiDay && d.toDateString() !== lastDay) {
+          lastDay = d.toDateString();
           const d0 = new Date(d); d0.setHours(0, 0, 0, 0);
-          const diff = Math.round((hoy - d0) / 86400000);
-          const nombre = diff === 0 ? T('today') : diff === 1 ? T('yesterday') : dia.format(d);
-          cab = `<div class="ev-day">${nombre}</div>`;
+          const diff = Math.round((todayStart - d0) / 86400000);
+          const dayName = diff === 0 ? T('today') : diff === 1 ? T('yesterday') : dayFmt.format(d);
+          dayHeader = `<div class="ev-day">${dayName}</div>`;
         }
-        const nuevo = e.ts > (this._evPrevSeen || 0);
-        return `${cab}<div class="ev-row${nuevo ? ' new' : ''}"><span class="ev-ic c-${pr.c}"><ha-icon icon="${pr.icon}"></ha-icon></span>` +
+        const isNew = e.ts > (this._evPrevSeen || 0);
+        return `${dayHeader}<div class="ev-row${isNew ? ' new' : ''}"><span class="ev-ic c-${pr.c}"><ha-icon icon="${pr.icon}"></ha-icon></span>` +
           `<div class="ev-txt"><div class="ev-t">${pr.title}</div>${pr.detail ? `<div class="ev-d">${pr.detail}</div>` : ''}</div>` +
-          `<div class="ev-h">${hora.format(d)}</div></div>`;
+          `<div class="ev-h">${timeFmt.format(d)}</div></div>`;
       }).join('');
     }
 
@@ -4189,7 +4189,7 @@ class IslautopiaIntercomView extends HTMLElement {
         <select class="ev-range" id="ev-range">
           ${IG_EV_RANGES.map((r) => `<option value="${r}"${this._evRange === r ? ' selected' : ''}>${T(`r_${r}`)}</option>`).join('')}
         </select>
-        <div class="ev-nav"${navegable ? '' : ' style="visibility:hidden"'}>
+        <div class="ev-nav"${pageable ? '' : ' style="visibility:hidden"'}>
           <button type="button" class="ev-navb" id="ev-prev" title="${T('prev')}"><ha-icon icon="mdi:chevron-left"></ha-icon></button>
           <span class="ev-period">${this._evPeriodLabel()}</span>
           <button type="button" class="ev-navb" id="ev-next" title="${T('next')}"${(this._evOffset || 0) === 0 ? ' disabled' : ''}><ha-icon icon="mdi:chevron-right"></ha-icon></button>
@@ -4204,9 +4204,9 @@ class IslautopiaIntercomView extends HTMLElement {
     p.querySelector('#ev-range').addEventListener('change', (ev) => {
       this._evRange = ev.target.value; this._evOffset = 0; this._evItems = null; this._renderEvents(); this._loadEvents();
     });
-    const mover = (d) => { this._evOffset = Math.max(0, (this._evOffset || 0) + d); this._evItems = null; this._renderEvents(); this._loadEvents(); };
-    p.querySelector('#ev-prev').addEventListener('click', (ev) => { ev.stopPropagation(); mover(1); });
-    p.querySelector('#ev-next').addEventListener('click', (ev) => { ev.stopPropagation(); mover(-1); });
+    const shiftPage = (d) => { this._evOffset = Math.max(0, (this._evOffset || 0) + d); this._evItems = null; this._renderEvents(); this._loadEvents(); };
+    p.querySelector('#ev-prev').addEventListener('click', (ev) => { ev.stopPropagation(); shiftPage(1); });
+    p.querySelector('#ev-next').addEventListener('click', (ev) => { ev.stopPropagation(); shiftPage(-1); });
   }
 
   // Width of §1.9's side rail. NARROW: only what the touch target takes up, because
@@ -4239,7 +4239,7 @@ class IslautopiaIntercomView extends HTMLElement {
   //
   // _railActive (per-instance, initialized in the constructor) is the memory that's needed:
   // without knowing which side you're on right now, there's no way to know which of the two thresholds to compare against.
-  static get RAIL_ENTER_MARGIN() { return IslautopiaIntercomView.RAIL_WIDTH + 32; }
+  static get RAIL_ENTER_MARGIN() { return IgDoorbellView.RAIL_WIDTH + 32; }
 
   // Content ALREADY ORIENTED as it would look on screen, applying the software rotation if there
   // is one: `videoWidth`/`videoHeight` are ALWAYS the sensor's raw image, exactly as it arrives, before
@@ -4275,22 +4275,22 @@ class IslautopiaIntercomView extends HTMLElement {
     // to be compared against the frame: if it's narrower than the frame at the available height (with
     // object-fit:contain, which the <video> already uses), there's leftover width on both sides, and THAT
     // leftover is what can house the rail - whether there's rotation involved or not.
-    let carril = false;
-    let huecoTrasImagen = 0; // see "ANCHORING TO THE IMAGE'S EDGE" further below
+    let rail = false;
+    let gapAfterImage = 0; // see "ANCHORING TO THE IMAGE'S EDGE" further below
     const content = this._contentSize();
     if (content.w > 0 && content.h > 0 && content.h > content.w && w > 0 && h > 0) {
       // Scaled by HEIGHT: with content narrower than the frame (the case at hand,
       // portrait inside landscape), object-fit:contain fills the whole height and the width falls
       // short - exactly the same calculation the browser does, done here to know HOW MUCH
       // is left over before reserving anything.
-      const anchoMostrado = content.w * (h / content.h);
-      const sobranteCadaLado = (w - anchoMostrado) / 2;
+      const shownWidth = content.w * (h / content.h);
+      const sparePerSide = (w - shownWidth) / 2;
       // Hysteresis (see RAIL_ENTER_MARGIN above): which threshold applies depends on where you
       // are RIGHT NOW. Already inside the rail, it's enough to keep fitting (RAIL_WIDTH, what it truly
       // takes up). Outside the rail, the extra cushion is needed to enter - that's what stops
       // a leftover that barely scrapes by (measured: 116px, the vertical-tablet case) from oscillating
       // between band and rail from one redraw to the next.
-      const umbral = this._railActive ? IslautopiaIntercomView.RAIL_WIDTH : IslautopiaIntercomView.RAIL_ENTER_MARGIN;
+      const threshold = this._railActive ? IgDoorbellView.RAIL_WIDTH : IgDoorbellView.RAIL_ENTER_MARGIN;
       // ⚠️ (1.10.0) RAIL AND STACK ARE MUTUALLY EXCLUSIVE. With both active at once (seen on Iñaki's
       // PC Panel, with `height:` in the YAML, and on any landscape phone) the
       // `.ig-stack .actions-row` rules win the `position: static` but do NOT cancel the `translateY(-50%)`,
@@ -4302,8 +4302,8 @@ class IslautopiaIntercomView extends HTMLElement {
       // the frame; a rail inside an embedded frame was a fourth layout competing with the other three.
       // And under 350 px of height the rail's three buttons + labels (~300 px) don't fit: that is how
       // a phone in landscape lost the mic below the screen edge (1.10.0 analysis).
-      carril = sobranteCadaLado >= umbral && !this.content.classList.contains('ig-stack') &&
-        !!this._fsActive && h >= IslautopiaIntercomView.SIDE_MIN_H;
+      rail = sparePerSide >= threshold && !this.content.classList.contains('ig-stack') &&
+        !!this._fsActive && h >= IgDoorbellView.SIDE_MIN_H;
       // ---- ANCHORING TO THE IMAGE'S EDGE, not the frame's (Iñaki, 2026-09-08, after seeing the
       // screenshot of the real wallpanel) --------------------------------------------------------
       // The root cause: these rules were brought over from fullscreen, where the FRAME IS THE
@@ -4312,22 +4312,22 @@ class IslautopiaIntercomView extends HTMLElement {
       // and "stuck to the frame" leaves the rail ~700px away from the image on the real wallpanel (measured).
       //
       // The video NO LONGER shrinks to make room for the rail (see further below: v.style.width
-      // is always left at '', and anchoUtil no longer subtracts RAIL_WIDTH) - it always fills the whole frame and
+      // is always left at '', and usableWidth no longer subtracts RAIL_WIDTH) - it always fills the whole frame and
       // centers itself via object-fit:contain, exactly as if there were no rail. The rail lives
       // INSIDE the margin that natural centering already leaves empty on the right (the same
-      // `sobranteCadaLado` from above), stuck to the image's real edge, not the frame's.
+      // `sparePerSide` from above), stuck to the image's real edge, not the frame's.
       //
-      // `--ig-rail-gap` (a CSS variable on .intercom-container, consumed by .actions-row,
+      // `--ig-rail-gap` (a CSS variable on .ig-container, consumed by .actions-row,
       // .feed-wrap::after and the .hud-bottom/.status-line offset in the stylesheet)
       // is the gap left BETWEEN the rail's right edge and the frame's right edge -
       // "what's left of the leftover" after reserving RAIL_WIDTH for the rail itself. With the rail
       // stuck to right:var(--ig-rail-gap) and width RAIL_WIDTH, its LEFT edge lands exactly
-      // at `w - sobranteCadaLado`, which is the centered image's real right edge - with no
-      // dead gaps in between, whatever sobranteCadaLado happens to be.
+      // at `w - sparePerSide`, which is the centered image's real right edge - with no
+      // dead gaps in between, whatever sparePerSide happens to be.
       //
       // DECISION (Iñaki, 2026-09-08): the image+rail block does NOT stay centered as a whole in
       // the frame - the image stays exactly where object-fit:contain would center it WITHOUT
-      // the rail (sobranteCadaLado on each side), and the rail then gets added on top, eating
+      // the rail (sparePerSide on each side), and the rail then gets added on top, eating
       // only into the right margin. That leaves ~RAIL_WIDTH more empty space on the left than on the
       // right of the whole (measured on the real wallpanel: ~707px vs ~603px). NOT COMPENSATED ON
       // PURPOSE: the only way to center the whole would be to shift the image away from the frame's
@@ -4335,18 +4335,18 @@ class IslautopiaIntercomView extends HTMLElement {
       // ~104px difference is barely noticeable, but moving the image off its center WOULD be noticeable,
       // always, on every startup. If this asymmetry "looks wrong" in some future review, the
       // answer isn't to recenter here: it's the one already given once.
-      if (carril) huecoTrasImagen = Math.max(0, sobranteCadaLado - IslautopiaIntercomView.RAIL_WIDTH);
+      if (rail) gapAfterImage = Math.max(0, sparePerSide - IgDoorbellView.RAIL_WIDTH);
     }
-    this._railActive = carril;
+    this._railActive = rail;
     if (this.content) {
-      this.content.classList.toggle('ig-rail', carril);
-      this.content.style.setProperty('--ig-rail-gap', `${huecoTrasImagen}px`);
+      this.content.classList.toggle('ig-rail', rail);
+      this.content.style.setProperty('--ig-rail-gap', `${gapAfterImage}px`);
       // The rail's width is also exposed as a variable (not just the gap after it): the
       // stylesheet needs `gap + RAIL_WIDTH` to reach the image's LEFT edge (see
       // .status-line further below), and computing it with a loose "104" in the stylesheet would be
       // duplicating the constant - exactly the kind of number that drifts out of sync if someone changes
       // RAIL_WIDTH here and forgets to touch the other place.
-      this.content.style.setProperty('--ig-rail-width', `${IslautopiaIntercomView.RAIL_WIDTH}px`);
+      this.content.style.setProperty('--ig-rail-width', `${IgDoorbellView.RAIL_WIDTH}px`);
     }
 
     if (!rotSwap) {
@@ -4364,14 +4364,14 @@ class IslautopiaIntercomView extends HTMLElement {
     if (!w || !h) return; // still no layout (hidden card, background tab): the RO will come back eventually
 
     // The box is declared with width and height SWAPPED and rotated around its center: after the
-    // rotation it exactly fills the WHOLE frame (anchoUtil no longer subtracts RAIL_WIDTH: the rail doesn't
+    // rotation it exactly fills the WHOLE frame (usableWidth no longer subtracts RAIL_WIDTH: the rail doesn't
     // take any room from the video, see the block above), and `object-fit: contain` centers the
     // portrait image inside without cropping anything - the rail lives in the margin that centering already leaves.
-    const anchoUtil = Math.max(80, w);
+    const usableWidth = Math.max(80, w);
     v.style.position = 'absolute';
     v.style.width = `${h}px`;
-    v.style.height = `${anchoUtil}px`;
-    v.style.left = `${anchoUtil / 2}px`;
+    v.style.height = `${usableWidth}px`;
+    v.style.left = `${usableWidth / 2}px`;
     v.style.top = '50%';
     v.style.transform = `translate(-50%, -50%) rotate(${this._rot}deg)`;
   }
@@ -4388,25 +4388,25 @@ class IslautopiaIntercomView extends HTMLElement {
       // on that list ("one card = one device"), DOES exist since 1.10.0.
       this.innerHTML = `
         <ha-card>
-          <div class="intercom-container">
+          <div class="ig-container">
 
-            <!-- Cabecera (v1.9.5, Iñaki 2026-09-25 tarde): "REC y la campanita deben tener el
-                 mismo aspecto [que en las apps]" y "los modos deben ser tambien un chip
-                 desplegable". Reemplaza la decision de esa misma mañana de meter REC en la fila
-                 de botones junto a sonido/micro/abrir (ver .actions-row mas abajo, que conserva
-                 esos tres) - vista la card al lado de la app real, REC ahi se veia "muy distinto".
-                 Aqui se reproduce la misma fila que usan las apps sobre el video (modo a la
-                 izquierda, REC a la derecha - ver BellWithRec en live_view_body.dart), aunque en
-                 esta card vive FUERA del video (encima), no superpuesta - la card ya reservaba
-                 este hueco desde 2026-07-10 y cambiar eso es mas riesgo del que pide un cambio de
-                 aspecto. SIN campanita: esta card no tiene una vista de "historial de avisos" a la
-                 que abrirla (la de la app abre una pantalla propia) - no se inventa una, ver
-                 CLAUDE.md/COORDINATION.md de este repo. -->
+            <!-- Header (v1.9.5, Inaki 2026-09-25 afternoon): "REC and the bell must have the
+                 same look [as in the apps]" and "the modes must also be a dropdown chip".
+                 Replaces that same morning's decision to put REC in the button row next to
+                 sound/mic/unlock (see .actions-row below, which keeps those three) - seen next
+                 to the real app, REC there looked "very different". Here we reproduce the same
+                 row the apps use over the video (mode on the left, REC on the right - see
+                 BellWithRec in live_view_body.dart), although in this card it lives OUTSIDE the
+                 video (above it), not overlaid - the card already reserved this space since
+                 2026-07-10 and changing that is more risk than a look change calls for. NO bell:
+                 this card has no "notification history" view to open into it (the app's opens
+                 its own screen) - none is invented here, see this repo's CLAUDE.md/COORDINATION.md. -->
             <div class="top-row" id="top-row">
               <div class="top-left">
-                <!-- Selector de portero (1.10.0): bolita + nombre (dname, nunca el id) + galon doble
-                     SOLO si hay donde elegir -- mismo patron que DoorbellCapsule/DoorbellPicker de
-                     las apps. La bolita es el estado de la sesion de ESTA instancia (_setLiveState). -->
+                <!-- Doorbell selector (1.10.0): dot + name (dname, never the id) + double chevron
+                     ONLY if there is something to choose from -- same pattern as
+                     DoorbellCapsule/DoorbellPicker in the apps. The dot is the session state of
+                     THIS instance (_setLiveState). -->
                 <div class="db-picker" id="db-picker">
                   <button type="button" class="db-pill" id="db-pill">
                     <span class="db-dot" id="db-dot" data-state="connecting"></span>
@@ -4424,8 +4424,9 @@ class IslautopiaIntercomView extends HTMLElement {
                     <span class="rec-pill-label" id="rec-lbl">REC</span>
                   </button>
                 </div>
-                <!-- Campanita (1.9.7): como la de las apps (bell_button.dart) - circulo surf2, punto
-                     rojo sin numero si hay avisos nuevos. Abre el panel de avisos (#ev-panel). -->
+                <!-- Bell (1.9.7): like the one in the apps (bell_button.dart) - surf2 circle, red
+                     dot with no number if there are new notifications. Opens the notifications
+                     panel (#ev-panel). -->
                 <button type="button" class="bell-btn" id="bell-btn" style="display:none;">
                   <ha-icon icon="mdi:bell-outline"></ha-icon>
                   <span class="bell-dot" id="bell-dot"></span>
@@ -4434,7 +4435,7 @@ class IslautopiaIntercomView extends HTMLElement {
             </div>
 
             <div class="feed-wrap" data-state="connecting">
-              <div class="islautopia-loader" id="ig-loader">
+              <div class="ig-loader-overlay" id="ig-loader">
                 <div class="ig-ring"></div>
                 <div class="ig-logo">IG</div>
               </div>
@@ -4449,10 +4450,10 @@ class IslautopiaIntercomView extends HTMLElement {
                     <div class="reddot"></div>
                     <span class="status-badge">${getLocalText(this._hass, 'connecting')}</span>
                   </div>
-                  <!-- Contador de clientes WebRTC (API_CONTRACT.md §1.4-ter #2, mensaje
-                       session_info). Oculto mientras el dispositivo no lo haya mandado NUNCA -
-                       un firmware anterior al contrato no lo manda, y un "1" inventado seria
-                       peor que no enseñar nada. -->
+                  <!-- WebRTC client counter (API_CONTRACT.md §1.4-ter #2, session_info message).
+                       Hidden while the device has NEVER sent it - firmware older than the
+                       contract does not send it, and a made-up "1" would be worse than showing
+                       nothing at all. -->
                   <div class="clients-pill" id="clients-pill" style="display:none;" title="${getLocalText(this._hass, 'clients_tip')}">
                     <ha-icon icon="mdi:account-multiple"></ha-icon>
                     <span id="clients-count">1</span>
@@ -4471,50 +4472,49 @@ class IslautopiaIntercomView extends HTMLElement {
                   <span>${getLocalText(this._hass, 'audio_active')}</span>
                 </div>
                 <div class="hud-bottom-right">
-                  <!-- (1.10.0) Aqui estaban unas barras de "señal" (.hud-sig) que solo repetian por CSS
-                       el data-state de la conexion (ya visible en el live-tag): no eran RSSI ni el
-                       chip de calidad de las apps, y no respondian a nada. Retiradas (Iñaki). -->
-                  <!-- Pantalla completa. Ultimo del cluster derecho, que es donde lo
-                       espera cualquiera que haya usado un reproductor de video. Sigue visible
-                       DENTRO del modo (cambiando a "salir"): es la unica salida garantizada,
-                       porque ESC solo existe si hay teclado y el respaldo CSS no tiene la salida
-                       del navegador. -->
+                  <!-- (1.10.0) There used to be "signal" bars here (.hud-sig) that just repeated
+                       via CSS the connection's data-state (already visible in the live-tag): they
+                       were not RSSI nor the apps' quality chip, and did not respond to anything.
+                       Removed (Inaki). -->
+                  <!-- Fullscreen. Last item of the right cluster, which is where anyone who has
+                       used a video player expects it. Stays visible WHILE in the mode (switching
+                       to "exit"): it is the only guaranteed way out, because ESC only exists with
+                       a keyboard and the CSS fallback has no way out of the browser. -->
                   <button type="button" class="hud-fs" id="fs-btn" title="${getLocalText(this._hass, 'fs_enter')}">
                     <ha-icon id="fs-icon" icon="mdi:fullscreen"></ha-icon>
                   </button>
                 </div>
               </div>
 
-              <!-- Linea de estado + botones de accion: DENTRO del propio feed-wrap, flotando sobre
-                   la imagen de video (Iñaki, 2026-09-07: "para una solucion universal para
-                   cualquier dispositivo, sera mejor que la card ponga esos botones DENTRO de la
-                   propia imagen de video en la parte inferior"). Antes eran hermanos de feed-wrap,
-                   fuera del video y con una linea de estado entre medias - en un wallpanel en
-                   apaisado (tablet de pared, la card nunca sale de ese modo) quedaban bajo el
-                   pliegue y hacia falta scroll para abrir la puerta, justo lo que un panel de
-                   pared no puede exigir. Viven aqui dentro para que el posicionamiento absoluto de
-                   .actions-row/.status-line (ver CSS) sea relativo al MARCO DE VIDEO real y no al
-                   contenedor entero de la card (que tambien incluye .mode-row encima, de alto
-                   variable) - exactamente el mismo truco que ya usaba pantalla completa, donde
-                   funcionaba solo porque alli el contenedor SI coincide con el marco de video. -->
+              <!-- Status line + action buttons: INSIDE feed-wrap itself, floating over the video
+                   image (Inaki, 2026-09-07: "for a universal solution that works on any device,
+                   it's better for the card to put those buttons INSIDE the video image itself, at
+                   the bottom"). They used to be siblings of feed-wrap, outside the video with a
+                   status line in between - on a landscape wallpanel (wall tablet, the card never
+                   leaves that mode) they ended up below the fold and opening the door needed
+                   scrolling, exactly what a wall panel cannot demand. They live in here so that
+                   the absolute positioning of .actions-row/.status-line (see CSS) is relative to
+                   the real VIDEO FRAME and not to the whole card container (which also includes
+                   .mode-row above it, of variable height) - the exact same trick fullscreen
+                   already used, where it worked only because there the container DOES match the
+                   video frame. -->
               <div class="status-line" id="status-line"></div>
 
               <div class="actions-row">
                 <div class="action">
-                  <!-- Altavoz de la calle (API_CONTRACT.md §1.10): reubicado desde el HUD
-                       (esquina inferior-dcha) a la fila de botones principal, junto a micro/
-                       abrir/REC, para parecerse a la disposicion de las apps (Iñaki, 2026-09-25:
-                       "sonido, micro, abrir, REC"). El deslizador de volumen SE RETIRA a la vez
-                       (decision aparte del mismo dia: "ningun cliente lo tiene en su vista en
-                       directo, aqui tampoco" - el volumen es el del propio aparato). Arranca
-                       MUDO, igual que siempre (ver no es escuchar). -->
+                  <!-- Street speaker (API_CONTRACT.md §1.10): relocated from the HUD (bottom-right
+                       corner) to the main button row, next to mic/unlock/REC, to look like the
+                       apps' layout (Inaki, 2026-09-25: "sound, mic, unlock, REC"). The volume
+                       slider IS REMOVED at the same time (separate decision the same day: "no
+                       client has it in its live view, not here either" - the volume is the
+                       device's own). Starts MUTED, as always (see it is not listening). -->
                   <button type="button" id="snd-btn" class="btn snd" aria-pressed="false" title="${getLocalText(this._hass, 'snd_off')}">
                     <ha-icon icon="mdi:volume-off" id="vol-icon"></ha-icon>
                   </button>
                   <span class="lbl" id="snd-lbl">${getLocalText(this._hass, 'snd_off')}</span>
                 </div>
                 <div class="action">
-                  <button id="intercom-button" class="btn mic" disabled>
+                  <button id="mic-button" class="btn mic" disabled>
                     <div class="pulsering"></div>
                     <ha-icon icon="mdi:microphone-off"></ha-icon>
                   </button>
@@ -4526,39 +4526,39 @@ class IslautopiaIntercomView extends HTMLElement {
                   </button>
                   <span class="lbl" id="unlock-lbl">${getLocalText(this._hass, 'lbl_door_idle')}</span>
                 </div>
-                <!-- REC (recordings v2, Iñaki 2026-09-25) YA NO VIVE AQUI (v1.9.5, la misma tarde):
-                     ver el bloque rec-action en la cabecera (top-row), mas arriba, con su
-                     razonamiento completo. El botón sigue llamando al servicio de la entidad
-                     rec_entity/auto-detectada (_toggleRec()/_updateRecButton()) exactamente igual
-                     que antes - lo unico que cambia es el aspecto y donde vive, no el
-                     comportamiento ("la card ENSEÑA, la integración EXPONE", decision 2026-08-31). -->
+                <!-- REC (recordings v2, Inaki 2026-09-25) NO LONGER LIVES HERE (v1.9.5, the same
+                     afternoon): see the rec-action block in the header (top-row) above, with its
+                     full reasoning. The button still calls the auto-detected rec_entity's service
+                     (_toggleRec()/_updateRecButton()) exactly as before - the only thing that
+                     changes is the look and where it lives, not the behavior ("the card DISPLAYS,
+                     the integration EXPOSES", decision 2026-08-31). -->
               </div>
             </div>
 
-            <!-- Grabaciones (v1.9.5, Iñaki 2026-09-25): "no metemos un boton de configuracion
-                 (para eso tenemos la integracion), pero SI metemos el de Grabaciones", con el
-                 mismo aspecto que el _QuickButton de las apps (icono en caja redondeada +
-                 etiqueta). Mismo criterio de admin que REC (_connInfo.role, no hass.user.is_admin
-                 - vease _updateRecordingsButton()) y sin Ajustes: la configuracion vive en la
-                 integracion y sus entidades, no aqui. Abre el navegador de medios nativo de Home
-                 Assistant contra el media_source que ya expone la integracion
-                 (media_source.py/DoorbellMediaSource) - la card NO reimplementa un reproductor,
-                 ver _openRecordings(). -->
-            <!-- Respuesta rapida (v1.9.8, Iñaki 2026-09-25): "para no ocupar mas espacio, partir
-                 la barra de Grabaciones en dos botones: Grabaciones y Respuestas rapidas" -- NO
-                 una fila nueva, la MISMA fila ancha de siempre partida en dos mitades (misma
-                 forma que iOS/Android le dan al boton, sin chevron: no cabe con dos botones en
-                 375-390px). Grabaciones sigue solo-admin (_updateRecordingsButton); Respuestas
-                 rapidas la ve cualquier usuario, igual que ?quick=1 en el propio portero
-                 (§1.18.8) -- ver _updateQuickReplyButton(). Si uno de los dos se oculta el otro
-                 ocupa la fila entera solo (flex:1 en .quick-btn.half), sin CSS aparte para ese
-                 caso. Abre #qr-panel (mismo patron que la campanita/#ev-panel): lista pedida a la
-                 integracion (islautopia_doorbell/get_quick_replies, LAN, sin credencial) y
-                 disparada con el servicio play_sequence que ya existe desde la Fase 0 -- ese
-                 servicio ya resuelve el caso del timbrazo (§1.18.1) sin nada especial aqui, ver
-                 _playQuickReply(). -->
-            <!-- Botones en MODO PILA (1.9.7): en un movil en vertical la fila de botones sale del
-                 video y vive aqui, bajo los chips, como en las apps. _fitToSpace() la mueve. -->
+            <!-- Recordings (v1.9.5, Inaki 2026-09-25): "we don't add a settings button (that's
+                 what the integration is for), but we DO add the Recordings one", with the same
+                 look as the apps' _QuickButton (icon in a rounded box + label). Same admin
+                 criterion as REC (_connInfo.role, not hass.user.is_admin - see
+                 _updateRecordingsButton()) and no Settings: configuration lives in the
+                 integration and its entities, not here. Opens Home Assistant's native media
+                 browser against the media_source the integration already exposes
+                 (media_source.py/DoorbellMediaSource) - the card does NOT reimplement a player,
+                 see _openRecordings(). -->
+            <!-- Quick reply (v1.9.8, Inaki 2026-09-25): "to avoid taking up more space, split the
+                 Recordings bar into two buttons: Recordings and Quick replies" -- NOT a new row,
+                 the SAME wide row as always split into two halves (same shape iOS/Android give
+                 the button, no chevron: it doesn't fit with two buttons at 375-390px). Recordings
+                 stays admin-only (_updateRecordingsButton); Quick replies is visible to any user,
+                 same as ?quick=1 on the doorbell itself (§1.18.8) -- see
+                 _updateQuickReplyButton(). If one of the two is hidden the other one takes the
+                 whole row on its own (flex:1 on .quick-btn.half), with no separate CSS for that
+                 case. Opens #qr-panel (same pattern as the bell/#ev-panel): a list requested from
+                 the integration (ig_doorbell/get_quick_replies, LAN, no credential) and
+                 triggered with the play_sequence service that has existed since Phase 0 -- that
+                 service already handles the doorbell-ring case (§1.18.1) with nothing special
+                 here, see _playQuickReply(). -->
+            <!-- Buttons in STACK MODE (1.9.7): on a phone in portrait the button row leaves the
+                 video and lives here, below the chips, as in the apps. _fitToSpace() moves it. -->
             <div class="stack-controls" id="stack-controls"></div>
             <!-- SIDE COLUMN (1.11.0): empty until _placeControls() moves the header, the buttons
                  and the Recordings row into it (layout 'side'). Hidden in the other layouts. -->
@@ -4582,11 +4582,11 @@ class IslautopiaIntercomView extends HTMLElement {
         </ha-card>
       `;
 
-      this.content = this.querySelector('.intercom-container');
+      this.content = this.querySelector('.ig-container');
       this.feedWrap = this.querySelector('.feed-wrap');
       this.videoEl = this.querySelector('#video-player');
-      this.intercomButton = this.querySelector('#intercom-button');
-      this.intercomIcon = this.querySelector('#intercom-button ha-icon');
+      this.micButton = this.querySelector('#mic-button');
+      this.micIcon = this.querySelector('#mic-button ha-icon');
       this.micLabel = this.querySelector('#mic-lbl');
       this.badge = this.querySelector('.status-badge');
       this.liveTag = this.querySelector('#live-tag');
@@ -4703,7 +4703,7 @@ class IslautopiaIntercomView extends HTMLElement {
       // Double tap (§1.8): the click does NOT open, it arms; the second one opens. See _onDoorPress().
       this.unlockButton.addEventListener('click', () => this._onDoorPress());
 
-      this.intercomButton.addEventListener('click', () => this.toggleIntercom());
+      this.micButton.addEventListener('click', () => this.toggleTalk());
 
       // The volume control IS REMOVED from the card (Iñaki, 2026-09-25: "no client has it
       // in the card. Not here either" - neither iOS nor Android has a slider in their live view,
@@ -4723,7 +4723,7 @@ class IslautopiaIntercomView extends HTMLElement {
 
       this.injectStyles();
       this._updateHassBoundUI();
-      if (!this._restaurarPausaGuardada()) this.startWebRTC('render: first construction of the card\'s DOM');
+      if (!this._restoreSavedPause()) this.startWebRTC('render: first construction of the card\'s DOM');
     }
   }
 
@@ -4741,27 +4741,27 @@ class IslautopiaIntercomView extends HTMLElement {
   //  in the panel's console is that string. Without it, "a startup was discarded" doesn't say which
   //  of the five paths triggered it, which is half the useful information.
   // ══════════════════════════════════════════════════════════════════════════════════════════
-  async startWebRTC(motivo = 'no reason given') {
-    if (this._destroyed) return;  // (1.10.0) instance of a doorbell that's no longer being viewed: see _destruir()
-    // While paused, nothing starts: only _reanudar() lifts it (clearing it first), or nobody.
-    if (this._pausa) {
-      console.info(`[islautopia-intercom-card] paused (${this._pausa.motivo}): not starting (${motivo})`);
+  async startWebRTC(reason = 'no reason given') {
+    if (this._destroyed) return;  // (1.10.0) instance of a doorbell that's no longer being viewed: see _destroy()
+    // While paused, nothing starts: only _resume() lifts it (clearing it first), or nobody.
+    if (this._pauseState) {
+      console.info(`[ig-doorbell-card] paused (${this._pauseState.reason}): not starting (${reason})`);
       return;
     }
-    const enVuelo = this._arranqueEnVueloGen;
+    const inFlight = this._startInFlightGen;
     // Only blocks the one that's still CURRENT. A startup whose session has already been torn down
     // out from under it (e.g. _scheduleReconnect(), which tears down and starts again 2 s later) is
     // doomed and must not block its successor. See the GENERATION block in the constructor.
-    if (enVuelo !== null && enVuelo === this._connGen) {
-      const edad = Date.now() - this._arranqueEnVueloAt;
-      if (edad < ARRANQUE_EN_VUELO_MAX_MS) {
-        console.info(`[islautopia-intercom-card] a startup is already in flight (${edad}ms) - letting it finish, not launching another (${motivo})`);
+    if (inFlight !== null && inFlight === this._connGen) {
+      const inFlightAge = Date.now() - this._startInFlightAt;
+      if (inFlightAge < START_IN_FLIGHT_MAX_MS) {
+        console.info(`[ig-doorbell-card] a startup is already in flight (${inFlightAge}ms) - letting it finish, not launching another (${reason})`);
         return;
       }
-      // Fuse (see ARRANQUE_EN_VUELO_MAX_MS above). Logged as WARN on purpose: if this
+      // Fuse (see START_IN_FLIGHT_MAX_MS above). Logged as WARN on purpose: if this
       // shows up in a log, there's a path getting stuck with no deadline of its own and it needs fixing
       // there. This is the net, not the fix.
-      console.warn(`[islautopia-intercom-card] the in-flight startup has gone ${edad}ms unresolved - superseding it (${motivo})`);
+      console.warn(`[ig-doorbell-card] the in-flight startup has gone ${inFlightAge}ms unresolved - superseding it (${reason})`);
     }
 
     // Reuses the same cleanup as disconnectedCallback()/_scheduleReconnect() - also defensive
@@ -4770,14 +4770,14 @@ class IslautopiaIntercomView extends HTMLElement {
     // It also bumps the generation: from this line on, any earlier startup in flight
     // gets superseded and will collect its own instead of writing it on top of ours.
     this._teardownConnectionObjects();
-    this._pararRescate();
+    this._stopRescue();
     // (1.10.0) Every new session is born in 'connecting' (e.g. coming back from a hung-up pause the
     // state was 'paused'): only the first image sets 'live', see setupRemoteStream().
     if (this._liveStateKey !== 'error_cam') this._setLiveState('connecting');
     this._livePauseWanted = false;
     const gen = this._connGen;
-    this._arranqueEnVueloGen = gen;
-    this._arranqueEnVueloAt = Date.now();
+    this._startInFlightGen = gen;
+    this._startInFlightAt = Date.now();
 
     // ⚠️ THE IDLE COUNTDOWN GETS ARMED HERE, AND NOT WHERE IT USED TO BE (2026-09-07).
     //
@@ -4804,7 +4804,7 @@ class IslautopiaIntercomView extends HTMLElement {
     } finally {
       // Only whoever took it releases it. If another startup supersedes us while we were waiting, the
       // marker is already THEIRS, and clearing it here would reopen the door to reentrancy.
-      if (this._arranqueEnVueloGen === gen) this._arranqueEnVueloGen = null;
+      if (this._startInFlightGen === gen) this._startInFlightGen = null;
     }
   }
 
@@ -4812,11 +4812,11 @@ class IslautopiaIntercomView extends HTMLElement {
   // to CLOSE ITS OWN before leaving: releasing it without closing it is exactly the leak all this
   // exists to fix -- an orphaned WebSocket occupies a relay client and, if it got as far as requesting
   // the offer, it holds on to one of the doorbell's four slots for the whole house.
-  _relevado(gen) { return gen !== this._connGen; }
+  _superseded(gen) { return gen !== this._connGen; }
 
   // ==============================================================================
   // Speaks the doorbell's own protocol (ICE-Lite + DTLS-SRTP + RTP), direct or via relay.
-  // Credentials/host served by the islautopia_doorbell integration
+  // Credentials/host served by the ig_doorbell integration
   // over HA's internal WebSocket API (never pasted by hand in YAML). See
   // API_CONTRACT.md §1.4/§3.2/§3.3 (IG_Doorbell) and ARCHITECTURE.md §5 (ig_hassio_addons).
   // ==============================================================================
@@ -4829,7 +4829,7 @@ class IslautopiaIntercomView extends HTMLElement {
   _mark(label) {
     if (!this._t0) return;
     const elapsed = Math.round(performance.now() - this._t0);
-    console.log(`[islautopia-intercom-card timing] +${elapsed}ms  ${label}`);
+    console.log(`[ig-doorbell-card timing] +${elapsed}ms  ${label}`);
   }
 
   // Really releases the WebRTC slot on closing/reloading/navigating away from the page, instead of
@@ -4873,17 +4873,17 @@ class IslautopiaIntercomView extends HTMLElement {
       // got a 401 and `bye` never arrived -- measured: on closing the page the session stayed
       // alive on the doorbell until its own deadline. keepalive survives the close just like a beacon.
       const token = this._hass && this._hass.auth && this._hass.auth.data ? this._hass.auth.data.access_token : null;
-      let enviado = false;
+      let beaconSent = false;
       if (token && typeof fetch === 'function') {
         try {
           fetch(`/api/${IG_DOMAIN}/signal/${this.config.device_id}`, {
             method: 'POST', keepalive: true, body: JSON.stringify(payload),
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           }).catch(() => {});
-          enviado = true;
+          beaconSent = true;
         } catch (err) { /* best effort */ }
       }
-      if (!enviado && this._localSignedUrl) {
+      if (!beaconSent && this._localSignedUrl) {
         try { navigator.sendBeacon(this._localSignedUrl, blob); } catch (err) { /* best effort */ }
       }
     }
@@ -4896,7 +4896,7 @@ class IslautopiaIntercomView extends HTMLElement {
     // another trigger may have torn down the session and started its own. Without this, this function
     // writes its RTCPeerConnection and WebSocket on top of the current startup's and leaves them
     // open forever -- the measured bug.
-    if (this._relevado(gen)) return;
+    if (this._superseded(gen)) return;
     this._t0 = performance.now();
     this._mark('startNativeSession: start');
     this._registerUnloadHandler();
@@ -4924,7 +4924,7 @@ class IslautopiaIntercomView extends HTMLElement {
         setTimeout(() => this.startNativeSession(gen), 250);
         return;
       }
-      console.error('[islautopia-intercom-card] hass.connection not available after waiting ~5s - cannot request connection info from the islautopia_doorbell integration');
+      console.error('[ig-doorbell-card] hass.connection not available after waiting ~5s - cannot request connection info from the ig_doorbell integration');
       this._setLiveState('error_cam');
       this._hassWaitAttempts = 0;
       // Same criterion as the catch further below (2026-07-10, see COORDINATION.md): no failure
@@ -4943,7 +4943,7 @@ class IslautopiaIntercomView extends HTMLElement {
       });
       // Wait #1 (HA's WebSocket) passed. If we got superseded here nothing is open yet:
       // it's enough to not write `_connInfo`/`_slot` over the current startup's.
-      if (this._relevado(gen)) return;
+      if (this._superseded(gen)) return;
       this._mark('get_connection_info: response received');
       this._connInfo = info;
       this._slot = null;
@@ -4960,15 +4960,15 @@ class IslautopiaIntercomView extends HTMLElement {
       // superseded can no longer just mean exiting: it has to clean up.
       const pc = await this.buildNativePeerConnection(gen);
       if (!pc) return;                      // superseded INSIDE build: nothing ever got created
-      if (this._relevado(gen)) {            // superseded in the `await` right above
-        this._cerrarPeerConnection(pc);
+      if (this._superseded(gen)) {            // superseded in the `await` right above
+        this._closePeerConnection(pc);
         return;
       }
       this.pc = pc;
       this._mark('buildNativePeerConnection: RTCPeerConnection ready');
       // The clock was armed in startWebRTC() with the fallback deadline, before knowing which entity
       // controls it (arrives in get_connection_info). Now that it's known, the real one is applied.
-      this._vigilarPlazoInactividad();
+      this._watchIdleTimeout();
 
       // Starts the life watchdog FROM HERE - it covers both the negotiation phase (via
       // signaling, see tryLocalSignaling()/startRelaySignaling() below) and, once
@@ -4983,7 +4983,7 @@ class IslautopiaIntercomView extends HTMLElement {
       // early startup would spend those 3 s waiting for an offer that never arrives, and once done
       // would keep going until opening a WebSocket against the relay -- stepping on the good
       // startup's `nativeWS`, which was left orphaned with nobody ever closing it.
-      if (this._relevado(gen)) return;
+      if (this._superseded(gen)) return;
       if (!connectedLocally) {
         // No cloud fallback, on purpose (phase 0). It's reported that Home Assistant can't reach the
         // doorbell over the LAN and it retries with the usual backoff.
@@ -4994,7 +4994,7 @@ class IslautopiaIntercomView extends HTMLElement {
       // A failure from an already-superseded startup isn't news: someone else is in charge, and scheduling a
       // reconnection from here would take down THEIR session. It exits silently, with its own
       // already cleaned up by the guards above.
-      if (this._relevado(gen)) return;
+      if (this._superseded(gen)) return;
       // Real bug found and fixed (2026-07-10, see COORDINATION.md - investigating a
       // persistent "Error" the lead saw on a real card pointing at a device that was
       // probably old/disabled): this catch was the ONLY failure point in the whole
@@ -5009,7 +5009,7 @@ class IslautopiaIntercomView extends HTMLElement {
       // backoff (the same principle already established in the life watchdog: better to keep
       // trying silently than to leave the card dead) - consistent with the rest of the file,
       // not new behavior.
-      console.error('[islautopia-intercom-card] failed starting native session', err);
+      console.error('[ig-doorbell-card] failed starting native session', err);
       this._setLiveState('error_cam');
       // This doorbell is no longer configured on THIS Home Assistant (the integration lost it, or it was
       // removed and re-added with a different entry). Retrying in a loop is correct, but saying
@@ -5035,7 +5035,7 @@ class IslautopiaIntercomView extends HTMLElement {
     // from this line down there isn't a single `await`, so the rest runs in full with
     // nobody able to slip in between (JavaScript is single-threaded). Either we build while
     // still current, or we build nothing at all.
-    if (this._relevado(gen)) {
+    if (this._superseded(gen)) {
       this._mark('buildNativePeerConnection: superseded while requesting TURN credentials - building nothing');
       return null;
     }
@@ -5043,10 +5043,10 @@ class IslautopiaIntercomView extends HTMLElement {
     const pc = new RTCPeerConnection({ iceServers });
 
     // Muted audio track from startup so as not to block the video behind the microphone
-    // permission dialog; replaceTrack() when activating the intercom (see toggleIntercom).
+    // permission dialog; replaceTrack() when activating the intercom (see toggleTalk).
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     // Hung off the `pc` itself so whoever closes it can also close this, whether from
-    // the normal teardown or the supersession path -- see _cerrarPeerConnection().
+    // the normal teardown or the supersession path -- see _closePeerConnection().
     pc.__igAudioCtx = audioCtx;
     const dest = audioCtx.createMediaStreamDestination();
     this.dummyAudioTrack = dest.stream.getAudioTracks()[0];
@@ -5077,7 +5077,7 @@ class IslautopiaIntercomView extends HTMLElement {
     const audioSender = pc.addTrack(this.dummyAudioTrack);
     this.audioTransceiver = pc.getTransceivers().find((t) => t.sender === audioSender) || null;
     console.log(
-      '[islautopia-intercom-card DIAG audio] audioTransceiver created via addTrack(): ' +
+      '[ig-doorbell-card DIAG audio] audioTransceiver created via addTrack(): ' +
       `direction=${this.audioTransceiver ? this.audioTransceiver.direction : '(not found)'} ` +
       `sender.track=${audioSender.track ? audioSender.track.id : 'null'}`
     );
@@ -5087,19 +5087,19 @@ class IslautopiaIntercomView extends HTMLElement {
     // a superseded session would paint its video over the good one; an `onicecandidate` would send a
     // candidate from a dead negotiation over the live one's channel.
     pc.ontrack = (event) => {
-      if (this._relevado(gen)) return;
+      if (this._superseded(gen)) return;
       this.setupRemoteStream(event.streams[0]);
     };
 
     // The device is ICE-Lite: it only emits its candidate once, in the offer's SDP -
     // but it DOES expect trickle ICE from this side (API_CONTRACT.md §3.3).
     pc.onicecandidate = (e) => {
-      if (this._relevado(gen)) return;
+      if (this._superseded(gen)) return;
       if (e.candidate) this.sendNativeSignal({ type: 'candidate', candidate: e.candidate.candidate });
     };
 
     pc.onconnectionstatechange = () => {
-      if (this._relevado(gen)) return;
+      if (this._superseded(gen)) return;
       this._mark(`RTCPeerConnection.connectionState -> ${pc.connectionState}`);
       // AGGRESSIVE shortcut (2026-07-10, user decision, see COORDINATION.md Q19 - same
       // criterion android_app uses in its own watchdog): both 'failed' AND 'disconnected'
@@ -5137,7 +5137,7 @@ class IslautopiaIntercomView extends HTMLElement {
   // THE LOCAL PATH, IN TWO VARIANTS (2026-08-03)
   //
   // The Home Assistant integration's own signaling proxy is ALWAYS preferred
-  // (`islautopia_doorbell/get_local_signal_url` -> `/api/islautopia_doorbell/signal/<device_id>`),
+  // (`ig_doorbell/get_local_signal_url` -> `/api/ig_doorbell/signal/<device_id>`),
   // falling back to the old variant -talking directly to the doorbell's public hostname- only
   // if the installed integration is older and doesn't offer that command.
   //
@@ -5167,9 +5167,9 @@ class IslautopiaIntercomView extends HTMLElement {
     // it goes through the VPS. If the integration doesn't offer the proxy (a version older than 0.4.3), there's no
     // path, and it says so.
     const proxyUrl = await this._askLocalSignalUrl();
-    if (this._relevado(gen)) return false;
+    if (this._superseded(gen)) return false;
     if (!proxyUrl) {
-      this._mark('get_local_signal_url: the integration does not offer the proxy - no path (islautopia_doorbell >= 0.7.0 is needed)');
+      this._mark('get_local_signal_url: the integration does not offer the proxy - no path (ig_doorbell >= 0.7.0 is needed)');
       return false;
     }
     this._localVia = 'proxy';
@@ -5213,7 +5213,7 @@ class IslautopiaIntercomView extends HTMLElement {
     } catch (err) {
       const status = err && (err.status_code || err.status);
       if (status === 401) {
-        this._reportPairingRejected('proxy local de Home Assistant: 401');
+        this._reportPairingRejected('Home Assistant local proxy: 401');
       } else if (status === 502) {
         this._mark('local proxy: 502 - Home Assistant cannot reach the doorbell (powered off, or another VLAN with no route). Falling back to the relay.');
       } else {
@@ -5258,7 +5258,7 @@ class IslautopiaIntercomView extends HTMLElement {
       // with no free slots -- and that shows up as "relay failures", which is where the problem
       // would be looked for, not where it actually is. If we never got a slot there's nothing to release, and the
       // `bye` is skipped.
-      const abandonarLocal = () => {
+      const abandonLocal = () => {
         if (!es) return;
         if (this.nativeSSE !== es) {
           // We've already been superseded: the teardown that bumped the generation closed this channel and said
@@ -5276,14 +5276,14 @@ class IslautopiaIntercomView extends HTMLElement {
 
       const timeout = setTimeout(() => {
         this._mark(`tryLocalSignaling(${via}): 3000ms timeout expired with no offer`);
-        abandonarLocal();
+        abandonLocal();
         finish(false);
       }, 3000);
 
       // Last guard before opening anything. If we got superseded between the `await` above and here,
       // opening the SSE would spend one of the doorbell's four slots on a session nobody
       // will ever use -- and the doorbell only reclaims it on its own after 20 s.
-      if (this._relevado(gen)) {
+      if (this._superseded(gen)) {
         this._mark(`tryLocalSignaling(${via}): superseded before opening the SSE - no doorbell slot spent`);
         finish(false);
         return;
@@ -5295,7 +5295,7 @@ class IslautopiaIntercomView extends HTMLElement {
         this.nativeSSE = es;
       } catch (err) {
         clearTimeout(timeout);
-        console.warn('[islautopia-intercom-card] could not open local EventSource, falling back to the remote relay:', err);
+        console.warn('[ig-doorbell-card] could not open local EventSource, falling back to the remote relay:', err);
         this._mark('tryLocalSignaling: EventSource lanzo excepcion al crearse');
         resolve(false);
         return;
@@ -5315,10 +5315,10 @@ class IslautopiaIntercomView extends HTMLElement {
       // real firmware, not assumed. Keeping the old diagnosis here would send whoever debugs
       // this in the future straight to a false lead - today the realistic causes are different.
       es.onerror = () => {
-        if (this._relevado(gen)) { abandonarLocal(); finish(false); return; }
-        abandonarLocal();
+        if (this._superseded(gen)) { abandonLocal(); finish(false); return; }
+        abandonLocal();
         console.warn(
-          '[islautopia-intercom-card] signaling through Home Assistant\'s proxy failed. ' +
+          '[ig-doorbell-card] signaling through Home Assistant\'s proxy failed. ' +
           'The browser does NOT expose the status code to EventSource, so it is classified separately (see _classifyProxyFailure): ' +
           'a 401 means the pairing credential was rejected, a 502 means Home Assistant cannot reach the doorbell over the LAN.'
         );
@@ -5329,7 +5329,7 @@ class IslautopiaIntercomView extends HTMLElement {
         // A message arriving over a superseded session's channel isn't a life signal for
         // anything, and handleNativeSignal() would apply it to the CURRENT startup's `pc` -- an
         // offer from another negotiation mixed into the good one.
-        if (this._relevado(gen)) { abandonarLocal(); finish(false); return; }
+        if (this._superseded(gen)) { abandonLocal(); finish(false); return; }
         let msg;
         try { msg = JSON.parse(ev.data); } catch (err) { return; }
         // Any message (including the heartbeat) is a real life signal for the signaling
@@ -5337,7 +5337,7 @@ class IslautopiaIntercomView extends HTMLElement {
         this._recordLifeSignal();
         if (msg.type === 'heartbeat') return;
         if (msg.type === 'offer') {
-          this._mark('tryLocalSignaling: oferta recibida por SSE');
+          this._mark('tryLocalSignaling: offer received via SSE');
           finish(true);
         }
         this.handleNativeSignal(msg);
@@ -5350,13 +5350,13 @@ class IslautopiaIntercomView extends HTMLElement {
     if (!this.nativeSSE) return;
     // (1.10.0) A destroyed instance talks to NO doorbell at all: an in-flight callback (a
     // talk_request, a quality...) would send the old doorbell something nobody asked for anymore. The `bye`
-    // from teardown goes out before the marker is set, see _destruir().
+    // from teardown goes out before the marker is set, see _destroy().
     if (this._destroyed) return;
     // The "slot" received in the offer is mandatory on every outgoing message (§1.4/§3.3).
     if (this._slot !== null) payload.slot = this._slot;
     else if (msg.type !== 'bye') {
       // The firmware SILENTLY DISCARDS any local signaling POST with no valid "slot".
-      console.warn(`[islautopia-intercom-card] local message "${msg.type}" sent with no slot assigned yet - the device will discard it`);
+      console.warn(`[ig-doorbell-card] local message "${msg.type}" sent with no slot assigned yet - the device will discard it`);
     }
     // Over the proxy the request is authenticated just like any frontend call to its own
     // Home Assistant (callApi sets the Authorization header). The pairing credential is
@@ -5364,8 +5364,8 @@ class IslautopiaIntercomView extends HTMLElement {
     this._hass.callApi('POST', `${IG_DOMAIN}/signal/${this.config.device_id}`, payload)
       .catch((err) => {
         const status = err && (err.status_code || err.status);
-        if (status === 401) this._reportPairingRejected('proxy local de Home Assistant: 401 al enviar senalizacion');
-        console.warn('[islautopia-intercom-card] failed sending local signal via the Home Assistant proxy', err);
+        if (status === 401) this._reportPairingRejected('Home Assistant local proxy: 401 while sending signaling');
+        console.warn('[ig-doorbell-card] failed sending local signal via the Home Assistant proxy', err);
       });
   }
 
@@ -5388,7 +5388,7 @@ class IslautopiaIntercomView extends HTMLElement {
         const answer = await this.pc.createAnswer();
         await this.pc.setLocalDescription(answer);
         this.sendNativeSignal({ type: 'answer', sdp: answer.sdp });
-        this._mark('handleNativeSignal(offer): respuesta SDP enviada (ICE/DTLS empieza ahora)');
+        this._mark('handleNativeSignal(offer): SDP answer sent (ICE/DTLS starts now)');
         // Quality probe as soon as a slot is assigned (no need to wait for ICE/DTLS to
         // finish: the device assigns the slot when processing the connection/request_offer, and the
         // signaling channel is already alive - it's the same criterion the contract documents
@@ -5400,18 +5400,18 @@ class IslautopiaIntercomView extends HTMLElement {
         // the console EXACTLY which direction ended up negotiated for audio right
         // after applying the answer - before the user ever touches the mic button. If this already
         // comes out different from 'sendrecv' here, the problem is in the SDP negotiation, not in
-        // toggleIntercom()/replaceTrack() (further below, with its own log).
+        // toggleTalk()/replaceTrack() (further below, with its own log).
         if (this.audioTransceiver) {
           console.log(
-            '[islautopia-intercom-card DIAG audio] after setLocalDescription(answer): ' +
+            '[ig-doorbell-card DIAG audio] after setLocalDescription(answer): ' +
             `audioTransceiver.direction=${this.audioTransceiver.direction} ` +
             `currentDirection=${this.audioTransceiver.currentDirection} ` +
             `mid=${this.audioTransceiver.mid} ` +
             `sender.track=${this.audioTransceiver.sender && this.audioTransceiver.sender.track ? this.audioTransceiver.sender.track.id : 'null'}`
           );
           const audioLine = (answer.sdp.split('\r\n').find((l) => l.startsWith('m=audio')) || '') + ' | ' +
-            (answer.sdp.split('\r\n').find((l) => l.startsWith('a=sendrecv') || l.startsWith('a=sendonly') || l.startsWith('a=recvonly') || l.startsWith('a=inactive')) || '(sin atributo de direccion global - revisar por m-section)');
-          console.log(`[islautopia-intercom-card DIAG audio] answer SDP (m=audio line + first direction attribute found): ${audioLine}`);
+            (answer.sdp.split('\r\n').find((l) => l.startsWith('a=sendrecv') || l.startsWith('a=sendonly') || l.startsWith('a=recvonly') || l.startsWith('a=inactive')) || '(no global direction attribute - check per m-section)');
+          console.log(`[ig-doorbell-card DIAG audio] answer SDP (m=audio line + first direction attribute found): ${audioLine}`);
         }
         break;
       case 'candidate':
@@ -5445,7 +5445,7 @@ class IslautopiaIntercomView extends HTMLElement {
         this._handleQualityState(msg);
         break;
       case 'error':
-        console.warn('[islautopia-intercom-card] native signaling error:', msg.reason);
+        console.warn('[ig-doorbell-card] native signaling error:', msg.reason);
         if (msg.reason === 'sessions_full' && this.badge) this._setLiveState('error_cam');
         break;
       case 'bye':
@@ -5472,7 +5472,7 @@ class IslautopiaIntercomView extends HTMLElement {
     // waiting that margin (API_CONTRACT.md §3.3, open_result row). With 6 s the card said "the door
     // has NOT opened" while it was opening. This matters more now that `unlock_entity` is gone and every
     // opening goes through here.
-    this._doorWaitTimer = setTimeout(() => this._doorOpenSinRespuesta(), 10000);
+    this._doorWaitTimer = setTimeout(() => this._doorOpenNoAnswer(), 10000);
   }
 
   // ==============================================================================
@@ -5503,22 +5503,22 @@ class IslautopiaIntercomView extends HTMLElement {
     this._flashStatusLine('door_opening', 8000);
   }
 
-  _limpiarEsperaDePuerta() {
+  _clearDoorWait() {
     if (this._doorWaitTimer) { clearTimeout(this._doorWaitTimer); this._doorWaitTimer = null; }
     if (this.unlockButton) this.unlockButton.classList.remove('opening');
     if (this.unlockLabel) this.unlockLabel.classList.remove('on-amber');
   }
 
-  _doorOpenSinRespuesta() {
-    this._limpiarEsperaDePuerta();
+  _doorOpenNoAnswer() {
+    this._clearDoorWait();
     if (this.unlockIcon) this.unlockIcon.setAttribute('icon', 'mdi:lock-open-variant');
     this._setDoorLabel(false);
-    console.warn('[islautopia-intercom-card] no open_result arrived within 10s - NOT asserting that the door has opened');
+    console.warn('[ig-doorbell-card] no open_result arrived within 10s - NOT asserting that the door has opened');
     this._flashStatusLine('door_no_answer', 6000);
   }
 
   handleNativeOpenResult(msg) {
-    this._limpiarEsperaDePuerta();
+    this._clearDoorWait();
     if (!this.unlockButton) return;
     // (1.10.0) No `unlock_duration` option: the doorbell doesn't say how long its pulse lasts (`dur` lives in
     // get_states, which the card doesn't read), and the apps also render a fixed countdown. Purely decorative.
@@ -5541,7 +5541,7 @@ class IslautopiaIntercomView extends HTMLElement {
       this.unlockButton.classList.remove('active-unlock');
       this.unlockIcon.setAttribute('icon', 'mdi:lock-open-variant');
       this._setDoorLabel(false);
-      console.warn('[islautopia-intercom-card] could not open the door:', msg.error);
+      console.warn('[ig-doorbell-card] could not open the door:', msg.error);
       if (msg.error === 'no_lock_configured') {
         this._flashStatusLine('no_lock', 3000);
         // Safety net for firmware predating `door_m` traveling in session_info: if
@@ -5555,19 +5555,19 @@ class IslautopiaIntercomView extends HTMLElement {
   }
 
   // Entry point for the mic button. Since 2026-07-26 it does NOT open the mic directly: it
-  // requests the talk turn first (§1.4-ter) and only calls _startIntercom() on receiving talk_granted - or
+  // requests the talk turn first (§1.4-ter) and only calls _startTalk() on receiving talk_granted - or
   // after confirming this doorbell doesn't arbitrate turns (older firmware). See _requestTalkTurn().
-  async toggleIntercom() {
+  async toggleTalk() {
     if (this._talkPending) return; // a request is already in flight, don't queue another
-    if (this.intercomActive || this._listenOnly) {
-      await this._stopIntercom();
+    if (this.talkActive || this._listenOnly) {
+      await this._stopTalk();
       return;
     }
     this._requestTalkTurn();
   }
 
-  async _startIntercom() {
-    this.intercomActive = true;
+  async _startTalk() {
+    this.talkActive = true;
     this._listenOnly = false;
     {
       try {
@@ -5576,32 +5576,32 @@ class IslautopiaIntercomView extends HTMLElement {
         // silence (§1.10); if you were already listening, you'll keep listening.
         this._audioOnBeforeMic = this._audioOn;
         this._setAudioOn(true, 'mic');
-        console.log('[islautopia-intercom-card DIAG audio] toggleIntercom: requesting getUserMedia({audio:true})...');
+        console.log('[ig-doorbell-card DIAG audio] toggleIntercom: requesting getUserMedia({audio:true})...');
         const genMic = this._connGen;
-        const flujo = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const probeStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         // ⚠️ (1.10.0) The mic permission can take as long as the user takes to answer the
         // browser prompt, and meanwhile the session may have been torn down (reconnection) or the doorbell
         // may have CHANGED. Without this check, the mic would open on a dead instance: the
         // system icon lit up and nobody listening -- or, worse, the old doorbell's turn.
         if (this._destroyed || genMic !== this._connGen) {
-          flujo.getTracks().forEach((t) => t.stop());
-          console.info('[islautopia-intercom-card] getUserMedia resolved after a session/doorbell change: mic released unused');
+          probeStream.getTracks().forEach((t) => t.stop());
+          console.info('[ig-doorbell-card] getUserMedia resolved after a session/doorbell change: mic released unused');
           return;
         }
-        this.localAudioStream = flujo;
+        this.localAudioStream = probeStream;
         const realAudioTrack = this.localAudioStream.getAudioTracks()[0];
         console.log(
-          '[islautopia-intercom-card DIAG audio] getUserMedia OK: ' +
+          '[ig-doorbell-card DIAG audio] getUserMedia OK: ' +
           `track.id=${realAudioTrack.id} label="${realAudioTrack.label}" ` +
           `readyState=${realAudioTrack.readyState} enabled=${realAudioTrack.enabled} muted=${realAudioTrack.muted}`
         );
         if (this.audioTransceiver && this.audioTransceiver.sender) {
           const senderBefore = this.audioTransceiver.sender.track;
-          console.log(`[islautopia-intercom-card DIAG audio] replaceTrack: sender.track BEFORE=${senderBefore ? senderBefore.id : 'null'} (should be the muted track ${this.dummyAudioTrack ? this.dummyAudioTrack.id : '?'})`);
+          console.log(`[ig-doorbell-card DIAG audio] replaceTrack: sender.track BEFORE=${senderBefore ? senderBefore.id : 'null'} (should be the muted track ${this.dummyAudioTrack ? this.dummyAudioTrack.id : '?'})`);
           await this.audioTransceiver.sender.replaceTrack(realAudioTrack);
           const senderAfter = this.audioTransceiver.sender.track;
           console.log(
-            `[islautopia-intercom-card DIAG audio] replaceTrack OK: sender.track AFTER=${senderAfter ? senderAfter.id : 'null'} ` +
+            `[ig-doorbell-card DIAG audio] replaceTrack OK: sender.track AFTER=${senderAfter ? senderAfter.id : 'null'} ` +
             `(matches the real track=${senderAfter === realAudioTrack}) ` +
             `direction=${this.audioTransceiver.direction} currentDirection=${this.audioTransceiver.currentDirection}`
           );
@@ -5612,12 +5612,12 @@ class IslautopiaIntercomView extends HTMLElement {
           // of assuming it.
           try {
             const params = this.audioTransceiver.sender.getParameters();
-            console.log(`[islautopia-intercom-card DIAG audio] sender.getParameters().encodings=${JSON.stringify(params.encodings)}`);
+            console.log(`[ig-doorbell-card DIAG audio] sender.getParameters().encodings=${JSON.stringify(params.encodings)}`);
           } catch (paramsErr) {
-            console.warn('[islautopia-intercom-card DIAG audio] sender.getParameters() failed', paramsErr);
+            console.warn('[ig-doorbell-card DIAG audio] sender.getParameters() failed', paramsErr);
           }
         } else {
-          console.warn('[islautopia-intercom-card DIAG audio] replaceTrack SKIPPED: audioTransceiver/sender does not exist at this moment - the mic NEVER actually activated even though the UI is going to say it did');
+          console.warn('[ig-doorbell-card DIAG audio] replaceTrack SKIPPED: audioTransceiver/sender does not exist at this moment - the mic NEVER actually activated even though the UI is going to say it did');
         }
         this._startAudioSendDiagnostics();
 
@@ -5626,8 +5626,8 @@ class IslautopiaIntercomView extends HTMLElement {
         this._paintMicState();
         this._updateMotionPill(); // rule: never visible with the mic active
       } catch (err) {
-        console.warn('[islautopia-intercom-card] could not activate the microphone', err);
-        this.intercomActive = false;
+        console.warn('[ig-doorbell-card] could not activate the microphone', err);
+        this.talkActive = false;
         this.videoEl.muted = true;
         // Releasing the turn the device had just granted us: holding on to the reserved voice
         // channel without being able to use it (microphone permission denied, no capture
@@ -5644,7 +5644,7 @@ class IslautopiaIntercomView extends HTMLElement {
   }
 
   // Real closing of the microphone (hardware + sender), without touching the turn's logical state - it's
-  // shared by _stopIntercom() (the user turns it off) and _enterListenOnly() (the device
+  // shared by _stopTalk() (the user turns it off) and _enterListenOnly() (the device
   // takes the turn away from us). Extracted so neither path can forget a step.
   _closeMicHardware() {
     this._stopAudioSendDiagnostics();
@@ -5660,7 +5660,7 @@ class IslautopiaIntercomView extends HTMLElement {
     }
   }
 
-  async _stopIntercom() {
+  async _stopTalk() {
     // Explicitly releases the turn (§1.4-ter): without this the doorbell would keep it reserved
     // until its 5s of silence ran out, and another client wanting to talk in that gap would get an
     // unfair talk_denied. It's sent even in "listen only" mode (turn denied) in case the
@@ -5668,7 +5668,7 @@ class IslautopiaIntercomView extends HTMLElement {
     this.sendNativeSignal({ type: 'talk_release' });
     this._talkHeld = false;
     this._listenOnly = false;
-    this.intercomActive = false;
+    this.talkActive = false;
     this._setAudioOn(this._audioOnBeforeMic, 'mic-closed');
     this._closeMicHardware();
     this._setLiveState('live');
@@ -5699,20 +5699,20 @@ class IslautopiaIntercomView extends HTMLElement {
             found = true;
             const delta = this._audioSendPrevBytes === null ? 'n/a' : (report.bytesSent - this._audioSendPrevBytes);
             console.log(
-              '[islautopia-intercom-card DIAG audio] outbound-rtp audio: ' +
+              '[ig-doorbell-card DIAG audio] outbound-rtp audio: ' +
               `bytesSent=${report.bytesSent} (+${delta} since the last 3s check) packetsSent=${report.packetsSent}`
             );
             if (this._audioSendPrevBytes !== null && report.bytesSent === this._audioSendPrevBytes) {
-              console.warn('[islautopia-intercom-card DIAG audio] WARNING: bytesSent has NOT increased in the last 3s - the browser is not sending real audio even though replaceTrack() did not fail. Check getUserMedia (permission/device) and the transceiver currentDirection.');
+              console.warn('[ig-doorbell-card DIAG audio] WARNING: bytesSent has NOT increased in the last 3s - the browser is not sending real audio even though replaceTrack() did not fail. Check getUserMedia (permission/device) and the transceiver currentDirection.');
             }
             this._audioSendPrevBytes = report.bytesSent;
           }
         });
         if (!found) {
-          console.warn('[islautopia-intercom-card DIAG audio] WARNING: there is no outbound-rtp audio entry in getStats() - there is no active audio sender at the transport level.');
+          console.warn('[ig-doorbell-card DIAG audio] WARNING: there is no outbound-rtp audio entry in getStats() - there is no active audio sender at the transport level.');
         }
       } catch (err) {
-        console.warn('[islautopia-intercom-card DIAG audio] audio sender getStats() failed', err);
+        console.warn('[ig-doorbell-card DIAG audio] audio sender getStats() failed', err);
       }
     }, 3000);
   }
@@ -5763,7 +5763,7 @@ class IslautopiaIntercomView extends HTMLElement {
       // GREEN -- over a session with no image. This is exactly the apps' bug the dot must
       // not repeat. `_confirmLiveFromMedia()` sets 'live': the <video>'s 'timeupdate' (image that
       // genuinely advances, several times a second) or the getStats watchdog (packets climbing).
-      this.intercomButton.removeAttribute('disabled');
+      this.micButton.removeAttribute('disabled');
       if (this.unlockButton) this.unlockButton.removeAttribute('disabled');
 
       if (this.loader) {
@@ -5794,12 +5794,12 @@ class IslautopiaIntercomView extends HTMLElement {
     style.textContent = `
       ${CARD_TAG}, ${VIEW_TAG} { display: block; width: 100%; box-sizing: border-box; }
 
-      /* Paleta exacta del mockup Figma (android_app/ios_app) - ver COORDINATION.md Q22-bis en
-         ig_hassio_addons. Custom properties escopadas a .intercom-container (no a :root - esta
-         card no usa Shadow DOM, asi que :root filtraria al documento entero de HA). */
-      .intercom-container {
-        /* Valores EXACTOS confirmados contra el codigo fuente real de android_app/ios_app
-           (2026-07-10, ver COORDINATION.md Q22-bis) - no aproximados de una captura. */
+      /* Exact palette from the Figma mockup (android_app/ios_app) - see COORDINATION.md Q22-bis
+         in ig_hassio_addons. Custom properties scoped to .ig-container (not :root - this
+         card does not use Shadow DOM, so :root would leak into HA's whole document). */
+      .ig-container {
+        /* EXACT values confirmed against the real source code of android_app/ios_app
+           (2026-07-10, see COORDINATION.md Q22-bis) - not approximated from a screenshot. */
         --ig-lime:#78C800; --ig-cyan:#00C4D4; --ig-blue:#1976D2; --ig-blue-dark:#1565C0;
         --ig-bg:#070D1A; --ig-surf1:#0D1B2E; --ig-surf2:#162336; --ig-surf3:#1D2D42;
         --ig-text:#E8F0FE; --ig-muted:#94A3B8; --ig-dim:#64748B; --ig-faint:#334155;
@@ -5809,23 +5809,23 @@ class IslautopiaIntercomView extends HTMLElement {
         padding: 10px; display: flex; flex-direction: column; gap: 10px;
       }
 
-      /* overflow-y:auto, NO "hidden" a secas (v1.9.5) - hasta ahora nada anadia altura real al
-         documento: .actions-row/.status-line viven DENTRO de .feed-wrap como capas superpuestas
-         (position:absolute), asi que "hidden" nunca recortaba nada real, solo el sangrado
-         decorativo (pulsering, sombras). #bottom-row (Grabaciones) es la primera pieza que SI sale
-         del flujo normal, DESPUES de .feed-wrap - en un dashboard "panel" con el video a su altura
-         maxima (medido en la tablet real: el video de la card de Iñaki llena la pantalla entera de
-         borde a borde) no queda hueco debajo y "hidden" se comia el boton entero, sin scroll
-         posible para alcanzarlo. overflow-x sigue en hidden (nada crece a lo ancho). En pantalla
-         completa no cambia nada: top-row/bottom-row se ocultan del todo (ver .ig-fs mas abajo) y
-         el unico contenido que queda (el video) ya encaja exacto en el 100% de alto. */
+      /* overflow-y:auto, NOT plain "hidden" (v1.9.5) - until now nothing added real height to the
+         document: .actions-row/.status-line live INSIDE .feed-wrap as overlaid layers
+         (position:absolute), so "hidden" never clipped anything real, only decorative bleed
+         (pulsering, shadows). #bottom-row (Recordings) is the first piece that DOES fall outside
+         the normal flow, AFTER .feed-wrap - in a "panel" dashboard with the video at its maximum
+         height (measured on the real tablet: Inaki's card video fills the whole screen edge to
+         edge) there is no room left below and "hidden" swallowed the whole button, with no
+         possible scroll to reach it. overflow-x stays hidden (nothing grows in width). In
+         fullscreen nothing changes: top-row/bottom-row are hidden entirely (see .ig-fs below) and
+         the only content left (the video) already fits exactly 100% of the height. */
       ha-card { display: block; width: 100%; box-sizing: border-box; overflow: hidden auto; border-radius: var(--ha-card-border-radius, 12px); box-shadow: var(--ha-card-box-shadow, 0px 2px 4px -1px rgba(0,0,0,0.2)); background: #070D1A; }
 
-      /* ---- cabecera: chip de modo desplegable + REC (v1.9.5, reemplaza la fila de 4 chips
-         segmentados) ---- */
+      /* ---- header: dropdown mode chip + REC (v1.9.5, replaces the row of 4 segmented
+         chips) ---- */
       .top-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-      /* ---- selector de portero (1.10.0): capsula bolita + nombre + galon, como DoorbellCapsule
-         de las apps. Encoge con puntos suspensivos antes que empujar REC/campanita fuera. ---- */
+      /* ---- doorbell selector (1.10.0): dot + name + chevron capsule, like DoorbellCapsule
+         in the apps. Shrinks with an ellipsis before pushing REC/bell out. ---- */
       .top-left { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; }
       .top-left .mode-row { flex: none; }
       .db-picker { position: relative; min-width: 0; flex: 0 1 auto; }
@@ -5840,8 +5840,8 @@ class IslautopiaIntercomView extends HTMLElement {
       .db-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
       .db-chev { --mdc-icon-size: 16px; color: var(--ig-muted); flex: none; margin-right: -4px; }
       .db-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--ig-dim); }
-      /* Verde SOLO con video de verdad (live/open). Conectando: ambar que respira. Error: rojo.
-         En pausa: gris. 'avail'/'down' son de las filas de OTROS porteros en el menu (dato de HA). */
+      /* Green ONLY with real video (live/open). Connecting: breathing amber. Error: red.
+         Paused: gray. 'avail'/'down' are for OTHER doorbells' rows in the menu (HA data). */
       .db-dot[data-state="live"], .db-dot[data-state="open"] { background: var(--ig-green); box-shadow: 0 0 6px var(--ig-green); }
       .db-dot[data-state="connecting"] { background: var(--ig-amber); animation: ig-breathe 1.1s ease-in-out infinite; }
       .db-dot[data-state="error"] { background: var(--ig-red); }
@@ -5865,10 +5865,10 @@ class IslautopiaIntercomView extends HTMLElement {
       .db-check { --mdc-icon-size: 16px; width: 16px; flex: none; color: var(--ig-lime); }
       .db-opt-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
       .mode-row { display: none; position: relative; }
-      /* Mismo aspecto que _ModePill de las apps: fondo oscuro translucido (nunca un velo, para
-         que se lea sobre cualquier escena si algun dia vuelve a vivir sobre el video), borde e
-         icono/etiqueta del color del modo VIGENTE, flecha de desplegable. Sin color conocido
-         (opcion que no matchea ningun patron de _modeKeyFor) cae a --ig-dim, igual que antes. */
+      /* Same look as the apps' _ModePill: translucent dark background (never a scrim, so it
+         reads over any scene if it ever lives over the video again), border and icon/label in
+         the color of the CURRENT mode, dropdown arrow. No known color (an option that matches
+         no _modeKeyFor pattern) falls back to --ig-dim, same as before. */
       .mode-pill {
         display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px;
         background: rgba(7,13,26,0.82); border: 1px solid rgba(255,255,255,0.14);
@@ -5877,11 +5877,11 @@ class IslautopiaIntercomView extends HTMLElement {
       .mode-pill ha-icon { --mdc-icon-size: 14px; }
       .mode-pill .mode-pill-caret { --mdc-icon-size: 16px; margin-left: -2px; }
       .mode-pill.mode-normal { color: var(--ig-lime); border-color: rgba(120,200,0,0.45); }
-      .mode-pill.mode-ausente { color: var(--ig-amber); border-color: rgba(255,179,0,0.45); }
-      .mode-pill.mode-noche { color: var(--ig-indigo); border-color: rgba(129,140,248,0.45); }
+      .mode-pill.mode-away { color: var(--ig-amber); border-color: rgba(255,179,0,0.45); }
+      .mode-pill.mode-night { color: var(--ig-indigo); border-color: rgba(129,140,248,0.45); }
       .mode-pill.mode-custom { color: var(--ig-cyan); border-color: rgba(0,196,212,0.45); }
-      /* El desplegable en si: mismo position:absolute; top:under que PopupMenuPosition.under
-         en la app - flota SOBRE lo que venga despues (el marco de video) en vez de empujarlo. */
+      /* The dropdown itself: same position:absolute; top:under as PopupMenuPosition.under
+         in the app - it floats OVER whatever comes next (the video frame) instead of pushing it. */
       .mode-menu {
         position: absolute; top: calc(100% + 4px); left: 0; z-index: 20; display: none;
         flex-direction: column; min-width: 160px; background: var(--ig-surf1); border-radius: 12px;
@@ -5896,13 +5896,13 @@ class IslautopiaIntercomView extends HTMLElement {
       .mode-menu .mode-opt:hover { background: rgba(255,255,255,0.06); }
       .mode-menu .mode-opt.sel { font-weight: 700; }
       .mode-menu .mode-opt.sel.mode-normal { color: var(--ig-lime); }
-      .mode-menu .mode-opt.sel.mode-ausente { color: var(--ig-amber); }
-      .mode-menu .mode-opt.sel.mode-noche { color: var(--ig-indigo); }
+      .mode-menu .mode-opt.sel.mode-away { color: var(--ig-amber); }
+      .mode-menu .mode-opt.sel.mode-night { color: var(--ig-indigo); }
       .mode-menu .mode-opt.sel.mode-custom { color: var(--ig-cyan); }
 
-      /* REC (v1.9.5): capsula pequeña con punto rojo + "REC", igual aspecto que RecButton.dart de
-         las apps (StadiumBorder, fondo surf1, borde hairline en reposo / rojo grabando, punto
-         hueco/relleno) - ya NO el circulo grande de 60px que compartia con sonido/puerta. */
+      /* REC (v1.9.5): small capsule with a red dot + "REC", same look as the apps' RecButton.dart
+         (StadiumBorder, surf1 background, hairline border at rest / red while recording, hollow/
+         filled dot) - NO LONGER the big 60px circle it used to share with sound/door. */
       .rec-action-wrap { display: flex; align-items: center; }
       .rec-pill {
         display: flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px;
@@ -5921,23 +5921,23 @@ class IslautopiaIntercomView extends HTMLElement {
       }
       .rec-pill.recording .rec-pill-label { color: var(--ig-red); }
       @keyframes ig-rec-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.15; } }
-      /* Mismo criterio que _reduceMotion en RecButton.dart: sin parpadeo si el sistema pide
-         reducir el movimiento, el punto se queda solido en rojo (sigue siendo visible que graba). */
+      /* Same criterion as _reduceMotion in RecButton.dart: no blinking if the system asks to
+         reduce motion, the dot stays solid red (it is still visible that it is recording). */
       @media (prefers-reduced-motion: reduce) {
         .rec-pill.recording .rec-dot { animation: none; }
       }
 
-      /* Grabaciones (v1.9.5): mismo aspecto que _QuickButton de las apps (icono en caja
-         redondeada + etiqueta, fila ancha) - sin "Ajustes": esa vive en la integracion. */
-      /* ⚠️ NUNCA "display:none" aqui (1.9.7). Hasta la 1.9.6 esta regla decia none, y
-         _updateRecordingsButton() "lo enseña" quitando el display en linea (style.display='') - que
-         cae de vuelta en ESTA regla: Grabaciones no se veia NUNCA, en ningun sitio, y se busco el
-         fallo en el alto de la card y en el envoltorio de HA. Lo oculta el style="display:none"
-         en linea del propio markup hasta que el rol lo permite. */
-      /* v1.9.8: la fila ancha de siempre, ahora con DOS botones ("partir la barra de Grabaciones
-         en dos: Grabaciones y Respuestas rapidas, y asi no ocupamos mas espacio" -- Iñaki,
-         2026-09-25). display:flex en vez de block para ponerlos lado a lado; el alto no cambia
-         respecto a la 1.9.7 porque .quick-btn conserva su padding vertical. */
+      /* Recordings (v1.9.5): same look as the apps' _QuickButton (icon in a rounded box +
+         label, wide row) - no "Settings": that lives in the integration. */
+      /* ⚠️ NEVER "display:none" here (1.9.7). Until 1.9.6 this rule said none, and
+         _updateRecordingsButton() "shows it" by removing the inline display (style.display='') -
+         which falls back onto THIS rule: Recordings was NEVER visible, anywhere, and the bug was
+         hunted in the card's height and in HA's wrapper. It is hidden by the inline
+         style="display:none" in the markup itself until the role allows it. */
+      /* v1.9.8: the same wide row as always, now with TWO buttons ("split the Recordings bar in
+         two: Recordings and Quick replies, so we don't take up more space" -- Inaki,
+         2026-09-25). display:flex instead of block to put them side by side; the height doesn't
+         change from 1.9.7 because .quick-btn keeps its vertical padding. */
       .bottom-row { display: flex; gap: 8px; }
       .quick-btn {
         display: flex; align-items: center; gap: 9px; width: 100%; box-sizing: border-box;
@@ -5951,28 +5951,29 @@ class IslautopiaIntercomView extends HTMLElement {
       }
       .quick-btn-icon ha-icon { --mdc-icon-size: 15px; color: var(--ig-blue); }
       .quick-btn-label { font-size: 12px; font-weight: 500; color: var(--ig-muted); }
-      /* Cada mitad se reparte el ancho a partes iguales -- y si el otro boton se oculta (Grabaciones
-         no-admin), este crece solo y ocupa la fila entera, gratis, por ser flex:1 (ver
-         _updateBottomRowVisibility()). min-width:0 es lo que deja que overflow/wrap del label
-         funcionen dentro de un hijo flex -- sin esto el texto empuja el boton en vez de ajustarse. */
+      /* Each half splits the width equally -- and if the other button is hidden (non-admin
+         Recordings), this one grows on its own and takes the whole row, for free, by being
+         flex:1 (see _updateBottomRowVisibility()). min-width:0 is what lets the label's
+         overflow/wrap work inside a flex child -- without this the text pushes the button
+         instead of fitting inside it. */
       .quick-btn.half { flex: 1 1 0; min-width: 0; padding: 10px 8px; gap: 6px; }
       .quick-btn.half .quick-btn-icon { width: 28px; height: 28px; }
-      /* "Si no caben, que el texto se reduzca o pase a icono con etiqueta accesible, no que se
-         corte" (Iñaki, 2026-09-25): sin white-space:nowrap el label envuelve a una segunda linea en
-         vez de recortarse con ellipsis -- medido con Playwright a 375px de ancho (el caso mas
-         estrecho de los dos: movil vertical Y el carril de la tablet) que las dos etiquetas mas
-         largas del catalogo ("Respuestas rápidas", "Schnellantworten") caben en dos lineas sin
-         desbordar el boton. */
+      /* "If they don't fit, the text should shrink or become an icon with an accessible label,
+         not get cut off" (Inaki, 2026-09-25): without white-space:nowrap the label wraps to a
+         second line instead of being clipped with an ellipsis -- measured with Playwright at
+         375px width (the narrower of the two cases: portrait phone AND the tablet rail) that the
+         two longest labels in the catalog ("Respuestas rápidas", "Schnellantworten") fit in two
+         lines without overflowing the button. */
       .quick-btn.half .quick-btn-label {
         font-size: 11px; line-height: 1.15; white-space: normal; overflow-wrap: break-word;
       }
 
-      /* ---- marco de video redondeado + HUD superpuesto ---- */
+      /* ---- rounded video frame + overlaid HUD ---- */
       .feed-wrap {
-        /* Container query, no media query (2026-07-26): el HUD tiene que adaptarse al ancho de
-           la CARD, que en Home Assistant no tiene nada que ver con el ancho de la ventana - una
-           card estrecha en una columna de un dashboard de escritorio ancho es un caso normal, y
-           una @media la habria tratado como "pantalla grande". Ver reglas @container abajo. */
+        /* Container query, not a media query (2026-07-26): the HUD has to adapt to the CARD's
+           width, which in Home Assistant has nothing to do with the window's width - a narrow
+           card in a column of a wide desktop dashboard is a normal case, and a @media would have
+           treated it as a "big screen". See the @container rules below. */
         container-type: inline-size; container-name: igfeed;
         position: relative; width: 100%; border-radius: 22px; overflow: hidden;
         border: 1px solid rgba(255,255,255,0.06);
@@ -5980,21 +5981,21 @@ class IslautopiaIntercomView extends HTMLElement {
                     linear-gradient(180deg, #1b2536 0%, #0d1420 55%, #070a12 100%);
       }
       .video-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform-origin: 0 0; }
-      /* Zoom con los dedos (1.9.3): el transform y el touch-action los escribe _zPaint() (ver el
-         ⚠️ de _setupZoom); aqui solo el valor de partida. */
+      /* Pinch-to-zoom (1.9.3): the transform and touch-action are written by _zPaint() (see the
+         ⚠️ in _setupZoom); here only the starting value. */
       .feed-wrap { touch-action: pan-x pan-y; -webkit-user-select: none; user-select: none; }
       .feed-wrap.ig-zoomed { cursor: grab; }
       .video-wrapper video { width: 100%; height: 100%; object-fit: contain; }
 
-      /* pointer-events:none desde el principio (2026-07-29). El velo de carga cubre el marco
-         entero con z-index 10 y hasta ahora solo dejaba de interceptar clicks cuando llegaba el
-         primer fotograma (inline, desde setupRemoteStream). Efecto real: mientras la card
-         conectaba - que con el portero apagado o desde fuera de casa puede ser bastante rato -
-         ningun control del HUD respondia, incluido el boton de pantalla completa; y tras una
-         reconexion el velo volvia a opacidad 1 pero SIN volver a interceptar, asi que el
-         comportamiento ni siquiera era consistente consigo mismo. El velo no tiene nada que se
-         pueda pulsar: es decoracion, y la decoracion no debe robar clicks. */
-      .islautopia-loader { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(7,10,18,0.85); z-index: 10; display: flex; align-items: center; justify-content: center; transition: opacity 0.3s ease; pointer-events: none; }
+      /* pointer-events:none from the start (2026-07-29). The loading scrim covers the whole
+         frame with z-index 10 and until now only stopped intercepting clicks when the first
+         frame arrived (inline, from setupRemoteStream). Real effect: while the card was
+         connecting - which with the doorbell off or from outside home can take quite a while -
+         no HUD control responded, including the fullscreen button; and after a reconnect the
+         scrim went back to opacity 1 but WITHOUT going back to intercepting, so the behavior
+         wasn't even consistent with itself. The scrim has nothing that can be pressed: it is
+         decoration, and decoration must not steal clicks. */
+      .ig-loader-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(7,10,18,0.85); z-index: 10; display: flex; align-items: center; justify-content: center; transition: opacity 0.3s ease; pointer-events: none; }
       .ig-ring { position: absolute; width: 60px; height: 60px; border: 4px solid rgba(0,196,212,0.2); border-top-color: var(--ig-cyan); border-radius: 50%; animation: ig-spin 1s linear infinite; }
       .ig-logo { position: absolute; color: #fff; font-family: system-ui, sans-serif; font-weight: 800; font-size: 16px; letter-spacing: 1px; }
       @keyframes ig-spin { 100% { transform: rotate(360deg); } }
@@ -6002,9 +6003,9 @@ class IslautopiaIntercomView extends HTMLElement {
       .hud-top { position: absolute; top: 12px; left: 14px; right: 14px; display: flex; align-items: flex-start; justify-content: space-between; z-index: 5; pointer-events: none; }
       .hud-top-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-      /* Contador de clientes WebRTC (§1.4-ter #2). Discreto cuando estas solo (el caso normal),
-         resaltado en cian solo cuando hay MAS de uno - que es el dato que cambia como te
-         comportas ("alguien mas esta mirando/puede hablar"). */
+      /* WebRTC client counter (§1.4-ter #2). Discreet when you are alone (the normal case),
+         highlighted in cyan only when there is MORE than one - which is the data point that
+         changes how you behave ("someone else is watching/can talk"). */
       .clients-pill {
         display: flex; align-items: center; gap: 4px; pointer-events: auto;
         background: rgba(7,13,26,0.72); backdrop-filter: blur(6px);
@@ -6031,7 +6032,7 @@ class IslautopiaIntercomView extends HTMLElement {
 
       .hud-bottom-right { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 
-      /* Boton de pantalla completa, ultimo del cluster derecho. */
+      /* Fullscreen button, last item of the right cluster. */
       .hud-fs {
         display: flex; align-items: center; justify-content: center; cursor: pointer;
         background: rgba(7,13,26,0.55); border: 1px solid rgba(255,255,255,0.12);
@@ -6042,10 +6043,10 @@ class IslautopiaIntercomView extends HTMLElement {
       .hud-fs:hover { border-color: rgba(0,196,212,0.5); }
       .hud-fs.on { color: var(--ig-cyan); border-color: rgba(0,196,212,0.5); }
 
-      /* Barras de señal esquina inferior-dcha (mockup) - reflejan el estado real de conexion
-         (data-state, propagado tambien a .feed-wrap desde _setLiveState()) en vez de una metrica
-         WiFi que esta card no tiene forma de conocer - una adaptacion honesta del elemento, no
-         una imitacion literal de un dato que no existe aqui. */
+      /* Signal bars, bottom-right corner (mockup) - reflect the real connection state
+         (data-state, also propagated to .feed-wrap from _setLiveState()) instead of a WiFi
+         metric this card has no way to know - an honest adaptation of the element, not a
+         literal imitation of a data point that doesn't exist here. */
 
       .motion-pill {
         position: absolute; top: 44px; left: 50%; transform: translateX(-50%); z-index: 6;
@@ -6055,11 +6056,11 @@ class IslautopiaIntercomView extends HTMLElement {
       .motion-pill ha-icon { --mdc-icon-size: 13px; color: #1a1300; }
       .motion-pill span { font-size: 10.5px; font-weight: 700; color: #1a1300; }
 
-      /* justify-content:flex-start (no space-between) a proposito: audio-pill esta oculto la
-         mayoria del tiempo (solo con el mic activo) - con space-between y un solo hijo visible,
-         ese hijo quedaria pegado a la IZQUIERDA (comportamiento real del flexbox con 1 item), no
-         a la derecha donde debe estar el cluster de volumen+señal siempre. margin-left:auto en
-         .hud-bottom-right lo empuja al borde derecho de forma robusta pase lo que pase con
+      /* justify-content:flex-start (not space-between) on purpose: audio-pill is hidden most of
+         the time (only with the mic active) - with space-between and a single visible child,
+         that child would stick to the LEFT (real flexbox behavior with 1 item), not to the
+         right, where the volume+signal cluster must always be. margin-left:auto on
+         .hud-bottom-right pushes it to the right edge robustly no matter what happens with
          audio-pill. */
       .hud-bottom { position: absolute; bottom: 12px; left: 14px; right: 14px; display: flex; align-items: center; justify-content: flex-start; gap: 8px; z-index: 5; flex-wrap: wrap; }
       .audio-pill {
@@ -6069,24 +6070,24 @@ class IslautopiaIntercomView extends HTMLElement {
       .audio-pill ha-icon { --mdc-icon-size: 13px; color: #bdf3f8; }
       .audio-pill span { font-size: 10px; font-weight: 600; color: #bdf3f8; }
 
-      /* ---- HUD en cards estrechas (movil en vertical, o una columna estrecha en escritorio) ----
-         El cluster inferior-derecho paso de 2 piezas (volumen + señal) a 3 al añadirse el
-         selector de calidad, y con la pildora "Audio activo" a la izquierda ya no cabe todo en
-         ~360px. Prioridad al desalojar: primero las barras de señal (decorativas, su informacion
-         ya esta en el live-tag de arriba), luego se encoge el slider de volumen, y en el ultimo
-         escalon el selector de calidad se queda solo con el icono. Nada se oculta si es la unica
-         forma de acceder a una funcion. */
+      /* ---- HUD on narrow cards (portrait phone, or a narrow desktop column) ----
+         The bottom-right cluster went from 2 pieces (volume + signal) to 3 when the quality
+         selector was added, and with the "Audio active" pill on the left everything no longer
+         fits in ~360px. Eviction priority: first the signal bars (decorative, their information
+         is already in the live-tag above), then the volume slider shrinks, and as a last resort
+         the quality selector is left with just its icon. Nothing is hidden if it is the only way
+         to reach a feature. */
 
-      /* ---- linea de estado + botones de accion: SOBRE el video, no debajo ----
-         Iñaki, 2026-09-07: "para una solucion universal para cualquier dispositivo, sera mejor
-         que la card ponga esos botones DENTRO de la propia imagen de video en la parte
-         inferior". Medido en el wallpanel real (Galaxy Tab en apaisado): con los botones bajo el
-         marco de video quedaban cortados por debajo del pliegue y hacia falta scroll para abrir
-         la puerta - un panel de pared no deberia necesitar scroll para eso. Este es el MISMO
-         diseño que pantalla completa ya resolvia (velo degradado + controles flotantes mas
-         abajo), traido al modo normal en vez de reinventado - la unica diferencia real es que
-         aqui el marco de video puede ser pequeño, así que el velo es porcentual y no en pixeles
-         fijos como el de pantalla completa (que siempre ocupa la pantalla entera). */
+      /* ---- status line + action buttons: OVER the video, not below it ----
+         Inaki, 2026-09-07: "for a universal solution that works on any device, it's better for
+         the card to put those buttons INSIDE the video image itself, at the bottom". Measured on
+         the real wallpanel (Galaxy Tab in landscape): with the buttons below the video frame they
+         ended up cut off below the fold and opening the door needed scrolling - a wall panel
+         should not need scrolling for that. This is the SAME design fullscreen already solved
+         (gradient scrim + floating controls below), brought to normal mode instead of
+         reinvented - the only real difference is that here the video frame can be small, so the
+         scrim is percentage-based and not in fixed pixels like fullscreen's (which always fills
+         the whole screen). */
       .status-line {
         position: absolute; left: 0; right: 0; bottom: 122px; z-index: 7;
         font-size: 12px; text-align: center; font-weight: 500; pointer-events: none;
@@ -6095,20 +6096,20 @@ class IslautopiaIntercomView extends HTMLElement {
       .status-line.open { color: var(--ig-green); font-weight: 600; }
       .status-line.warn { color: var(--ig-amber); font-weight: 600; }
 
-      /* Velo de legibilidad bajo los controles flotantes - mismo motivo que en pantalla completa
-         (ver mas abajo): sobre un portal a mediodia el texto claro se vuelve ilegible, y aqui hay
-         que leer "Puerta abierta" o "canal ocupado". Contenido por el overflow:hidden y el
-         border-radius de .feed-wrap, asi que no se sale del marco redondeado. */
+      /* Readability scrim under the floating controls - same reason as in fullscreen
+         (see below): over a doorway at noon light text becomes illegible, and here you need to
+         read "Door open" or "channel busy". Contained by .feed-wrap's overflow:hidden and
+         border-radius, so it doesn't spill out of the rounded frame. */
       .feed-wrap::after {
         content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 46%; z-index: 4;
         background: linear-gradient(180deg, transparent, rgba(0,0,0,0.5) 55%, rgba(0,0,0,0.72));
         pointer-events: none;
       }
 
-      /* ---- botones de accion asimetricos: mic protagonista, puerta secundario ----
-         position:absolute + pointer-events:none en la fila y :auto en cada accion, igual criterio
-         que pantalla completa: la fila no debe robar clicks al video en la zona donde no hay
-         boton, solo los circulos en si. */
+      /* ---- asymmetric action buttons: mic is the star, door is secondary ----
+         position:absolute + pointer-events:none on the row and :auto on each action, same
+         criterion as fullscreen: the row must not steal clicks from the video in the area where
+         there is no button, only the circles themselves. */
       .actions-row {
         position: absolute; left: 0; right: 0; bottom: 10px; z-index: 8;
         display: flex; justify-content: center; align-items: flex-end; gap: 16px;
@@ -6119,54 +6120,54 @@ class IslautopiaIntercomView extends HTMLElement {
       .action .btn {
         border-radius: 50%; border: 2px solid rgba(255,255,255,0.08); cursor: pointer;
         display: flex; align-items: center; justify-content: center; position: relative;
-        /* Translucido + blur (no el solido surf2/surf3 de antes): el boton ahora vive SOBRE el
-           video en cualquier escena, no sobre el fondo oscuro fijo de la card. */
+        /* Translucent + blur (not the solid surf2/surf3 from before): the button now lives OVER
+           the video in any scene, not over the card's fixed dark background. */
         background: linear-gradient(135deg, rgba(22,35,54,0.92), rgba(29,45,66,0.92));
         backdrop-filter: blur(6px);
         box-shadow: 0 6px 22px rgba(0,0,0,0.65); color: var(--ig-muted); transition: all 0.3s ease;
       }
       .action .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-      /* 80px/60px EXACTOS confirmados contra el codigo fuente real (2026-07-10, antes 76/56
-         aproximados de la reconstruccion visual) - ver COORDINATION.md Q22-bis. Sonido se unio a
-         la fila (2026-09-25 mañana) con el mismo tamaño "secundario" que la puerta; REC vivio aqui
-         unas horas ese mismo dia y se traslado a la cabecera esa misma tarde (ver .rec-pill mas
-         arriba) - "el aspecto es muy distinto al de las apps" comparado con la app real. */
+      /* 80px/60px EXACT, confirmed against the real source code (2026-07-10, before 76/56
+         approximated from the visual reconstruction) - see COORDINATION.md Q22-bis. Sound joined
+         the row (2026-09-25 morning) with the same "secondary" size as the door; REC lived here
+         for a few hours that same day and moved to the header that same afternoon (see .rec-pill
+         above) - "the look is very different from the apps'" compared to the real app. */
       .action .btn.mic { width: 80px; height: 80px; }
       .action .btn.mic ha-icon { --mdc-icon-size: 30px; }
       .action .btn.door, .action .btn.snd { width: 60px; height: 60px; }
       .action .btn.door ha-icon, .action .btn.snd ha-icon { --mdc-icon-size: 24px; }
-      .action .btn.active-intercom { background: linear-gradient(135deg, var(--ig-cyan), var(--ig-blue)); border-color: transparent; box-shadow: 0 0 28px rgba(0,196,212,0.45), 0 8px 24px rgba(0,0,0,0.4); color: var(--ig-text); transform: scale(1.05); }
+      .action .btn.active-talk { background: linear-gradient(135deg, var(--ig-cyan), var(--ig-blue)); border-color: transparent; box-shadow: 0 0 28px rgba(0,196,212,0.45), 0 8px 24px rgba(0,0,0,0.4); color: var(--ig-text); transform: scale(1.05); }
       .action .btn.active-unlock { background: linear-gradient(135deg, var(--ig-green), #388E3C); border-color: transparent; box-shadow: 0 0 22px rgba(76,175,80,0.5); color: var(--ig-text); transform: scale(1.05); }
-      /* Altavoz de la calle (§1.10): mismo criterio visual que el resto - gris apagado en reposo
-         (mudo), cian cuando de verdad se oye. Sustituye al antiguo boton pequeño sin fondo del
-         HUD (.snd-btn), que vivia junto al deslizador de volumen ya retirado. */
+      /* Street speaker (§1.10): same visual criterion as the rest - dull gray at rest
+         (muted), cyan when it's really audible. Replaces the old small backgroundless HUD
+         button (.snd-btn), which used to live next to the now-removed volume slider. */
       .action .btn.snd.on { color: var(--ig-cyan); border-color: rgba(0,196,212,0.5); box-shadow: 0 0 18px rgba(0,196,212,0.35), 0 6px 22px rgba(0,0,0,0.65); }
       .pulsering { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--ig-cyan); animation: ig-ring 1.2s infinite; pointer-events: none; display: none; }
-      .action .btn.active-intercom .pulsering { display: block; }
+      .action .btn.active-talk .pulsering { display: block; }
       @keyframes ig-ring { 0% { transform: scale(1); opacity: 0.55; } 100% { transform: scale(1.55); opacity: 0; } }
-      /* Etiquetas claras + sombra, no el gris apagado de antes: tienen que leerse sobre CUALQUIER
-         fondo de video, igual que ya resolvia pantalla completa. */
+      /* Light labels + shadow, not the dull gray from before: they have to read over ANY
+         video background, just as fullscreen already solved. */
       .action .lbl { font-size: 12px; font-weight: 500; color: rgba(232,240,254,0.9); text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
       .action .lbl.on-cyan { color: var(--ig-cyan); }
       .action .lbl.on-green { color: var(--ig-green); }
       .action .lbl.on-amber { color: var(--ig-amber); }
 
-      /* ---- HUD inferior-dcha (volumen/calidad/pantalla completa): no puede pisar los botones de
-         accion ni la linea de estado que ahora flotan encima del video. Con el marco ancho hay
-         sitio de sobra a la derecha de los botones centrados; por debajo de ~520px de ancho de
-         video (un movil en vertical, o el carril NO aplica porque el video no es vertical-en-
-         marco-apaisado) el cluster ya no cabe al lado y sube por encima de toda la pila
-         (boton+etiqueta+linea de estado). Mismo umbral que pantalla completa (ver mas abajo), y
-         medido igual: hay que probarlo, no calcularlo de memoria. */
+      /* ---- bottom-right HUD (volume/quality/fullscreen): must not overlap the action buttons
+         or the status line, which now float over the video. With a wide frame there is plenty
+         of room to the right of the centered buttons; below ~520px of video width (a portrait
+         phone, or the rail does NOT apply because the video isn't vertical-inside-a-landscape-
+         frame) the cluster no longer fits alongside and moves above the whole stack
+         (button+label+status line). Same threshold as fullscreen (see below), and measured the
+         same way: it has to be tested, not calculated from memory. */
       @container igfeed (max-width: 520px) {
         .hud-bottom { bottom: 148px; }
       }
 
-      /* Con sonido sumado a la fila (2026-09-25) los tres botones no caben con su tamaño normal en
-         una card estrecha (movil en vertical, o una columna angosta de un dashboard de escritorio)
-         - se encogen un escalon en vez de desbordar o envolver la fila, que rompería la
-         disposicion fija que pide el contrato (sonido, micro, abrir, en ese orden y en una sola
-         linea; REC ya no vive aqui, ver .rec-pill). */
+      /* With sound added to the row (2026-09-25) the three buttons don't fit at their normal size
+         on a narrow card (portrait phone, or a narrow column of a desktop dashboard)
+         - they shrink one step instead of overflowing or wrapping the row, which would break the
+         fixed layout the contract asks for (sound, mic, unlock, in that order and on a single
+         line; REC no longer lives here, see .rec-pill). */
       @container igfeed (max-width: 380px) {
         .actions-row { gap: 8px; }
         .action .btn.mic { width: 68px; height: 68px; }
@@ -6178,21 +6179,22 @@ class IslautopiaIntercomView extends HTMLElement {
         .action .lbl { display: none; }
       }
 
-      /* ---- estados del boton de micro introducidos por el turno de palabra (§1.4-ter #1) ----
-         Los tres son visualmente DISTINTOS entre si y del "hablando" (cian): pidiendo turno
-         (ambar pulsante), solo escucha (ambar fijo, turno denegado pero se oye al portero) y
-         ocupado por otro (contorno ambar tenue, sin llegar a parecer deshabilitado - se puede
-         pulsar, y el portero contesta con un talk_denied explicito). */
+      /* ---- mic button states introduced by the talk turn (§1.4-ter #1) ----
+         The three are visually DISTINCT from each other and from "talking" (cyan): requesting
+         turn (pulsing amber), listen-only (fixed amber, turn denied but the doorbell can be
+         heard) and busy with another (faint amber outline, without looking disabled - it can
+         still be pressed, and the doorbell replies with an explicit talk_denied). */
       .action .btn.requesting { border-color: var(--ig-amber); color: var(--ig-amber); animation: ig-breathe 1.1s ease-in-out infinite; }
       .action .btn.listen-only { background: linear-gradient(135deg, var(--ig-surf3), #2a3a52); border-color: var(--ig-amber); color: var(--ig-amber); }
       .action .btn.busy-other { border-color: rgba(255,179,0,0.45); color: rgba(255,179,0,0.8); }
       @keyframes ig-breathe { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
 
-      /* ---- confirmacion de apertura (§1.8): estado ARMADO del boton de puerta ----
-         Ambar, no verde: verde es "abierta" y esto todavia no ha abierto nada. El anillo que se
-         encoge es la cuenta atras de los 3 segundos - el contrato la pide "si se puede", y aqui se
-         puede sin ningun temporizador en JS. Sin ella, un boton armado se ve igual el primer
-         segundo que el tercero y el usuario no sabe si aun le vale pulsar. */
+      /* ---- unlock confirmation (§1.8): ARMED state of the door button ----
+         Amber, not green: green means "open" and this hasn't opened anything yet. The shrinking
+         ring is the 3-second countdown - the contract asks for it "if feasible", and here it's
+         feasible with no JS timer at all. Without it, an armed button looks the same in the
+         first second as in the third, and the user doesn't know whether pressing it still
+         counts. */
       .action .btn.confirming {
         border-color: var(--ig-amber); color: var(--ig-amber);
         background: linear-gradient(135deg, rgba(255,179,0,0.18), rgba(255,179,0,0.06));
@@ -6205,186 +6207,188 @@ class IslautopiaIntercomView extends HTMLElement {
       }
       @keyframes ig-armed { 0% { transform: scale(1.25); opacity: 0.9; } 100% { transform: scale(1); opacity: 0; } }
 
-      /* ---- estado ABRIENDO (§1.0): se ha mandado el mensaje de apertura y se espera respuesta --
-         Visualmente distinto del verde de "abierta", que es la afirmacion que no se puede
-         adelantar. El icono gira mientras dura: una accion que tarda tiene que verse en curso
-         desde el primer instante, y este estado SIEMPRE termina - o llega open_result, o salta el
-         plazo de 6s y se dice que no hubo respuesta. */
+      /* ---- OPENING state (§1.0): the unlock message has been sent and a reply is awaited --
+         Visually distinct from the green of "open", which is the confirmation that cannot be
+         assumed ahead of time. The icon spins while it lasts: an action that takes a while has
+         to look in progress from the very first instant, and this state ALWAYS ends - either
+         open_result arrives, or the 6s deadline is hit and it says there was no reply. */
       .action .btn.opening { border-color: var(--ig-amber); color: var(--ig-amber); }
       .action .btn.opening ha-icon { animation: ig-spin 1s linear infinite; }
 
       /* ==========================================================================
-         PANTALLA COMPLETA. Un SOLO juego de reglas para los dos niveles
-         (API nativa y respaldo propio), gobernado por el atributo [data-fs] - ver
-         _applyFullscreenUI(). La unica diferencia entre niveles es el bloque .ig-fs-pseudo de
-         mas abajo: en pantalla completa nativa quien coloca el elemento es el navegador.
+         FULLSCREEN. A SINGLE set of rules for both levels
+         (native API and our own fallback), governed by the [data-fs] attribute - see
+         _applyFullscreenUI(). The only difference between levels is the .ig-fs-pseudo block
+         further below: in native fullscreen it's the browser that positions the element.
 
-         Los !important de .feed-wrap no son un atajo: el alto/la proporcion del marco de video
-         se fijan como estilo EN LINEA desde render() (opcion 'height' de la card), y un estilo en
-         linea gana a cualquier regla normal de esta hoja. Es el caso justo para el que existe
-         !important, no una pelea de especificidad inventada.
+         The !important on .feed-wrap is not a shortcut: the video frame's height/aspect ratio
+         are set as an INLINE style from render() (the card's 'height' option), and an inline
+         style beats any normal rule in this sheet. This is exactly the case !important exists
+         for, not a made-up specificity fight.
          ========================================================================== */
       ${VIEW_TAG}[data-fs] { height: 100%; background: #000; }
-      /* Red de seguridad para pantalla completa NATIVA (2026-09-25, ver el porque medido en
-         _applyFullscreenUI()): fuerza el mismo position:fixed + inset:0 explicito que el respaldo
-         CSS ya se daba a si mismo, en vez de confiar en que la hoja UA del navegador coloque
-         :fullscreen a pantalla completa por su cuenta - en al menos un WebView real (app de
-         Home Assistant Android) no bastaba, y el sintoma era una franja negra estable de ~210px
-         abajo con la barra de estado/navegacion del sistema ya ocultas (o sea, el hueco esta
-         DENTRO del contenido web, no es del sistema operativo). Nunca se activa en el respaldo
-         (.ig-fs-pseudo), que no necesita esto y no debe tocarse. */
+      /* Safety net for NATIVE fullscreen (2026-09-25, see the why measured in
+         _applyFullscreenUI()): forces the same explicit position:fixed + inset:0 that the CSS
+         fallback already gave itself, instead of trusting the browser's UA sheet to lay out
+         :fullscreen full-screen on its own - in at least one real WebView (the Home Assistant
+         Android app) it wasn't enough, and the symptom was a stable ~210px black strip at the
+         bottom with the system status/nav bars already hidden (i.e. the gap is INSIDE the web
+         content, it isn't the OS's). Never triggered on the fallback (.ig-fs-pseudo), which
+         doesn't need this and must not be touched. */
       ${VIEW_TAG}.ig-fs-native-layout {
         position: fixed; inset: 0; width: 100%; height: 100%;
       }
-      /* Contenedor de emergencia al que se traslada la card cuando un ancestro atrapa el
-         position:fixed. No lleva estilos propios a proposito: quien se posiciona es el
-         contenedor de la card, y un host con caja propia solo podria estorbar. */
+      /* Emergency container the card is moved into when an ancestor traps
+         position:fixed. It has no styles of its own on purpose: what gets positioned is the
+         card's container, and a host with a box of its own could only get in the way. */
       .ig-fs-host { display: contents; }
       ${VIEW_TAG}[data-fs] ha-card {
         height: 100%; border-radius: 0; box-shadow: none; border: none;
       }
-      .intercom-container.ig-fs {
+      .ig-container.ig-fs {
         height: 100%; padding: 0; gap: 0; background: #000;
       }
-      /* La cabecera (chip de modo + REC) y Grabaciones se retiran: ninguno de los dos es algo que
-         se atienda con alguien esperando en la puerta. Los dos botones que el contrato pide (micro
-         y abrir) siguen ahi, flotando sobre la imagen. */
-      .intercom-container.ig-fs .top-row, .intercom-container.ig-fs .bottom-row { display: none !important; }
-      .intercom-container.ig-fs .feed-wrap {
+      /* The header (mode chip + REC) and Recordings are removed: neither of the two is something
+         to tend to while someone is waiting at the door. The two buttons the contract requires
+         (mic and unlock) stay there, floating over the image. */
+      .ig-container.ig-fs .top-row, .ig-container.ig-fs .bottom-row { display: none !important; }
+      .ig-container.ig-fs .feed-wrap {
         position: absolute; inset: 0; width: 100%;
         height: 100% !important; aspect-ratio: auto !important;
         border-radius: 0; border: none;
       }
-      /* object-fit contain, no cover: recortar para llenar el hueco dejaria a quien esta en la puerta
-         fuera del encuadre segun la forma de la pantalla. En un videoportero eso no es un detalle
-         estetico. */
-      .intercom-container.ig-fs .video-wrapper video { object-fit: contain; }
+      /* object-fit contain, not cover: cropping to fill the gap would leave whoever is at the
+         door out of frame depending on the screen's shape. In a video doorbell that is not a
+         cosmetic detail. */
+      .ig-container.ig-fs .video-wrapper video { object-fit: contain; }
 
-      /* Los dos botones, flotando sobre la imagen. NO se ocultan solos: no hay ningun temporizador
-         que los esconda, a proposito. */
-      .intercom-container.ig-fs .actions-row {
+      /* The two buttons, floating over the image. They do NOT auto-hide: there is no timer
+         that hides them, on purpose. */
+      .ig-container.ig-fs .actions-row {
         position: absolute; left: 0; right: 0; bottom: 16px; z-index: 8;
         padding: 0; gap: 34px; pointer-events: none;
       }
-      /* Velo degradado bajo los controles flotantes. No es adorno: sobre una imagen clara (un
-         portal a mediodia) el texto blanco de las etiquetas y la linea de estado se vuelve
-         ilegible, y aqui lo que hay que leer es "Puerta abierta" o "canal ocupado". */
-      .intercom-container.ig-fs .feed-wrap::after {
+      /* Gradient scrim under the floating controls. Not decoration: over a bright image (a
+         doorway at noon) the white text of the labels and status line becomes illegible, and
+         here what has to be read is "Door open" or "channel busy". */
+      .ig-container.ig-fs .feed-wrap::after {
         content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 210px;
         background: linear-gradient(180deg, transparent, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.72));
         pointer-events: none; z-index: 4;
       }
-      .intercom-container.ig-fs .actions-row .action { pointer-events: auto; }
-      .intercom-container.ig-fs .action .btn {
+      .ig-container.ig-fs .actions-row .action { pointer-events: auto; }
+      .ig-container.ig-fs .action .btn {
         box-shadow: 0 6px 22px rgba(0,0,0,0.65);
         background: linear-gradient(135deg, rgba(22,35,54,0.92), rgba(29,45,66,0.92));
         backdrop-filter: blur(6px);
       }
-      .intercom-container.ig-fs .action .lbl {
+      .ig-container.ig-fs .action .lbl {
         color: rgba(232,240,254,0.9); text-shadow: 0 1px 4px rgba(0,0,0,0.8);
       }
-      /* La linea de estado (puerta abierta, canal ocupado, sin cerradura) tambien flota: es donde
-         se contesta al usuario cuando pulsa, y dejarla fuera de la vista en este modo la haria
-         inutil justo cuando mas se usa. */
-      /* Justo encima de los botones (que ocupan 16px de margen + 80 de boton + 6 + etiqueta). */
-      .intercom-container.ig-fs .status-line {
+      /* The status line (door open, channel busy, no lock) also floats: it's where the user
+         gets an answer when they press a button, and leaving it out of view in this mode would
+         make it useless right when it's used the most. */
+      /* Right above the buttons (which take up 16px margin + 80 for the button + 6 + label). */
+      .ig-container.ig-fs .status-line {
         position: absolute; left: 0; right: 0; bottom: 136px; z-index: 7;
         pointer-events: none; text-shadow: 0 1px 4px rgba(0,0,0,0.85);
         color: rgba(232,240,254,0.85);
       }
-      /* El cluster inferior del HUD (volumen, calidad, pantalla completa) se queda abajo a la
-         DERECHA: los botones de accion van centrados, asi que en una pantalla ancha no se tocan y
-         es donde el usuario ya los tiene aprendidos del modo normal. Solo cuando no caben los dos
-         a lo ancho - un movil en vertical - sube por encima. Medido, no estimado: con 412px de
-         ancho el bloque centrado ocupa ~119..293 y el cluster derecho ~253..398, es decir 40px de
-         solape real. La consulta es de CONTENEDOR (el propio marco de video), no de ventana, por
-         el mismo motivo que el resto de la card: lo que manda es el ancho del video. */
+      /* The HUD's bottom cluster (volume, quality, fullscreen) stays at the bottom on the
+         RIGHT: the action buttons are centered, so on a wide screen they don't touch and it's
+         where the user already learned to find them from normal mode. Only when the two don't
+         fit side by side - a portrait phone - does it move above. Measured, not estimated: at
+         412px width the centered block occupies ~119..293 and the right cluster ~253..398, i.e.
+         40px of real overlap. The query is a CONTAINER query (the video frame itself), not a
+         window one, for the same reason as the rest of the card: what matters is the video's
+         width. */
       @container igfeed (max-width: 520px) {
-        .intercom-container.ig-fs .hud-bottom { bottom: 174px; }
+        .ig-container.ig-fs .hud-bottom { bottom: 174px; }
       }
 
       /* ==========================================================================
-         CARRIL LATERAL - video VERTICAL dentro de un marco APAISADO (§1.9)
-         El caso real es una tablet de pared, que vive en apaisado permanentemente. Un video
-         vertical ahi ocupa una franja central y deja dos huecos grandes a los lados.
-         La solucion NO es recortar para llenar: eso tira la parte de arriba y la de abajo, que es
-         justo lo que se gano girando el sensor. La solucion es USAR uno de esos huecos.
-         Reglas que no admiten interpretacion, de la correccion de Iñaki al ver iOS:
-          - El video ocupa TODA la altura, de extremo a extremo. En apaisado la altura es el
-            recurso escaso.
-          - El carril es solo tan ancho como el objetivo tactil que contiene (RAIL_WIDTH en JS).
-            Una columna de botones, no un panel: el ancho que se lleva el carril es alto que
-            pierde el video.
-         La clase la pone _layoutRotation() midiendo el marco de verdad, no una @container: este
-         contenedor es de tipo inline-size y por tanto no puede consultarse por proporcion.
+         SIDE RAIL - VERTICAL video inside a LANDSCAPE frame (§1.9)
+         The real case is a wall tablet, which lives permanently in landscape. A vertical video
+         there occupies a central strip and leaves two big gaps on the sides.
+         The solution is NOT to crop to fill: that throws away the top and bottom, which is
+         exactly what was gained by rotating the sensor. The solution is to USE one of those gaps.
+         Rules that admit no interpretation, from Inaki's correction after seeing iOS:
+          - The video occupies the FULL height, edge to edge. In landscape, height is the
+            scarce resource.
+          - The rail is only as wide as the touch target it contains (RAIL_WIDTH in JS). A
+            column of buttons, not a panel: the width the rail takes is height the video loses.
+         _layoutRotation() sets the class by measuring the real frame, not a @container: this
+         container is of type inline-size and therefore cannot be queried by aspect ratio.
 
-         SIN el prefijo .ig-fs a proposito desde 2026-09-07: antes esta seccion solo regia en
-         pantalla completa porque solo alli los botones flotaban sobre el video. Ahora que
-         flotan SIEMPRE (ver .actions-row/.status-line mas arriba), el carril tiene que poder
-         aparecer tambien en modo normal - es literalmente el mismo wallpanel en apaisado, la
-         card nunca sale de ese modo. La decision de CUANDO sigue siendo solo de _layoutRotation()
-         (geometria real), no de esta hoja.
+         WITHOUT the .ig-fs prefix on purpose since 2026-09-07: this section used to only apply
+         in fullscreen because only there did the buttons float over the video. Now that they
+         float ALWAYS (see .actions-row/.status-line above), the rail has to be able to appear
+         in normal mode too - it is literally the same landscape wallpanel, the card never
+         leaves that mode. The decision of WHEN still belongs only to _layoutRotation()
+         (real geometry), not to this sheet.
 
-         --ig-rail-gap (Iñaki, 2026-09-08, tras ver el wallpanel real: "Debería tener la imagen
-         en toda la altura, tomando el lateral para los botones" - el carril quedaba pegado al
-         BORDE DEL MARCO, a ~700px de la imagen, porque esta seccion se trajo de pantalla completa
-         sin el supuesto que alli la hacia correcta: que el marco ES la pantalla, asi que "pegado
-         al marco" y "pegado a la imagen" eran casi lo mismo. En la card embebida no lo son.
-         _layoutRotation() calcula cuanto sobra a la derecha de la imagen YA CENTRADA una vez
-         reservado el ancho del propio carril, y lo escribe aqui como variable - con right:
-         var(--ig-rail-gap) en vez de right:0, el carril (y su velo, y el hueco que le deja el
-         HUD) se pegan al borde REAL de la imagen sea cual sea el ancho del marco, en vez de al
-         borde del marco. El valor por defecto (0px) es el caso pantalla-completa: alli el margen
-         es minimo por construccion, asi que el comportamiento no cambia (o cambia poco). */
-      .intercom-container.ig-rail .actions-row {
+         --ig-rail-gap (Inaki, 2026-09-08, after seeing the real wallpanel: "The image should
+         take up the full height, using the side for the buttons" - the rail was stuck to the
+         FRAME EDGE, ~700px away from the image, because this section was brought over from
+         fullscreen without the assumption that made it correct there: that the frame IS the
+         screen, so "stuck to the frame" and "stuck to the image" were almost the same thing. In
+         the embedded card they are not.
+         _layoutRotation() calculates how much space is left to the right of the ALREADY
+         CENTERED image once the rail's own width is reserved, and writes it here as a
+         variable - with right: var(--ig-rail-gap) instead of right:0, the rail (and its scrim,
+         and the gap the HUD leaves for it) stick to the REAL edge of the image whatever the
+         frame's width, instead of to the frame's edge. The default value (0px) is the
+         fullscreen case: there the margin is minimal by construction, so behavior doesn't
+         change (or barely changes). */
+      .ig-container.ig-rail .actions-row {
         left: auto; right: var(--ig-rail-gap, 0px); bottom: auto; top: 50%;
         transform: translateY(-50%);
         width: 104px; flex-direction: column; align-items: center; gap: 22px;
       }
-      /* El velo de legibilidad pasa de la banda inferior al lateral, que es donde estan ahora los
-         controles - y viaja CON el carril (mismo right: var(--ig-rail-gap)), para no quedar
-         iluminando un trozo de negro vacio mientras los botones se leen sobre nada. */
-      .intercom-container.ig-rail .feed-wrap::after {
+      /* The readability scrim moves from the bottom band to the side, which is where the
+         controls now are - and travels WITH the rail (same right: var(--ig-rail-gap)), so it
+         doesn't end up lighting up a patch of empty black while the buttons read against
+         nothing. */
+      .ig-container.ig-rail .feed-wrap::after {
         left: auto; right: var(--ig-rail-gap, 0px); top: 0; bottom: 0; width: 168px; height: auto;
         background: linear-gradient(90deg, transparent, rgba(0,0,0,0.55) 55%, rgba(0,0,0,0.72));
       }
-      /* La linea de estado vuelve abajo del todo: encima de los botones ya no hay botones.
-         Iñaki, 2026-09-08, tras ver "System idle" flotando a la izquierda del video en la
-         captura del wallpanel: el left:0 de esta regla es EL MISMO fallo que el del carril,
-         sobreviviendo en otro elemento - anclado al borde del MARCO en vez de al de la IMAGEN. Y
-         no es cosmetico: es la linea que dice "Puerta abierta" o "canal ocupado", justo lo que
-         hay que leer con alguien esperando en la puerta.
-         gap + RAIL_WIDTH es exactamente sobranteCadaLado (el margen que la imagen centrada ya
-         deja a cada lado, ver _layoutRotation) - con left Y right a esa misma distancia de
-         cada borde del marco, la caja de la linea de estado mide EXACTO el ancho de la imagen, no
-         el del marco. El right ya sumaba el hueco (112px de despeje respecto al borde del
-         carril, que es un desplazamiento relativo al CARRIL y sigue siendo valido tal cual). */
-      .intercom-container.ig-rail .status-line {
+      /* The status line goes back to the very bottom: there are no buttons above it any more.
+         Inaki, 2026-09-08, after seeing "System idle" floating to the left of the video in the
+         wallpanel screenshot: this rule's left:0 is THE SAME bug as the rail's, surviving in
+         another element - anchored to the FRAME's edge instead of the IMAGE's. And it's not
+         cosmetic: it's the line that says "Door open" or "channel busy", exactly what needs to
+         be read with someone waiting at the door.
+         gap + RAIL_WIDTH is exactly leftoverPerSide (the margin the centered image already
+         leaves on each side, see _layoutRotation) - with left AND right at that same distance
+         from each frame edge, the status line's box measures EXACTLY the image's width, not the
+         frame's. The right already added the gap (112px of clearance from the rail's edge,
+         which is an offset relative to the RAIL and stays valid as is). */
+      .ig-container.ig-rail .status-line {
         bottom: 14px;
         left: calc(var(--ig-rail-gap, 0px) + var(--ig-rail-width, 104px));
         right: calc(112px + var(--ig-rail-gap, 0px));
       }
-      /* Y el cluster del HUD se aparta del carril para no solaparse con el - mismo razonamiento
-         que la linea de estado: el desplazamiento fijo (118px) era para el carril pegado al
-         marco, y ahora hay que sumarle el hueco que el carril deja hasta el marco. */
-      .intercom-container.ig-rail .hud-bottom { right: calc(118px + var(--ig-rail-gap, 0px)); bottom: 12px; }
+      /* And the HUD cluster moves away from the rail so it doesn't overlap it - same reasoning
+         as the status line: the fixed offset (118px) was for the rail stuck to the frame, and
+         now the gap the rail leaves up to the frame has to be added to it. */
+      .ig-container.ig-rail .hud-bottom { right: calc(118px + var(--ig-rail-gap, 0px)); bottom: 12px; }
 
-      /* Nivel 2: respaldo propio. El tamano lo dan 'inset: 0' y 'width/height: auto', NO unidades
-         de viewport, y eso es deliberado: '100vw' INCLUYE la barra de desplazamiento y el bloque
-         contenedor de un position:fixed no. En un dashboard con scroll -- la mayoria de los
-         reales -- '100vw' deja el elemento unos 10-17px mas ancho que la zona visible y provoca
-         desbordamiento horizontal. Con 'inset: 0' el elemento mide exactamente el viewport
-         visible, que es lo que se quiere y ademas lo que hace comparable la comprobacion de
-         _enterFullscreen().
-         Los !important estan para ganarle al 'width: 100%' que se fija como estilo EN LINEA
-         sobre el propio elemento (ver setConfig) y al 'height: 100%' del modo. */
-      .intercom-container.ig-fs-pseudo {
+      /* Level 2: our own fallback. The size comes from 'inset: 0' and 'width/height: auto', NOT
+         viewport units, and that is deliberate: '100vw' INCLUDES the scrollbar and a
+         position:fixed's containing block does not. On a scrolling dashboard -- most real
+         ones -- '100vw' leaves the element about 10-17px wider than the visible area and causes
+         horizontal overflow. With 'inset: 0' the element measures exactly the visible viewport,
+         which is what's wanted and also what makes _enterFullscreen()'s check comparable.
+         The !important are there to beat the 'width: 100%' set as an INLINE style on the
+         element itself (see setConfig) and the mode's 'height: 100%'. */
+      .ig-container.ig-fs-pseudo {
         position: fixed; inset: 0; z-index: 2147483000;
         width: auto !important; height: auto !important; max-width: none;
       }
       body.ig-fs-body-lock { overflow: hidden !important; }
 
-      /* ---- 1.9.7: cabecera con REC + campanita a la derecha ---- */
+      /* ---- 1.9.7: header with REC + bell on the right ---- */
       .top-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
       .bell-btn {
         position: relative; width: 30px; height: 30px; border-radius: 50%; border: none; padding: 0;
@@ -6401,45 +6405,45 @@ class IslautopiaIntercomView extends HTMLElement {
       .mode-pill.pending { opacity: 0.7; }
       .mode-pill.pending .mode-pill-caret { animation: ig-breathe 1.1s ease-in-out infinite; }
 
-      /* ---- 1.9.7: MODO PILA (movil en vertical), copiado de la app de iOS: video arriba, chips
-         debajo, botones fuera de la imagen, Grabaciones al final. _fitToSpace() pone la clase y
-         mueve .actions-row a #stack-controls. ---- */
+      /* ---- 1.9.7: STACK MODE (portrait phone), copied from the iOS app: video on top, chips
+         below, buttons outside the image, Recordings at the end. _fitToSpace() sets the class
+         and moves .actions-row to #stack-controls. ---- */
       .stack-controls { display: none; }
-      .intercom-container.ig-stack .feed-wrap { order: 0; }
-      .intercom-container.ig-stack .top-row { order: 1; }
-      .intercom-container.ig-stack .stack-controls { order: 2; display: block; }
-      .intercom-container.ig-stack .bottom-row { order: 3; }
-      .intercom-container.ig-stack .ev-panel { order: 4; }
-      .intercom-container.ig-stack .feed-wrap::after { display: none; }
-      .intercom-container.ig-stack .hud-bottom { bottom: 12px; }
-      /* La fecha/hora va quemada en la esquina superior izquierda del video: el chip de directo
-         baja por debajo, como en la app (medido en su captura, 2026-09-25). */
-      .intercom-container.ig-stack .hud-top { top: 36px; }
-      .intercom-container.ig-stack .status-line { bottom: 58px; left: 12px; right: 12px; }
-      .intercom-container.ig-stack .actions-row {
+      .ig-container.ig-stack .feed-wrap { order: 0; }
+      .ig-container.ig-stack .top-row { order: 1; }
+      .ig-container.ig-stack .stack-controls { order: 2; display: block; }
+      .ig-container.ig-stack .bottom-row { order: 3; }
+      .ig-container.ig-stack .ev-panel { order: 4; }
+      .ig-container.ig-stack .feed-wrap::after { display: none; }
+      .ig-container.ig-stack .hud-bottom { bottom: 12px; }
+      /* The date/time is burned into the video's top-left corner: the live chip moves below
+         it, as in the app (measured from its screenshot, 2026-09-25). */
+      .ig-container.ig-stack .hud-top { top: 36px; }
+      .ig-container.ig-stack .status-line { bottom: 58px; left: 12px; right: 12px; }
+      .ig-container.ig-stack .actions-row {
         position: static; display: flex; justify-content: center; align-items: center;
         gap: 30px; padding: 4px 0 2px; pointer-events: auto; min-height: 120px; box-sizing: border-box;
       }
-      /* Jerarquia de tamaños de la app (Iñaki: «el boton principal es mas grande en comparacion y
-         no parece facil de confundir»): micro 96, puerta 60, sonido 48 - medidos en su captura. */
-      .intercom-container.ig-stack .action .btn.mic { width: 96px; height: 96px; }
-      .intercom-container.ig-stack .action .btn.mic ha-icon { --mdc-icon-size: 36px; }
-      .intercom-container.ig-stack .action .btn.door { width: 60px; height: 60px; }
-      .intercom-container.ig-stack .action .btn.door ha-icon { --mdc-icon-size: 26px; }
-      .intercom-container.ig-stack .action .btn.snd { width: 48px; height: 48px; }
-      .intercom-container.ig-stack .action .btn.snd ha-icon { --mdc-icon-size: 20px; }
-      .intercom-container.ig-stack .action .btn { background: linear-gradient(135deg, var(--ig-surf2), var(--ig-surf3)); backdrop-filter: none; box-shadow: none; }
-      .intercom-container.ig-stack .action .lbl { color: var(--ig-muted); text-shadow: none; font-size: 12px; }
-      .intercom-container.ig-stack .quick-btn { padding: 12px 14px; }
-      .intercom-container.ig-stack .quick-btn-label { font-size: 14px; font-weight: 600; color: var(--ig-text); }
-      /* En PILA (movil vertical, el caso mas estrecho: 375-390px) los dos botones a 14px con el
-         padding de arriba no caben en dos mitades -- se hereda el tamaño mas compacto de .half en
-         vez del de pila general, y se deja que el label envuelva (regla de mas arriba) en vez de
-         cortarse. */
-      .intercom-container.ig-stack .quick-btn.half { padding: 10px 8px; }
-      .intercom-container.ig-stack .quick-btn.half .quick-btn-label { font-size: 12px; font-weight: 600; color: var(--ig-text); }
+      /* The app's size hierarchy (Inaki: «the main button is bigger by comparison and doesn't
+         look easy to confuse»): mic 96, door 60, sound 48 - measured from its screenshot. */
+      .ig-container.ig-stack .action .btn.mic { width: 96px; height: 96px; }
+      .ig-container.ig-stack .action .btn.mic ha-icon { --mdc-icon-size: 36px; }
+      .ig-container.ig-stack .action .btn.door { width: 60px; height: 60px; }
+      .ig-container.ig-stack .action .btn.door ha-icon { --mdc-icon-size: 26px; }
+      .ig-container.ig-stack .action .btn.snd { width: 48px; height: 48px; }
+      .ig-container.ig-stack .action .btn.snd ha-icon { --mdc-icon-size: 20px; }
+      .ig-container.ig-stack .action .btn { background: linear-gradient(135deg, var(--ig-surf2), var(--ig-surf3)); backdrop-filter: none; box-shadow: none; }
+      .ig-container.ig-stack .action .lbl { color: var(--ig-muted); text-shadow: none; font-size: 12px; }
+      .ig-container.ig-stack .quick-btn { padding: 12px 14px; }
+      .ig-container.ig-stack .quick-btn-label { font-size: 14px; font-weight: 600; color: var(--ig-text); }
+      /* In STACK (portrait phone, the narrowest case: 375-390px) the two buttons at 14px with
+         the padding above don't fit as two halves -- the more compact .half size is inherited
+         instead of the general stack one, and the label is allowed to wrap (rule above) instead
+         of getting cut off. */
+      .ig-container.ig-stack .quick-btn.half { padding: 10px 8px; }
+      .ig-container.ig-stack .quick-btn.half .quick-btn-label { font-size: 12px; font-weight: 600; color: var(--ig-text); }
 
-      /* ---- 1.9.7: panel de avisos (la campanita), encima de toda la card ---- */
+      /* ---- 1.9.7: notifications panel (the bell), over the whole card ---- */
       .ev-panel {
         position: absolute; inset: 0; z-index: 40; background: var(--ig-bg);
         flex-direction: column; gap: 8px; padding: 10px; box-sizing: border-box; min-height: 0;
@@ -6481,9 +6485,9 @@ class IslautopiaIntercomView extends HTMLElement {
       .ev-empty ha-icon { --mdc-icon-size: 32px; color: var(--ig-dim); }
       .ev-empty-t { color: var(--ig-text); font-weight: 600; }
 
-      /* Respuesta rapida (v1.9.8): filas de #qr-panel son <button>, a diferencia de las de
-         #ev-panel (<div>, solo lectura) -- reset de lo que el navegador le pone a un <button> por
-         defecto; el resto del aspecto (fondo, radio, icono) ya lo da .ev-row/.ev-ic reutilizados. */
+      /* Quick reply (v1.9.8): #qr-panel's rows are <button>, unlike #ev-panel's (<div>,
+         read-only) -- reset of what the browser puts on a <button> by default; the rest of the
+         look (background, radius, icon) already comes from the reused .ev-row/.ev-ic. */
       .qr-row { border: none; width: 100%; text-align: left; font-family: inherit; cursor: pointer; }
       .qr-row:hover:not(:disabled) { background: var(--ig-surf2); }
       .qr-row:disabled { opacity: 0.55; cursor: default; }
@@ -6502,11 +6506,11 @@ class IslautopiaIntercomView extends HTMLElement {
       /* Touch targets: 44 px on touch devices (Apple HIG / WCAG 2.5.5). Measured in 1.10.0: mode chip
          32, REC 24, bell 30, fullscreen 30. A mouse keeps the compact sizes. --ig-tap is the same
          number for the pieces this block adds. */
-      .intercom-container { --ig-tap: 34px; }
+      .ig-container { --ig-tap: 34px; }
       /* The picker shrinks with an ellipsis, but never below one target (it was squeezed to 26 px). */
       .db-picker { min-width: min(100%, 96px); }
       @media (pointer: coarse) {
-        .intercom-container { --ig-tap: 44px; }
+        .ig-container { --ig-tap: 44px; }
         .db-pill, .mode-pill { min-height: 44px; box-sizing: border-box; }
         .rec-pill { height: 44px; padding: 0 12px; box-sizing: border-box; }
         .bell-btn { width: 44px; height: 44px; }
@@ -6518,10 +6522,10 @@ class IslautopiaIntercomView extends HTMLElement {
         .ev-chip { min-height: 44px; }
       }
       /* Hidden from the eye, not from a screen reader (the button keeps its name). */
-      .ig-vh-lbl, .intercom-container.ig-side-compact .side-col .action .lbl,
-      .intercom-container.ig-side-compact .side-col .rec-pill-label,
-      .intercom-container.ig-side-compact .side-col .quick-btn-label,
-      .intercom-container.ig-short .top-right .quick-btn-label {
+      .ig-vh-lbl, .ig-container.ig-side-compact .side-col .action .lbl,
+      .ig-container.ig-side-compact .side-col .rec-pill-label,
+      .ig-container.ig-side-compact .side-col .quick-btn-label,
+      .ig-container.ig-short .top-right .quick-btn-label {
         position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
       }
 
@@ -6530,58 +6534,58 @@ class IslautopiaIntercomView extends HTMLElement {
          the pair is centred in the card. Everything else lives in the column, in this order:
          picker / mode / REC + bell, then sound / mic / door, then Recordings / Quick replies. ---- */
       .side-col { display: none; }
-      .intercom-container.ig-side { flex-direction: row; justify-content: center; align-items: flex-start; }
-      .intercom-container.ig-side .feed-wrap { flex: none; }
-      .intercom-container.ig-side .side-col {
+      .ig-container.ig-side { flex-direction: row; justify-content: center; align-items: flex-start; }
+      .ig-container.ig-side .feed-wrap { flex: none; }
+      .ig-container.ig-side .side-col {
         display: flex; flex-direction: column; justify-content: space-between; gap: 10px;
         width: var(--ig-side-w, 144px); flex: none; box-sizing: border-box; min-height: 0;
       }
-      .intercom-container.ig-side .side-col .top-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: stretch; }
-      .intercom-container.ig-side .side-col .top-left, .intercom-container.ig-side .side-col .top-right { display: contents; }
-      .intercom-container.ig-side .side-col .db-picker, .intercom-container.ig-side .side-col .mode-row { grid-column: 1 / -1; min-width: 0; }
-      .intercom-container.ig-side .side-col .db-pill { width: 100%; min-height: var(--ig-tap); }
-      .intercom-container.ig-side .side-col .mode-pill { width: 100%; min-height: var(--ig-tap); justify-content: center; box-sizing: border-box; min-width: 0; }
-      .intercom-container.ig-side .side-col .mode-pill-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-      .intercom-container.ig-side .side-col .rec-action-wrap { min-width: 0; }
-      .intercom-container.ig-side .side-col .rec-pill { width: 100%; height: var(--ig-tap); justify-content: center; box-sizing: border-box; }
-      .intercom-container.ig-side .side-col .bell-btn { width: 100%; height: var(--ig-tap); border-radius: 999px; }
+      .ig-container.ig-side .side-col .top-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: stretch; }
+      .ig-container.ig-side .side-col .top-left, .ig-container.ig-side .side-col .top-right { display: contents; }
+      .ig-container.ig-side .side-col .db-picker, .ig-container.ig-side .side-col .mode-row { grid-column: 1 / -1; min-width: 0; }
+      .ig-container.ig-side .side-col .db-pill { width: 100%; min-height: var(--ig-tap); }
+      .ig-container.ig-side .side-col .mode-pill { width: 100%; min-height: var(--ig-tap); justify-content: center; box-sizing: border-box; min-width: 0; }
+      .ig-container.ig-side .side-col .mode-pill-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+      .ig-container.ig-side .side-col .rec-action-wrap { min-width: 0; }
+      .ig-container.ig-side .side-col .rec-pill { width: 100%; height: var(--ig-tap); justify-content: center; box-sizing: border-box; }
+      .ig-container.ig-side .side-col .bell-btn { width: 100%; height: var(--ig-tap); border-radius: 999px; }
       /* The menus open towards the picture (to the left), not out of the card. */
-      .intercom-container.ig-side .db-menu, .intercom-container.ig-side .mode-menu { left: auto; right: 0; }
-      .intercom-container.ig-side .side-col .actions-row {
+      .ig-container.ig-side .db-menu, .ig-container.ig-side .mode-menu { left: auto; right: 0; }
+      .ig-container.ig-side .side-col .actions-row {
         position: static; transform: none; width: auto; left: auto; right: auto; top: auto; bottom: auto;
         flex-direction: column; justify-content: center; align-items: center; gap: 10px;
         pointer-events: auto; flex: 1 1 auto; min-height: 0; padding: 0;
       }
-      .intercom-container.ig-side .action .btn.door, .intercom-container.ig-side .action .btn.snd { width: 56px; height: 56px; }
-      .intercom-container.ig-side .action .btn { background: linear-gradient(135deg, var(--ig-surf2), var(--ig-surf3)); backdrop-filter: none; box-shadow: none; }
+      .ig-container.ig-side .action .btn.door, .ig-container.ig-side .action .btn.snd { width: 56px; height: 56px; }
+      .ig-container.ig-side .action .btn { background: linear-gradient(135deg, var(--ig-surf2), var(--ig-surf3)); backdrop-filter: none; box-shadow: none; }
       /* Low specificity ON PURPOSE: the state colours (.lbl.on-cyan/.on-green/.on-amber) must win. */
       .ig-side .lbl { color: var(--ig-muted); text-shadow: none; text-align: center; }
-      .intercom-container.ig-side .side-col .bottom-row { flex-direction: column; gap: 8px; }
-      .intercom-container.ig-side .side-col .quick-btn.half { flex: none; min-height: 48px; }
-      .intercom-container.ig-side .side-col .quick-btn.half .quick-btn-label { font-size: 12px; font-weight: 600; color: var(--ig-text); }
+      .ig-container.ig-side .side-col .bottom-row { flex-direction: column; gap: 8px; }
+      .ig-container.ig-side .side-col .quick-btn.half { flex: none; min-height: 48px; }
+      .ig-container.ig-side .side-col .quick-btn.half .quick-btn-label { font-size: 12px; font-weight: 600; color: var(--ig-text); }
       /* Nothing floats over the picture's bottom any more: no veil; status line and HUD as in stack. */
-      .intercom-container.ig-side .feed-wrap::after { display: none; }
-      .intercom-container.ig-side .hud-bottom { bottom: 12px; }
-      .intercom-container.ig-side .hud-top { top: 36px; }
-      .intercom-container.ig-side .status-line { bottom: 58px; left: 12px; right: 12px; }
+      .ig-container.ig-side .feed-wrap::after { display: none; }
+      .ig-container.ig-side .hud-bottom { bottom: 12px; }
+      .ig-container.ig-side .hud-top { top: 36px; }
+      .ig-container.ig-side .status-line { bottom: 58px; left: 12px; right: 12px; }
 
       /* Compact column (image shorter than SIDE_FULL_H): three 44 px targets in the header row
          (mode as its icon, REC as its dot, bell), buttons without labels, Recordings/Quick replies
          as two icons side by side. Measured ~336 px of content: fits SIDE_MIN_H (350). */
-      .intercom-container.ig-side-compact .side-col { gap: 8px; }
-      .intercom-container.ig-side-compact .side-col .top-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-      .intercom-container.ig-side-compact .side-col .mode-row { grid-column: auto; }
-      .intercom-container.ig-side-compact .side-col .mode-pill { padding: 0; }
-      .intercom-container.ig-side-compact .side-col .mode-pill-label, .intercom-container.ig-side-compact .side-col .mode-pill-caret { display: none; }
-      .intercom-container.ig-side-compact .side-col .mode-pill ha-icon { --mdc-icon-size: 18px; }
-      .intercom-container.ig-side-compact .side-col .rec-pill { padding: 0; }
-      .intercom-container.ig-side-compact .side-col .actions-row { gap: 8px; }
-      .intercom-container.ig-side-compact .action .btn.mic { width: 64px; height: 64px; }
-      .intercom-container.ig-side-compact .action .btn.mic ha-icon { --mdc-icon-size: 26px; }
-      .intercom-container.ig-side-compact .action .btn.door, .intercom-container.ig-side-compact .action .btn.snd { width: 48px; height: 48px; }
-      .intercom-container.ig-side-compact .action .btn.door ha-icon, .intercom-container.ig-side-compact .action .btn.snd ha-icon { --mdc-icon-size: 20px; }
-      .intercom-container.ig-side-compact .side-col .bottom-row { flex-direction: row; gap: 6px; }
-      .intercom-container.ig-side-compact .side-col .quick-btn.half { flex: 1 1 0; min-height: 44px; justify-content: center; padding: 6px 0; }
+      .ig-container.ig-side-compact .side-col { gap: 8px; }
+      .ig-container.ig-side-compact .side-col .top-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+      .ig-container.ig-side-compact .side-col .mode-row { grid-column: auto; }
+      .ig-container.ig-side-compact .side-col .mode-pill { padding: 0; }
+      .ig-container.ig-side-compact .side-col .mode-pill-label, .ig-container.ig-side-compact .side-col .mode-pill-caret { display: none; }
+      .ig-container.ig-side-compact .side-col .mode-pill ha-icon { --mdc-icon-size: 18px; }
+      .ig-container.ig-side-compact .side-col .rec-pill { padding: 0; }
+      .ig-container.ig-side-compact .side-col .actions-row { gap: 8px; }
+      .ig-container.ig-side-compact .action .btn.mic { width: 64px; height: 64px; }
+      .ig-container.ig-side-compact .action .btn.mic ha-icon { --mdc-icon-size: 26px; }
+      .ig-container.ig-side-compact .action .btn.door, .ig-container.ig-side-compact .action .btn.snd { width: 48px; height: 48px; }
+      .ig-container.ig-side-compact .action .btn.door ha-icon, .ig-container.ig-side-compact .action .btn.snd ha-icon { --mdc-icon-size: 20px; }
+      .ig-container.ig-side-compact .side-col .bottom-row { flex-direction: row; gap: 6px; }
+      .ig-container.ig-side-compact .side-col .quick-btn.half { flex: 1 1 0; min-height: 44px; justify-content: center; padding: 6px 0; }
 
       /* ---- OVERLAY, short (.ig-short, e.g. a phone in landscape): Recordings / Quick replies move
          into the header as two icon buttons, and their row's height goes to the video. ---- */
@@ -6589,18 +6593,18 @@ class IslautopiaIntercomView extends HTMLElement {
          where nothing else fits) can't hold picker + mode + four round buttons on one line: measured,
          the picker was squeezed to 26 px. The header wraps to a second line instead; the height
          correction in _fitToSpace() takes that line from the video. */
-      .intercom-container.ig-short .top-row { flex-wrap: wrap; row-gap: 8px; }
-      .intercom-container.ig-short .top-left { flex: 1 1 auto; }
+      .ig-container.ig-short .top-row { flex-wrap: wrap; row-gap: 8px; }
+      .ig-container.ig-short .top-left { flex: 1 1 auto; }
       /* In a short frame there is no room ABOVE the buttons for the HUD cluster (the narrow-card rule
          lifts it 148 px, measured: the fullscreen button ended outside a 158 px frame). It goes to
          the top-right corner instead, across from the live tag. */
-      .intercom-container.ig-short .hud-bottom { top: 12px; bottom: auto; left: auto; }
-      .intercom-container.ig-short .top-right .bottom-row { gap: 8px; }
-      .intercom-container.ig-short .top-right .quick-btn.half {
+      .ig-container.ig-short .hud-bottom { top: 12px; bottom: auto; left: auto; }
+      .ig-container.ig-short .top-right .bottom-row { gap: 8px; }
+      .ig-container.ig-short .top-right .quick-btn.half {
         flex: none; width: var(--ig-tap); height: var(--ig-tap); min-height: 0; padding: 0;
         justify-content: center; border-radius: 999px; gap: 0;
       }
-      .intercom-container.ig-short .top-right .quick-btn-icon { width: auto; height: auto; background: none; }
+      .ig-container.ig-short .top-right .quick-btn-icon { width: auto; height: auto; background: none; }
 
     `;
     this.appendChild(style);
@@ -6612,10 +6616,10 @@ class IslautopiaIntercomView extends HTMLElement {
 // ==============================================================================
 //
 // Iñaki, 2026-09-26: «one card, choosing between doorbells in real time» and «the card has no
-// configuration: it's configured in ONE place, the integration». `type: custom:islautopia-intercom-card`
+// configuration: it's configured in ONE place, the integration». `type: custom:ig-doorbell-card`
 // is the whole YAML. Doorbells come from Home Assistant's device registry
-// (identifier ['islautopia_doorbell', <device_id>], the one the integration registers), their
-// entities from the registries (IslautopiaIntercomView._autoEntity), and address/credential as
+// (identifier ['ig_doorbell', <device_id>], the one the integration registers), their
+// entities from the registries (IgDoorbellView._autoEntity), and address/credential as
 // always via the integration (get_connection_info / signaling proxy, ALWAYS local).
 //
 // ⚠️ WHY ONE INSTANCE PER DOORBELL AND NOT "CHANGE THE device_id" OF THE ONE THAT'S THERE.
@@ -6625,14 +6629,14 @@ class IslautopiaIntercomView extends HTMLElement {
 // has dozens of fields per session (turn, quality, role, alerts, quick replies, rotation,
 // pause...) and timers spread across the whole file. Here the change is STRUCTURAL: the
 // old doorbell's instance gets destroyed (it hangs up with `bye` and releases everything that hangs
-// outside itself, see _destruir) and a new one gets created, born blank by construction. A
+// outside itself, see _destroy) and a new one gets created, born blank by construction. A
 // lagging callback from the old one writes, at most, into an element that's no longer on the page.
 //
 // Options from earlier versions (device_id, unlock_entity, ring_entity, rec_entity,
 // mode_entity, motion_entity, unlock_duration, height, idle_release_seconds) are SILENTLY
 // IGNORED: throwing an error would break the existing dashboard of whoever updates.
 // ==============================================================================
-const SELECCION_KEY = 'islautopia-intercom-card-selected';
+const SELECTION_KEY = 'ig-doorbell-card-selected';
 
 // Masonry card size: 1 unit = 50 px. Before the first layout (height 0) a typical card height
 // (~600 px) is assumed, so Masonry doesn't stack everything into the first column.
@@ -6640,13 +6644,13 @@ function cardSizeFromHeight(h) {
   return h > 0 ? Math.max(1, Math.ceil(h / 50)) : 12;
 }
 
-function porteroDeDispositivo(dev) {
+function doorbellIdOfDevice(dev) {
   if (!dev || dev.disabled_by || !Array.isArray(dev.identifiers)) return null;
   const par = dev.identifiers.find((x) => Array.isArray(x) && x[0] === IG_DOMAIN && x[1]);
   return par ? String(par[1]) : null;
 }
 
-class IslautopiaIntercomCard extends HTMLElement {
+class IgDoorbellCard extends HTMLElement {
   static async getConfigElement() {
     return document.createElement(EDITOR_TAG);
   }
@@ -6659,13 +6663,13 @@ class IslautopiaIntercomCard extends HTMLElement {
     this.style.display = 'block';
     this.style.width = '100%';
     this.style.boxSizing = 'border-box';
-    const legado = Object.keys(config || {}).filter((k) => !['type', 'view_layout', 'grid_options', 'visibility', 'layout_options'].includes(k));
-    if (legado.length && !this._legadoAvisado) {
-      this._legadoAvisado = true;
-      console.info(`[islautopia-intercom-card] this card has no options since 1.10.0; ignoring: ${legado.join(', ')} (everything is configured in the Islautopia Doorbell integration)`);
+    const legacyKeys = Object.keys(config || {}).filter((k) => !['type', 'view_layout', 'grid_options', 'visibility', 'layout_options'].includes(k));
+    if (legacyKeys.length && !this._legacyWarned) {
+      this._legacyWarned = true;
+      console.info(`[ig-doorbell-card] this card has no options since 1.10.0; ignoring: ${legacyKeys.join(', ')} (everything is configured in the IG Doorbell integration)`);
     }
     this.config = {};
-    this._onPick = this._onPick || ((id) => this._elegir(id));
+    this._onPick = this._onPick || ((id) => this._choose(id));
     this._sync();
   }
 
@@ -6693,14 +6697,14 @@ class IslautopiaIntercomCard extends HTMLElement {
   // The doorbell list: cached by the identity of hass.devices/hass.entities (Home Assistant
   // only replaces them when the registry changes); availability is read on every state
   // tick, which is cheap (one read per doorbell entity).
-  _porteros() {
+  _listDoorbells() {
     const hass = this._hass;
     if (!hass || !hass.devices) return [];
     if (!this._cache || this._cache.devices !== hass.devices || this._cache.entities !== hass.entities) {
       const base = [];
       for (const haId of Object.keys(hass.devices)) {
         const dev = hass.devices[haId];
-        const id = porteroDeDispositivo(dev);
+        const id = doorbellIdOfDevice(dev);
         if (!id || base.some((d) => d.id === id)) continue;
         let name = String(dev.name_by_user || dev.name || '').trim();
         if (name === id) name = '';            // never the hex id as the name
@@ -6717,62 +6721,62 @@ class IslautopiaIntercomCard extends HTMLElement {
     }
     const states = hass.states || {};
     return this._cache.base.map((d) => {
-      const conocidas = d.ents.map((e) => states[e]).filter(Boolean);
-      const available = conocidas.length ? conocidas.some((st) => st.state !== 'unavailable') : null;
+      const knownStates = d.ents.map((e) => states[e]).filter(Boolean);
+      const available = knownStates.length ? knownStates.some((st) => st.state !== 'unavailable') : null;
       return { id: d.id, name: d.name, available };
     });
   }
 
-  _porDefecto(list) {
-    let guardado = null;
-    try { guardado = localStorage.getItem(SELECCION_KEY); } catch (err) { /* no storage */ }
-    if (guardado && list.some((d) => d.id === guardado)) return guardado;
+  _defaultDoorbell(list) {
+    let savedValue = null;
+    try { savedValue = localStorage.getItem(SELECTION_KEY); } catch (err) { /* no storage */ }
+    if (savedValue && list.some((d) => d.id === savedValue)) return savedValue;
     return list[0].id;
   }
 
   _sync() {
     if (!this._hass || !this.config) return;
-    const list = this._porteros();
+    const list = this._listDoorbells();
     if (!list.length) {
       // No doorbells: if one is already on screen it's left alone (a momentarily empty registry while
       // Home Assistant is starting up must not hang up a call); if there isn't one, it explains what's missing.
-      if (!this._view) this._pintarVacio();
+      if (!this._view) this._paintEmpty();
       return;
     }
-    this._quitarVacio();
+    this._removeEmpty();
     const cur = this._view && this._view.config ? this._view.config.device_id : null;
     if (cur && list.some((d) => d.id === cur)) {
       this._view._setDoorbells(list, this._onPick);
       return;
     }
     if (!this.isConnected) return;      // it mounts on entering the page, not before
-    this._cambiarA(this._porDefecto(list), cur ? 'el portero vigente ya no esta en Home Assistant' : 'arranque');
+    this._switchTo(this._defaultDoorbell(list), cur ? 'the current doorbell is no longer in Home Assistant' : 'startup');
   }
 
   // The user picks from the selector. It's remembered per browser (localStorage), not in the YAML: the
   // card has no configuration and two screens in the house may want to look at different doorbells.
-  _elegir(id) {
-    const list = this._porteros();
+  _choose(id) {
+    const list = this._listDoorbells();
     if (!list.some((d) => d.id === id)) return;
-    try { localStorage.setItem(SELECCION_KEY, id); } catch (err) { /* no storage: this session only */ }
-    this._cambiarA(id, 'elegido en el selector');
+    try { localStorage.setItem(SELECTION_KEY, id); } catch (err) { /* no storage: this session only */ }
+    this._switchTo(id, 'chosen in the selector');
   }
 
   // Synchronous from start to end ON PURPOSE: between destroying the old one and creating the new one there's no
   // `await` a second switch (a fast A->B->A) could slip into and leave two sessions.
-  _cambiarA(id, motivo) {
-    const viejo = this._view;
-    if (viejo && viejo.config && viejo.config.device_id === id) return;
+  _switchTo(id, reason) {
+    const oldView = this._view;
+    if (oldView && oldView.config && oldView.config.device_id === id) return;
     this._view = null;
-    if (viejo) {
-      viejo._destruir(`doorbell change: ${motivo}`);
-      viejo.remove();
+    if (oldView) {
+      oldView._destroy(`doorbell change: ${reason}`);
+      oldView.remove();
     }
     if (!id) return;
-    console.info(`[islautopia-intercom-card] doorbell in view: ${id} (${motivo})`);
+    console.info(`[ig-doorbell-card] doorbell in view: ${id} (${reason})`);
     const v = document.createElement(VIEW_TAG);
     v.hass = this._hass;
-    v._setDoorbells(this._porteros(), this._onPick);
+    v._setDoorbells(this._listDoorbells(), this._onPick);
     // Into the DOM BEFORE setConfig(): the other way around, render() starts one session and connectedCallback()
     // another (the 2026-08-03 test-harness note in CLAUDE.md).
     this.appendChild(v);
@@ -6780,24 +6784,24 @@ class IslautopiaIntercomCard extends HTMLElement {
     this._view = v;
   }
 
-  _pintarVacio() {
-    if (!this._vacio) {
-      this._vacio = document.createElement('ha-card');
-      this._vacio.style.cssText = 'display:block;padding:16px;';
-      this.appendChild(this._vacio);
+  _paintEmpty() {
+    if (!this._emptyCard) {
+      this._emptyCard = document.createElement('ha-card');
+      this._emptyCard.style.cssText = 'display:block;padding:16px;';
+      this.appendChild(this._emptyCard);
     }
-    this._vacio.textContent = getLocalText(this._hass, 'no_doorbells');
+    this._emptyCard.textContent = getLocalText(this._hass, 'no_doorbells');
   }
 
-  _quitarVacio() {
-    if (this._vacio) { this._vacio.remove(); this._vacio = null; }
+  _removeEmpty() {
+    if (this._emptyCard) { this._emptyCard.remove(); this._emptyCard = null; }
   }
 }
 
 // ==============================================================================
 // VISUAL EDITOR (1.10.0): there's nothing to configure here
 // ==============================================================================
-class IslautopiaIntercomCardEditor extends HTMLElement {
+class IgDoorbellCardEditor extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     this.render();
@@ -6810,8 +6814,8 @@ class IslautopiaIntercomCardEditor extends HTMLElement {
 
   render() {
     const lang = (this._hass && this._hass.language) || 'en';
-    if (this._pintado === lang) return;
-    this._pintado = lang;
+    if (this._renderedLang === lang) return;
+    this._renderedLang = lang;
     this.innerHTML = `
       <div style="padding: 8px 0; color: var(--primary-text-color); line-height: 1.5;">
         <ha-icon icon="mdi:information-outline" style="--mdc-icon-size:20px; vertical-align:middle; margin-right:6px; color: var(--secondary-text-color);"></ha-icon>
@@ -6831,33 +6835,33 @@ class IslautopiaIntercomCardEditor extends HTMLElement {
 // a new HACS release before removing the manual resource) but it avoids the crash and makes
 // it clear from the console which copy is actually active.
 if (!customElements.get(EDITOR_TAG)) {
-  customElements.define(EDITOR_TAG, IslautopiaIntercomCardEditor);
+  customElements.define(EDITOR_TAG, IgDoorbellCardEditor);
 } else {
-  console.warn('[islautopia-intercom-card] islautopia-intercom-card-editor was already registered (there are probably two resources of this card loaded at the same time, e.g. HACS + /local/) - this copy of the script will not activate');
+  console.warn('[ig-doorbell-card] ig-doorbell-card-editor was already registered (there are probably two resources of this card loaded at the same time, e.g. HACS + /local/) - this copy of the script will not activate');
 }
 
 // One doorbell's view (1.10.0): the card creates it, never Home Assistant. It's registered BEFORE
-// the card so the first `createElement('islautopia-intercom-view')` already finds it defined.
+// the card so the first `createElement('ig-doorbell-view')` already finds it defined.
 if (!customElements.get(VIEW_TAG)) {
-  customElements.define(VIEW_TAG, IslautopiaIntercomView);
+  customElements.define(VIEW_TAG, IgDoorbellView);
 } else {
-  console.warn('[islautopia-intercom-card] islautopia-intercom-view was already registered (two resources of this card loaded at the same time) - this copy of the script will not activate');
+  console.warn('[ig-doorbell-card] ig-doorbell-view was already registered (two resources of this card loaded at the same time) - this copy of the script will not activate');
 }
 
 if (!customElements.get(CARD_TAG)) {
-  customElements.define(CARD_TAG, IslautopiaIntercomCard);
+  customElements.define(CARD_TAG, IgDoorbellCard);
 
   window.customCards = window.customCards || [];
   if (!window.customCards.some((c) => c.type === CARD_TAG)) {
     window.customCards.push({
       type: CARD_TAG,
-      name: "Islautopia Intercom",
+      name: "IG Doorbell",
       // No preview (1.10.0): with no configuration, the card picker's preview would open a
       // REAL video session against a doorbell just for browsing the list, and it would occupy one of its slots.
       preview: false,
-      description: "Live video, two-way audio and door control for Islautopia (IG Doorbell) doorbells. No options: everything is configured in the Islautopia Doorbell integration."
+      description: "Live video, two-way audio and door control for Islautopia Garage Doorbell (IG Doorbell). No options: everything is configured in the IG Doorbell integration."
     });
   }
 } else {
-  console.warn('[islautopia-intercom-card] islautopia-intercom-card was already registered (there are probably two resources of this card loaded at the same time, e.g. HACS + /local/) - this copy of the script will not activate');
+  console.warn('[ig-doorbell-card] ig-doorbell-card was already registered (there are probably two resources of this card loaded at the same time, e.g. HACS + /local/) - this copy of the script will not activate');
 }

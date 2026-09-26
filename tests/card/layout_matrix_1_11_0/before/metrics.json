@@ -1,0 +1,6428 @@
+{
+ "panel_pc_portrait": {
+  "cls": "ig-rail",
+  "layout": "overlay",
+  "t": 3.665,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 256,
+   "y": 56,
+   "w": 1664,
+   "h": 1026
+  },
+  "feed": {
+   "x": 266,
+   "y": 109,
+   "w": 1646,
+   "h": 903
+  },
+  "img": {
+   "x": 835,
+   "y": 109,
+   "w": 508,
+   "h": 903
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 266,
+    "y": 66,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 455,
+    "y": 66,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 1819,
+    "y": 70,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 1880,
+    "y": 67,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 1364,
+    "y": 400,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 1354,
+    "y": 508,
+    "w": 80,
+    "h": 80,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 1364,
+    "y": 635,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 266,
+    "y": 1022,
+    "w": 818,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 1092,
+    "y": 1022,
+    "w": 818,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 1298,
+    "y": 967,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1920,
+  "vh": 1080,
+  "scrollW": 1920,
+  "docH": 1082,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "overlay",
+   "cls": "ig-rail",
+   "imgPct": 22,
+   "cardPct": 27,
+   "overflowCard": 2,
+   "overflowDoc": 2,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "panel_pc_landscape": {
+  "cls": "",
+  "layout": "overlay",
+  "t": 3.59,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 256,
+   "y": 56,
+   "w": 1664,
+   "h": 1026
+  },
+  "feed": {
+   "x": 266,
+   "y": 109,
+   "w": 1646,
+   "h": 903
+  },
+  "img": {
+   "x": 286,
+   "y": 109,
+   "w": 1605,
+   "h": 903
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 266,
+    "y": 66,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 455,
+    "y": 66,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 1819,
+    "y": 70,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 1880,
+    "y": 67,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 973,
+    "y": 916,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 1049,
+    "y": 896,
+    "w": 80,
+    "h": 80,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 1145,
+    "y": 916,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 266,
+    "y": 1022,
+    "w": 818,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 1092,
+    "y": 1022,
+    "w": 818,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 1867,
+    "y": 967,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1920,
+  "vh": 1080,
+  "scrollW": 1920,
+  "docH": 1082,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "overlay",
+   "cls": "",
+   "imgPct": 70,
+   "cardPct": 85,
+   "overflowCard": 2,
+   "overflowDoc": 2,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sections_phone_port_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.678,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 8,
+   "y": 80,
+   "w": 374,
+   "h": 759
+  },
+  "feed": {
+   "x": 19,
+   "y": 91,
+   "w": 354,
+   "h": 497
+  },
+  "img": {
+   "x": 56,
+   "y": 91,
+   "w": 280,
+   "h": 497
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 19,
+    "y": 598,
+    "w": 141,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 168,
+    "y": 598,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 280,
+    "y": 602,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 341,
+    "y": 599,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 63,
+    "y": 669,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 141,
+    "y": 645,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 267,
+    "y": 663,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 19,
+    "y": 778,
+    "w": 172,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 199,
+    "y": 778,
+    "w": 172,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 328,
+    "y": 543,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 390,
+  "vh": 844,
+  "scrollW": 390,
+  "docH": 863,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 42,
+   "cardPct": 49,
+   "overflowCard": -5,
+   "overflowDoc": 19,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sections_phone_port_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.647,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 8,
+   "y": 80,
+   "w": 374,
+   "h": 462
+  },
+  "feed": {
+   "x": 19,
+   "y": 91,
+   "w": 354,
+   "h": 200
+  },
+  "img": {
+   "x": 19,
+   "y": 91,
+   "w": 354,
+   "h": 199
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 19,
+    "y": 301,
+    "w": 141,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 168,
+    "y": 301,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 280,
+    "y": 305,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 341,
+    "y": 302,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 63,
+    "y": 372,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 141,
+    "y": 348,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 267,
+    "y": 366,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 19,
+    "y": 481,
+    "w": 172,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 199,
+    "y": 481,
+    "w": 172,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 328,
+    "y": 246,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 390,
+  "vh": 844,
+  "scrollW": 390,
+  "docH": 844,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 21,
+   "cardPct": 41,
+   "overflowCard": -302,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "masonry_phone_port_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.616,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 8,
+   "y": 64,
+   "w": 374,
+   "h": 775
+  },
+  "feed": {
+   "x": 19,
+   "y": 75,
+   "w": 354,
+   "h": 513
+  },
+  "img": {
+   "x": 52,
+   "y": 75,
+   "w": 289,
+   "h": 513
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 19,
+    "y": 598,
+    "w": 141,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 168,
+    "y": 598,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 280,
+    "y": 602,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 341,
+    "y": 599,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 63,
+    "y": 669,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 141,
+    "y": 645,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 267,
+    "y": 663,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 19,
+    "y": 778,
+    "w": 172,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 199,
+    "y": 778,
+    "w": 172,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 328,
+    "y": 543,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 390,
+  "vh": 844,
+  "scrollW": 390,
+  "docH": 847,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 45,
+   "cardPct": 51,
+   "overflowCard": -5,
+   "overflowDoc": 3,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "masonry_phone_port_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.626,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 8,
+   "y": 64,
+   "w": 374,
+   "h": 462
+  },
+  "feed": {
+   "x": 19,
+   "y": 75,
+   "w": 354,
+   "h": 200
+  },
+  "img": {
+   "x": 19,
+   "y": 75,
+   "w": 354,
+   "h": 199
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 19,
+    "y": 285,
+    "w": 141,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 168,
+    "y": 285,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 280,
+    "y": 289,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 341,
+    "y": 286,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 63,
+    "y": 356,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 141,
+    "y": 332,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 267,
+    "y": 350,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 19,
+    "y": 465,
+    "w": 172,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 199,
+    "y": 465,
+    "w": 172,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 328,
+    "y": 230,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 390,
+  "vh": 844,
+  "scrollW": 390,
+  "docH": 844,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 21,
+   "cardPct": 41,
+   "overflowCard": -318,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebar_phone_port_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.766,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 8,
+   "y": 64,
+   "w": 374,
+   "h": 775
+  },
+  "feed": {
+   "x": 19,
+   "y": 75,
+   "w": 354,
+   "h": 513
+  },
+  "img": {
+   "x": 52,
+   "y": 75,
+   "w": 289,
+   "h": 513
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 19,
+    "y": 598,
+    "w": 141,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 168,
+    "y": 598,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 280,
+    "y": 602,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 341,
+    "y": 599,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 63,
+    "y": 669,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 141,
+    "y": 645,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 267,
+    "y": 663,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 19,
+    "y": 778,
+    "w": 172,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 199,
+    "y": 778,
+    "w": 172,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 328,
+    "y": 543,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 390,
+  "vh": 844,
+  "scrollW": 390,
+  "docH": 911,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 45,
+   "cardPct": 51,
+   "overflowCard": -5,
+   "overflowDoc": 67,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebar_phone_port_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.595,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 8,
+   "y": 64,
+   "w": 374,
+   "h": 462
+  },
+  "feed": {
+   "x": 19,
+   "y": 75,
+   "w": 354,
+   "h": 200
+  },
+  "img": {
+   "x": 19,
+   "y": 75,
+   "w": 354,
+   "h": 199
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 19,
+    "y": 285,
+    "w": 141,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 168,
+    "y": 285,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 280,
+    "y": 289,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 341,
+    "y": 286,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 63,
+    "y": 356,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 141,
+    "y": 332,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 267,
+    "y": 350,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 19,
+    "y": 465,
+    "w": 172,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 199,
+    "y": 465,
+    "w": 172,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 328,
+    "y": 230,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 390,
+  "vh": 844,
+  "scrollW": 390,
+  "docH": 844,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 21,
+   "cardPct": 41,
+   "overflowCard": -318,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebarside_phone_port_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.561,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 8,
+   "y": 128,
+   "w": 374,
+   "h": 759
+  },
+  "feed": {
+   "x": 19,
+   "y": 139,
+   "w": 354,
+   "h": 497
+  },
+  "img": {
+   "x": 56,
+   "y": 139,
+   "w": 280,
+   "h": 497
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 19,
+    "y": 646,
+    "w": 141,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 168,
+    "y": 647,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 280,
+    "y": 651,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 341,
+    "y": 648,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 63,
+    "y": 717,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 141,
+    "y": 693,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 267,
+    "y": 711,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 19,
+    "y": 826,
+    "w": 172,
+    "h": 50,
+    "reachable": false
+   },
+   {
+    "id": "qr-button",
+    "x": 199,
+    "y": 826,
+    "w": 172,
+    "h": 50,
+    "reachable": false
+   },
+   {
+    "id": "fs-btn",
+    "x": 328,
+    "y": 592,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 390,
+  "vh": 844,
+  "scrollW": 390,
+  "docH": 895,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 42,
+   "cardPct": 49,
+   "overflowCard": 43,
+   "overflowDoc": 51,
+   "hscroll": 0,
+   "unreachable": [
+    "recordings-button",
+    "qr-button"
+   ],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebarside_phone_port_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.623,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 8,
+   "y": 128,
+   "w": 374,
+   "h": 462
+  },
+  "feed": {
+   "x": 19,
+   "y": 139,
+   "w": 354,
+   "h": 200
+  },
+  "img": {
+   "x": 19,
+   "y": 140,
+   "w": 354,
+   "h": 199
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 19,
+    "y": 349,
+    "w": 141,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 168,
+    "y": 350,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 280,
+    "y": 354,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 341,
+    "y": 351,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 63,
+    "y": 420,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 141,
+    "y": 396,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 267,
+    "y": 414,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 19,
+    "y": 529,
+    "w": 172,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 199,
+    "y": 529,
+    "w": 172,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 328,
+    "y": 295,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 390,
+  "vh": 844,
+  "scrollW": 390,
+  "docH": 844,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 21,
+   "cardPct": 41,
+   "overflowCard": -254,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "panel_phone_port_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.766,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 0,
+   "y": 56,
+   "w": 390,
+   "h": 789
+  },
+  "feed": {
+   "x": 10,
+   "y": 66,
+   "w": 372,
+   "h": 529
+  },
+  "img": {
+   "x": 47,
+   "y": 66,
+   "w": 298,
+   "h": 529
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 10,
+    "y": 605,
+    "w": 159,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 177,
+    "y": 605,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 289,
+    "y": 609,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 350,
+    "y": 606,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 63,
+    "y": 676,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 141,
+    "y": 652,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 267,
+    "y": 670,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 10,
+    "y": 785,
+    "w": 181,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 199,
+    "y": 785,
+    "w": 181,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 337,
+    "y": 550,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 390,
+  "vh": 844,
+  "scrollW": 390,
+  "docH": 845,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 48,
+   "cardPct": 51,
+   "overflowCard": 1,
+   "overflowDoc": 1,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "panel_phone_port_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.586,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 0,
+   "y": 56,
+   "w": 390,
+   "h": 470
+  },
+  "feed": {
+   "x": 10,
+   "y": 66,
+   "w": 372,
+   "h": 210
+  },
+  "img": {
+   "x": 10,
+   "y": 66,
+   "w": 372,
+   "h": 209
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 10,
+    "y": 286,
+    "w": 159,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 177,
+    "y": 286,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 289,
+    "y": 290,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 350,
+    "y": 287,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 63,
+    "y": 357,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 141,
+    "y": 333,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 267,
+    "y": 351,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 10,
+    "y": 466,
+    "w": 181,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 199,
+    "y": 466,
+    "w": 181,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 337,
+    "y": 231,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 390,
+  "vh": 844,
+  "scrollW": 390,
+  "docH": 844,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 24,
+   "cardPct": 42,
+   "overflowCard": -318,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sections_phone_land_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.707,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 172,
+   "y": 80,
+   "w": 500,
+   "h": 444
+  },
+  "feed": {
+   "x": 183,
+   "y": 91,
+   "w": 480,
+   "h": 182
+  },
+  "img": {
+   "x": 372,
+   "y": 91,
+   "w": 102,
+   "h": 182
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 183,
+    "y": 283,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 372,
+    "y": 283,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 570,
+    "y": 287,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 631,
+    "y": 284,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 290,
+    "y": 354,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 368,
+    "y": 330,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 494,
+    "y": 348,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 183,
+    "y": 463,
+    "w": 235,
+    "h": 50,
+    "reachable": false
+   },
+   {
+    "id": "qr-button",
+    "x": 426,
+    "y": 463,
+    "w": 235,
+    "h": 50,
+    "reachable": false
+   },
+   {
+    "id": "fs-btn",
+    "x": 618,
+    "y": 228,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 844,
+  "vh": 390,
+  "scrollW": 844,
+  "docH": 548,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 6,
+   "cardPct": 8,
+   "overflowCard": 134,
+   "overflowDoc": 158,
+   "hscroll": 0,
+   "unreachable": [
+    "recordings-button",
+    "qr-button"
+   ],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sections_phone_land_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.576,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 172,
+   "y": 80,
+   "w": 500,
+   "h": 444
+  },
+  "feed": {
+   "x": 183,
+   "y": 91,
+   "w": 480,
+   "h": 182
+  },
+  "img": {
+   "x": 261,
+   "y": 91,
+   "w": 324,
+   "h": 182
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 183,
+    "y": 283,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 372,
+    "y": 283,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 570,
+    "y": 287,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 631,
+    "y": 284,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 290,
+    "y": 354,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 368,
+    "y": 330,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 494,
+    "y": 348,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 183,
+    "y": 463,
+    "w": 235,
+    "h": 50,
+    "reachable": false
+   },
+   {
+    "id": "qr-button",
+    "x": 426,
+    "y": 463,
+    "w": 235,
+    "h": 50,
+    "reachable": false
+   },
+   {
+    "id": "fs-btn",
+    "x": 618,
+    "y": 228,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 844,
+  "vh": 390,
+  "scrollW": 844,
+  "docH": 548,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 18,
+   "cardPct": 27,
+   "overflowCard": 134,
+   "overflowDoc": 158,
+   "hscroll": 0,
+   "unreachable": [
+    "recordings-button",
+    "qr-button"
+   ],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "masonry_phone_land_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.655,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 176,
+   "y": 64,
+   "w": 492,
+   "h": 444
+  },
+  "feed": {
+   "x": 187,
+   "y": 75,
+   "w": 472,
+   "h": 182
+  },
+  "img": {
+   "x": 372,
+   "y": 75,
+   "w": 102,
+   "h": 182
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 187,
+    "y": 267,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 376,
+    "y": 267,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 566,
+    "y": 271,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 627,
+    "y": 268,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 290,
+    "y": 338,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 368,
+    "y": 314,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 494,
+    "y": 332,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 187,
+    "y": 447,
+    "w": 231,
+    "h": 50,
+    "reachable": false
+   },
+   {
+    "id": "qr-button",
+    "x": 426,
+    "y": 447,
+    "w": 231,
+    "h": 50,
+    "reachable": false
+   },
+   {
+    "id": "fs-btn",
+    "x": 614,
+    "y": 212,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 844,
+  "vh": 390,
+  "scrollW": 844,
+  "docH": 516,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 6,
+   "cardPct": 8,
+   "overflowCard": 118,
+   "overflowDoc": 126,
+   "hscroll": 0,
+   "unreachable": [
+    "recordings-button",
+    "qr-button"
+   ],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "masonry_phone_land_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.577,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 176,
+   "y": 64,
+   "w": 492,
+   "h": 444
+  },
+  "feed": {
+   "x": 187,
+   "y": 75,
+   "w": 472,
+   "h": 182
+  },
+  "img": {
+   "x": 261,
+   "y": 75,
+   "w": 324,
+   "h": 182
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 187,
+    "y": 267,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 376,
+    "y": 267,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 566,
+    "y": 271,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 627,
+    "y": 268,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 290,
+    "y": 338,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 368,
+    "y": 314,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 494,
+    "y": 332,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 187,
+    "y": 447,
+    "w": 231,
+    "h": 50,
+    "reachable": false
+   },
+   {
+    "id": "qr-button",
+    "x": 426,
+    "y": 447,
+    "w": 231,
+    "h": 50,
+    "reachable": false
+   },
+   {
+    "id": "fs-btn",
+    "x": 614,
+    "y": 212,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 844,
+  "vh": 390,
+  "scrollW": 844,
+  "docH": 516,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 18,
+   "cardPct": 27,
+   "overflowCard": 118,
+   "overflowDoc": 126,
+   "hscroll": 0,
+   "unreachable": [
+    "recordings-button",
+    "qr-button"
+   ],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebar_phone_land_portrait": {
+  "cls": "ig-rail",
+  "layout": "overlay",
+  "t": 3.529,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 8,
+   "y": 64,
+   "w": 569,
+   "h": 322
+  },
+  "feed": {
+   "x": 19,
+   "y": 118,
+   "w": 549,
+   "h": 197
+  },
+  "img": {
+   "x": 238,
+   "y": 118,
+   "w": 111,
+   "h": 197
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 19,
+    "y": 75,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 208,
+    "y": 75,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 475,
+    "y": 79,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 536,
+    "y": 76,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 371,
+    "y": 56,
+    "w": 60,
+    "h": 60,
+    "reachable": false
+   },
+   {
+    "id": "intercom-button",
+    "x": 361,
+    "y": 164,
+    "w": 80,
+    "h": 80,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 371,
+    "y": 291,
+    "w": 60,
+    "h": 60,
+    "reachable": false
+   },
+   {
+    "id": "recordings-button",
+    "x": 19,
+    "y": 325,
+    "w": 270,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 297,
+    "y": 325,
+    "w": 270,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 305,
+    "y": 270,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 844,
+  "vh": 390,
+  "scrollW": 844,
+  "docH": 394,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "overlay",
+   "cls": "ig-rail",
+   "imgPct": 7,
+   "cardPct": 12,
+   "overflowCard": -4,
+   "overflowDoc": 4,
+   "hscroll": 0,
+   "unreachable": [
+    "snd-btn",
+    "unlock-button"
+   ],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebar_phone_land_landscape": {
+  "cls": "",
+  "layout": "overlay",
+  "t": 3.64,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 8,
+   "y": 64,
+   "w": 569,
+   "h": 322
+  },
+  "feed": {
+   "x": 19,
+   "y": 118,
+   "w": 549,
+   "h": 197
+  },
+  "img": {
+   "x": 119,
+   "y": 118,
+   "w": 350,
+   "h": 197
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 19,
+    "y": 75,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 208,
+    "y": 75,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 475,
+    "y": 79,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 536,
+    "y": 76,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 178,
+    "y": 219,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 254,
+    "y": 199,
+    "w": 80,
+    "h": 80,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 350,
+    "y": 219,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 19,
+    "y": 325,
+    "w": 270,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 297,
+    "y": 325,
+    "w": 270,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 523,
+    "y": 270,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 844,
+  "vh": 390,
+  "scrollW": 844,
+  "docH": 394,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "overlay",
+   "cls": "",
+   "imgPct": 21,
+   "cardPct": 38,
+   "overflowCard": -4,
+   "overflowDoc": 4,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebarside_phone_land_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.642,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 464,
+   "y": 64,
+   "w": 372,
+   "h": 444
+  },
+  "feed": {
+   "x": 475,
+   "y": 75,
+   "w": 352,
+   "h": 182
+  },
+  "img": {
+   "x": 600,
+   "y": 75,
+   "w": 102,
+   "h": 182
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 475,
+    "y": 267,
+    "w": 139,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 622,
+    "y": 267,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 734,
+    "y": 271,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 795,
+    "y": 268,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 518,
+    "y": 338,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 596,
+    "y": 314,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 722,
+    "y": 332,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 475,
+    "y": 447,
+    "w": 171,
+    "h": 50,
+    "reachable": false
+   },
+   {
+    "id": "qr-button",
+    "x": 654,
+    "y": 447,
+    "w": 171,
+    "h": 50,
+    "reachable": false
+   },
+   {
+    "id": "fs-btn",
+    "x": 782,
+    "y": 212,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 844,
+  "vh": 390,
+  "scrollW": 844,
+  "docH": 516,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 6,
+   "cardPct": 11,
+   "overflowCard": 118,
+   "overflowDoc": 126,
+   "hscroll": 0,
+   "unreachable": [
+    "recordings-button",
+    "qr-button"
+   ],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebarside_phone_land_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.669,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 464,
+   "y": 64,
+   "w": 372,
+   "h": 444
+  },
+  "feed": {
+   "x": 475,
+   "y": 75,
+   "w": 352,
+   "h": 182
+  },
+  "img": {
+   "x": 489,
+   "y": 75,
+   "w": 324,
+   "h": 182
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 475,
+    "y": 267,
+    "w": 139,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 622,
+    "y": 267,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 734,
+    "y": 271,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 795,
+    "y": 268,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 518,
+    "y": 338,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 596,
+    "y": 314,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 722,
+    "y": 332,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 475,
+    "y": 447,
+    "w": 171,
+    "h": 50,
+    "reachable": false
+   },
+   {
+    "id": "qr-button",
+    "x": 654,
+    "y": 447,
+    "w": 171,
+    "h": 50,
+    "reachable": false
+   },
+   {
+    "id": "fs-btn",
+    "x": 782,
+    "y": 212,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 844,
+  "vh": 390,
+  "scrollW": 844,
+  "docH": 516,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 18,
+   "cardPct": 36,
+   "overflowCard": 118,
+   "overflowDoc": 126,
+   "hscroll": 0,
+   "unreachable": [
+    "recordings-button",
+    "qr-button"
+   ],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "panel_phone_land_portrait": {
+  "cls": "ig-rail",
+  "layout": "overlay",
+  "t": 3.622,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 0,
+   "y": 56,
+   "w": 844,
+   "h": 336
+  },
+  "feed": {
+   "x": 10,
+   "y": 109,
+   "w": 826,
+   "h": 213
+  },
+  "img": {
+   "x": 363,
+   "y": 109,
+   "w": 120,
+   "h": 213
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 10,
+    "y": 66,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 199,
+    "y": 66,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 743,
+    "y": 70,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 804,
+    "y": 67,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 504,
+    "y": 55,
+    "w": 60,
+    "h": 60,
+    "reachable": false
+   },
+   {
+    "id": "intercom-button",
+    "x": 494,
+    "y": 163,
+    "w": 80,
+    "h": 80,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 504,
+    "y": 290,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 10,
+    "y": 332,
+    "w": 408,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 426,
+    "y": 332,
+    "w": 408,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 438,
+    "y": 277,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 844,
+  "vh": 390,
+  "scrollW": 844,
+  "docH": 392,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "overlay",
+   "cls": "ig-rail",
+   "imgPct": 8,
+   "cardPct": 9,
+   "overflowCard": 2,
+   "overflowDoc": 2,
+   "hscroll": 0,
+   "unreachable": [
+    "snd-btn"
+   ],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "panel_phone_land_landscape": {
+  "cls": "",
+  "layout": "overlay",
+  "t": 3.673,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 0,
+   "y": 56,
+   "w": 844,
+   "h": 336
+  },
+  "feed": {
+   "x": 10,
+   "y": 109,
+   "w": 826,
+   "h": 213
+  },
+  "img": {
+   "x": 234,
+   "y": 109,
+   "w": 379,
+   "h": 213
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 10,
+    "y": 66,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 199,
+    "y": 66,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 743,
+    "y": 70,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 804,
+    "y": 67,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 307,
+    "y": 226,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 383,
+    "y": 206,
+    "w": 80,
+    "h": 80,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 479,
+    "y": 226,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 10,
+    "y": 332,
+    "w": 408,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 426,
+    "y": 332,
+    "w": 408,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 791,
+    "y": 277,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 844,
+  "vh": 390,
+  "scrollW": 844,
+  "docH": 392,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "overlay",
+   "cls": "",
+   "imgPct": 25,
+   "cardPct": 28,
+   "overflowCard": 2,
+   "overflowDoc": 2,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sections_tablet_port_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.656,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 150,
+   "y": 80,
+   "w": 500,
+   "h": 1114
+  },
+  "feed": {
+   "x": 161,
+   "y": 91,
+   "w": 480,
+   "h": 852
+  },
+  "img": {
+   "x": 161,
+   "y": 91,
+   "w": 479,
+   "h": 852
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 161,
+    "y": 953,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 350,
+    "y": 953,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 548,
+    "y": 957,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 609,
+    "y": 954,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 268,
+    "y": 1024,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 346,
+    "y": 1000,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 472,
+    "y": 1018,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 161,
+    "y": 1133,
+    "w": 235,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 404,
+    "y": 1133,
+    "w": 235,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 596,
+    "y": 898,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 800,
+  "vh": 1280,
+  "scrollW": 800,
+  "docH": 1280,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 40,
+   "cardPct": 73,
+   "overflowCard": -86,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sections_tablet_port_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.549,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 150,
+   "y": 80,
+   "w": 500,
+   "h": 533
+  },
+  "feed": {
+   "x": 161,
+   "y": 91,
+   "w": 480,
+   "h": 271
+  },
+  "img": {
+   "x": 161,
+   "y": 92,
+   "w": 480,
+   "h": 270
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 161,
+    "y": 372,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 350,
+    "y": 372,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 548,
+    "y": 376,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 609,
+    "y": 373,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 268,
+    "y": 443,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 346,
+    "y": 419,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 472,
+    "y": 437,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 161,
+    "y": 552,
+    "w": 235,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 404,
+    "y": 552,
+    "w": 235,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 596,
+    "y": 317,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 800,
+  "vh": 1280,
+  "scrollW": 800,
+  "docH": 1280,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 13,
+   "cardPct": 49,
+   "overflowCard": -667,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "masonry_tablet_port_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.665,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 154,
+   "y": 64,
+   "w": 492,
+   "h": 1100
+  },
+  "feed": {
+   "x": 165,
+   "y": 75,
+   "w": 472,
+   "h": 838
+  },
+  "img": {
+   "x": 165,
+   "y": 75,
+   "w": 471,
+   "h": 838
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 165,
+    "y": 923,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 354,
+    "y": 923,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 544,
+    "y": 927,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 605,
+    "y": 924,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 268,
+    "y": 994,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 346,
+    "y": 970,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 472,
+    "y": 988,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 165,
+    "y": 1103,
+    "w": 231,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 404,
+    "y": 1103,
+    "w": 231,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 592,
+    "y": 868,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 800,
+  "vh": 1280,
+  "scrollW": 800,
+  "docH": 1280,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 39,
+   "cardPct": 73,
+   "overflowCard": -116,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "masonry_tablet_port_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.609,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 154,
+   "y": 64,
+   "w": 492,
+   "h": 528
+  },
+  "feed": {
+   "x": 165,
+   "y": 75,
+   "w": 472,
+   "h": 266
+  },
+  "img": {
+   "x": 165,
+   "y": 75,
+   "w": 472,
+   "h": 266
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 165,
+    "y": 351,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 354,
+    "y": 351,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 544,
+    "y": 355,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 605,
+    "y": 352,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 268,
+    "y": 422,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 346,
+    "y": 398,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 472,
+    "y": 416,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 165,
+    "y": 531,
+    "w": 231,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 404,
+    "y": 531,
+    "w": 231,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 592,
+    "y": 296,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 800,
+  "vh": 1280,
+  "scrollW": 800,
+  "docH": 1280,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 12,
+   "cardPct": 48,
+   "overflowCard": -688,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebar_tablet_port_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.665,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 8,
+   "y": 64,
+   "w": 540,
+   "h": 1185
+  },
+  "feed": {
+   "x": 19,
+   "y": 75,
+   "w": 520,
+   "h": 923
+  },
+  "img": {
+   "x": 19,
+   "y": 75,
+   "w": 519,
+   "h": 923
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 19,
+    "y": 1008,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 208,
+    "y": 1008,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 446,
+    "y": 1012,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 507,
+    "y": 1009,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 146,
+    "y": 1079,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 224,
+    "y": 1055,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 350,
+    "y": 1073,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 19,
+    "y": 1188,
+    "w": 255,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 282,
+    "y": 1188,
+    "w": 255,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 494,
+    "y": 953,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 800,
+  "vh": 1280,
+  "scrollW": 800,
+  "docH": 1280,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 47,
+   "cardPct": 75,
+   "overflowCard": -31,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebar_tablet_port_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.618,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 8,
+   "y": 64,
+   "w": 540,
+   "h": 555
+  },
+  "feed": {
+   "x": 19,
+   "y": 75,
+   "w": 520,
+   "h": 293
+  },
+  "img": {
+   "x": 19,
+   "y": 75,
+   "w": 520,
+   "h": 292
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 19,
+    "y": 378,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 208,
+    "y": 378,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 446,
+    "y": 382,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 507,
+    "y": 379,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 146,
+    "y": 449,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 224,
+    "y": 425,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 350,
+    "y": 443,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 19,
+    "y": 558,
+    "w": 255,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 282,
+    "y": 558,
+    "w": 255,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 494,
+    "y": 323,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 800,
+  "vh": 1280,
+  "scrollW": 800,
+  "docH": 1280,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 15,
+   "cardPct": 51,
+   "overflowCard": -661,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebarside_tablet_port_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.647,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 420,
+   "y": 64,
+   "w": 372,
+   "h": 886
+  },
+  "feed": {
+   "x": 431,
+   "y": 75,
+   "w": 352,
+   "h": 624
+  },
+  "img": {
+   "x": 432,
+   "y": 75,
+   "w": 351,
+   "h": 624
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 431,
+    "y": 709,
+    "w": 139,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 578,
+    "y": 709,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 690,
+    "y": 713,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 751,
+    "y": 710,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 474,
+    "y": 780,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 552,
+    "y": 756,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 678,
+    "y": 774,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 431,
+    "y": 889,
+    "w": 171,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 610,
+    "y": 889,
+    "w": 171,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 738,
+    "y": 654,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 800,
+  "vh": 1280,
+  "scrollW": 800,
+  "docH": 1280,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 21,
+   "cardPct": 66,
+   "overflowCard": -330,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebarside_tablet_port_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.593,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 420,
+   "y": 64,
+   "w": 372,
+   "h": 461
+  },
+  "feed": {
+   "x": 431,
+   "y": 75,
+   "w": 352,
+   "h": 199
+  },
+  "img": {
+   "x": 431,
+   "y": 75,
+   "w": 352,
+   "h": 198
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 431,
+    "y": 284,
+    "w": 139,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 578,
+    "y": 284,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 690,
+    "y": 288,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 751,
+    "y": 285,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 474,
+    "y": 355,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 552,
+    "y": 331,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 678,
+    "y": 349,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 431,
+    "y": 464,
+    "w": 171,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 610,
+    "y": 464,
+    "w": 171,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 738,
+    "y": 229,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 800,
+  "vh": 1280,
+  "scrollW": 800,
+  "docH": 1280,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 7,
+   "cardPct": 41,
+   "overflowCard": -755,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "panel_tablet_port_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.663,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 0,
+   "y": 56,
+   "w": 800,
+   "h": 1225
+  },
+  "feed": {
+   "x": 10,
+   "y": 66,
+   "w": 782,
+   "h": 965
+  },
+  "img": {
+   "x": 130,
+   "y": 66,
+   "w": 543,
+   "h": 965
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 10,
+    "y": 1041,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 199,
+    "y": 1041,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 699,
+    "y": 1045,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 760,
+    "y": 1042,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 268,
+    "y": 1112,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 346,
+    "y": 1088,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 472,
+    "y": 1106,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 10,
+    "y": 1221,
+    "w": 386,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 404,
+    "y": 1221,
+    "w": 386,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 747,
+    "y": 986,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 800,
+  "vh": 1280,
+  "scrollW": 800,
+  "docH": 1281,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 51,
+   "cardPct": 53,
+   "overflowCard": 1,
+   "overflowDoc": 1,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "panel_tablet_port_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.633,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 0,
+   "y": 56,
+   "w": 800,
+   "h": 701
+  },
+  "feed": {
+   "x": 10,
+   "y": 66,
+   "w": 782,
+   "h": 441
+  },
+  "img": {
+   "x": 10,
+   "y": 67,
+   "w": 782,
+   "h": 440
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 10,
+    "y": 517,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 199,
+    "y": 517,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 699,
+    "y": 521,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 760,
+    "y": 518,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 268,
+    "y": 588,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 346,
+    "y": 564,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 472,
+    "y": 582,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 10,
+    "y": 697,
+    "w": 386,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 404,
+    "y": 697,
+    "w": 386,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 747,
+    "y": 462,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 800,
+  "vh": 1280,
+  "scrollW": 800,
+  "docH": 1280,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 34,
+   "cardPct": 61,
+   "overflowCard": -523,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sections_tablet_land_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.643,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 518,
+   "y": 80,
+   "w": 500,
+   "h": 715
+  },
+  "feed": {
+   "x": 529,
+   "y": 91,
+   "w": 480,
+   "h": 453
+  },
+  "img": {
+   "x": 642,
+   "y": 91,
+   "w": 255,
+   "h": 453
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 529,
+    "y": 554,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 718,
+    "y": 554,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 916,
+    "y": 558,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 977,
+    "y": 555,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 636,
+    "y": 625,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 714,
+    "y": 601,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 840,
+    "y": 619,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 529,
+    "y": 734,
+    "w": 235,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 772,
+    "y": 734,
+    "w": 235,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 964,
+    "y": 499,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1280,
+  "vh": 800,
+  "scrollW": 1280,
+  "docH": 819,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 11,
+   "cardPct": 32,
+   "overflowCard": -5,
+   "overflowDoc": 19,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sections_tablet_land_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.617,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 518,
+   "y": 80,
+   "w": 500,
+   "h": 533
+  },
+  "feed": {
+   "x": 529,
+   "y": 91,
+   "w": 480,
+   "h": 271
+  },
+  "img": {
+   "x": 529,
+   "y": 92,
+   "w": 480,
+   "h": 270
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 529,
+    "y": 372,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 718,
+    "y": 372,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 916,
+    "y": 376,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 977,
+    "y": 373,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 636,
+    "y": 443,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 714,
+    "y": 419,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 840,
+    "y": 437,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 529,
+    "y": 552,
+    "w": 235,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 772,
+    "y": 552,
+    "w": 235,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 964,
+    "y": 317,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1280,
+  "vh": 800,
+  "scrollW": 1280,
+  "docH": 800,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 13,
+   "cardPct": 49,
+   "overflowCard": -187,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "masonry_tablet_land_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.686,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 522,
+   "y": 64,
+   "w": 492,
+   "h": 731
+  },
+  "feed": {
+   "x": 533,
+   "y": 75,
+   "w": 472,
+   "h": 469
+  },
+  "img": {
+   "x": 637,
+   "y": 75,
+   "w": 264,
+   "h": 469
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 533,
+    "y": 554,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 722,
+    "y": 554,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 912,
+    "y": 558,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 973,
+    "y": 555,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 636,
+    "y": 625,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 714,
+    "y": 601,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 840,
+    "y": 619,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 533,
+    "y": 734,
+    "w": 231,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 772,
+    "y": 734,
+    "w": 231,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 960,
+    "y": 499,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1280,
+  "vh": 800,
+  "scrollW": 1280,
+  "docH": 803,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 12,
+   "cardPct": 34,
+   "overflowCard": -5,
+   "overflowDoc": 3,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "masonry_tablet_land_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.631,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 522,
+   "y": 64,
+   "w": 492,
+   "h": 528
+  },
+  "feed": {
+   "x": 533,
+   "y": 75,
+   "w": 472,
+   "h": 266
+  },
+  "img": {
+   "x": 533,
+   "y": 75,
+   "w": 472,
+   "h": 266
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 533,
+    "y": 351,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 722,
+    "y": 351,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 912,
+    "y": 355,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 973,
+    "y": 352,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 636,
+    "y": 422,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 714,
+    "y": 398,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 840,
+    "y": 416,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 533,
+    "y": 531,
+    "w": 231,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 772,
+    "y": 531,
+    "w": 231,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 960,
+    "y": 296,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1280,
+  "vh": 800,
+  "scrollW": 1280,
+  "docH": 800,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 12,
+   "cardPct": 48,
+   "overflowCard": -208,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebar_tablet_land_portrait": {
+  "cls": "ig-rail",
+  "layout": "overlay",
+  "t": 3.658,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 264,
+   "y": 64,
+   "w": 689,
+   "h": 732
+  },
+  "feed": {
+   "x": 275,
+   "y": 118,
+   "w": 669,
+   "h": 607
+  },
+  "img": {
+   "x": 439,
+   "y": 118,
+   "w": 341,
+   "h": 607
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 275,
+    "y": 75,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 464,
+    "y": 75,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 851,
+    "y": 79,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 912,
+    "y": 76,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 802,
+    "y": 261,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 792,
+    "y": 369,
+    "w": 80,
+    "h": 80,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 802,
+    "y": 496,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 275,
+    "y": 735,
+    "w": 330,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 613,
+    "y": 735,
+    "w": 330,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 736,
+    "y": 680,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1280,
+  "vh": 800,
+  "scrollW": 1280,
+  "docH": 804,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "overlay",
+   "cls": "ig-rail",
+   "imgPct": 20,
+   "cardPct": 41,
+   "overflowCard": -4,
+   "overflowDoc": 4,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebar_tablet_land_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.657,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 264,
+   "y": 64,
+   "w": 689,
+   "h": 639
+  },
+  "feed": {
+   "x": 275,
+   "y": 75,
+   "w": 669,
+   "h": 377
+  },
+  "img": {
+   "x": 275,
+   "y": 75,
+   "w": 669,
+   "h": 376
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 275,
+    "y": 462,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 464,
+    "y": 462,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 851,
+    "y": 466,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 912,
+    "y": 463,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 477,
+    "y": 533,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 555,
+    "y": 509,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 681,
+    "y": 527,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 275,
+    "y": 642,
+    "w": 330,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 613,
+    "y": 642,
+    "w": 330,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 899,
+    "y": 407,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1280,
+  "vh": 800,
+  "scrollW": 1280,
+  "docH": 800,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 25,
+   "cardPct": 57,
+   "overflowCard": -97,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebarside_tablet_land_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.694,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 900,
+   "y": 64,
+   "w": 372,
+   "h": 731
+  },
+  "feed": {
+   "x": 911,
+   "y": 75,
+   "w": 352,
+   "h": 469
+  },
+  "img": {
+   "x": 955,
+   "y": 75,
+   "w": 264,
+   "h": 469
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 911,
+    "y": 554,
+    "w": 139,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 1058,
+    "y": 554,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 1170,
+    "y": 558,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 1231,
+    "y": 555,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 954,
+    "y": 625,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 1032,
+    "y": 601,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 1158,
+    "y": 619,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 911,
+    "y": 734,
+    "w": 171,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 1090,
+    "y": 734,
+    "w": 171,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 1218,
+    "y": 499,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1280,
+  "vh": 800,
+  "scrollW": 1280,
+  "docH": 803,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 12,
+   "cardPct": 46,
+   "overflowCard": -5,
+   "overflowDoc": 3,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebarside_tablet_land_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.652,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 900,
+   "y": 64,
+   "w": 372,
+   "h": 461
+  },
+  "feed": {
+   "x": 911,
+   "y": 75,
+   "w": 352,
+   "h": 199
+  },
+  "img": {
+   "x": 911,
+   "y": 75,
+   "w": 352,
+   "h": 198
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 911,
+    "y": 284,
+    "w": 139,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 1058,
+    "y": 284,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 1170,
+    "y": 288,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 1231,
+    "y": 285,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 954,
+    "y": 355,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 1032,
+    "y": 331,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 1158,
+    "y": 349,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 911,
+    "y": 464,
+    "w": 171,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 1090,
+    "y": 464,
+    "w": 171,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 1218,
+    "y": 229,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1280,
+  "vh": 800,
+  "scrollW": 1280,
+  "docH": 800,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 7,
+   "cardPct": 41,
+   "overflowCard": -275,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "panel_tablet_land_portrait": {
+  "cls": "ig-rail",
+  "layout": "overlay",
+  "t": 3.639,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 256,
+   "y": 56,
+   "w": 1024,
+   "h": 746
+  },
+  "feed": {
+   "x": 266,
+   "y": 109,
+   "w": 1006,
+   "h": 623
+  },
+  "img": {
+   "x": 594,
+   "y": 109,
+   "w": 350,
+   "h": 623
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 266,
+    "y": 66,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 455,
+    "y": 66,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 1179,
+    "y": 70,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 1240,
+    "y": 67,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 966,
+    "y": 260,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 956,
+    "y": 368,
+    "w": 80,
+    "h": 80,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 966,
+    "y": 495,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 266,
+    "y": 742,
+    "w": 498,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 772,
+    "y": 742,
+    "w": 498,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 900,
+    "y": 687,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1280,
+  "vh": 800,
+  "scrollW": 1280,
+  "docH": 802,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "overlay",
+   "cls": "ig-rail",
+   "imgPct": 21,
+   "cardPct": 29,
+   "overflowCard": 2,
+   "overflowDoc": 2,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "panel_tablet_land_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.692,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 256,
+   "y": 56,
+   "w": 1024,
+   "h": 745
+  },
+  "feed": {
+   "x": 266,
+   "y": 66,
+   "w": 1006,
+   "h": 485
+  },
+  "img": {
+   "x": 338,
+   "y": 66,
+   "w": 862,
+   "h": 485
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 266,
+    "y": 561,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 455,
+    "y": 561,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 1179,
+    "y": 565,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 1240,
+    "y": 562,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 636,
+    "y": 632,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 714,
+    "y": 608,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 840,
+    "y": 626,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 266,
+    "y": 741,
+    "w": 498,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 772,
+    "y": 741,
+    "w": 498,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 1227,
+    "y": 506,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1280,
+  "vh": 800,
+  "scrollW": 1280,
+  "docH": 801,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 41,
+   "cardPct": 55,
+   "overflowCard": 1,
+   "overflowDoc": 1,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sections_pc_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.636,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 838,
+   "y": 80,
+   "w": 500,
+   "h": 995
+  },
+  "feed": {
+   "x": 849,
+   "y": 91,
+   "w": 480,
+   "h": 733
+  },
+  "img": {
+   "x": 883,
+   "y": 91,
+   "w": 412,
+   "h": 733
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 849,
+    "y": 834,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 1038,
+    "y": 834,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 1236,
+    "y": 838,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 1297,
+    "y": 835,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 956,
+    "y": 905,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 1034,
+    "y": 881,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 1160,
+    "y": 899,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 849,
+    "y": 1014,
+    "w": 235,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 1092,
+    "y": 1014,
+    "w": 235,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 1284,
+    "y": 779,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1920,
+  "vh": 1080,
+  "scrollW": 1920,
+  "docH": 1099,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 15,
+   "cardPct": 61,
+   "overflowCard": -5,
+   "overflowDoc": 19,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sections_pc_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.607,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 838,
+   "y": 80,
+   "w": 500,
+   "h": 533
+  },
+  "feed": {
+   "x": 849,
+   "y": 91,
+   "w": 480,
+   "h": 271
+  },
+  "img": {
+   "x": 849,
+   "y": 92,
+   "w": 480,
+   "h": 270
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 849,
+    "y": 372,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 1038,
+    "y": 372,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 1236,
+    "y": 376,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 1297,
+    "y": 373,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 956,
+    "y": 443,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 1034,
+    "y": 419,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 1160,
+    "y": 437,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 849,
+    "y": 552,
+    "w": 235,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 1092,
+    "y": 552,
+    "w": 235,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 1284,
+    "y": 317,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1920,
+  "vh": 1080,
+  "scrollW": 1920,
+  "docH": 1080,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 6,
+   "cardPct": 49,
+   "overflowCard": -467,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "masonry_pc_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.694,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 842,
+   "y": 64,
+   "w": 492,
+   "h": 1011
+  },
+  "feed": {
+   "x": 853,
+   "y": 75,
+   "w": 472,
+   "h": 749
+  },
+  "img": {
+   "x": 878,
+   "y": 75,
+   "w": 421,
+   "h": 749
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 853,
+    "y": 834,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 1042,
+    "y": 834,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 1232,
+    "y": 838,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 1293,
+    "y": 835,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 956,
+    "y": 905,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 1034,
+    "y": 881,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 1160,
+    "y": 899,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 853,
+    "y": 1014,
+    "w": 231,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 1092,
+    "y": 1014,
+    "w": 231,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 1280,
+    "y": 779,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1920,
+  "vh": 1080,
+  "scrollW": 1920,
+  "docH": 1083,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 15,
+   "cardPct": 63,
+   "overflowCard": -5,
+   "overflowDoc": 3,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "masonry_pc_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.624,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 842,
+   "y": 64,
+   "w": 492,
+   "h": 528
+  },
+  "feed": {
+   "x": 853,
+   "y": 75,
+   "w": 472,
+   "h": 266
+  },
+  "img": {
+   "x": 853,
+   "y": 75,
+   "w": 472,
+   "h": 266
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 853,
+    "y": 351,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 1042,
+    "y": 351,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 1232,
+    "y": 355,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 1293,
+    "y": 352,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 956,
+    "y": 422,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 1034,
+    "y": 398,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 1160,
+    "y": 416,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 853,
+    "y": 531,
+    "w": 231,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 1092,
+    "y": 531,
+    "w": 231,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 1280,
+    "y": 296,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1920,
+  "vh": 1080,
+  "scrollW": 1920,
+  "docH": 1080,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 6,
+   "cardPct": 48,
+   "overflowCard": -488,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebar_pc_portrait": {
+  "cls": "ig-rail",
+  "layout": "overlay",
+  "t": 3.697,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 264,
+   "y": 64,
+   "w": 1268,
+   "h": 1012
+  },
+  "feed": {
+   "x": 275,
+   "y": 118,
+   "w": 1248,
+   "h": 887
+  },
+  "img": {
+   "x": 650,
+   "y": 118,
+   "w": 499,
+   "h": 887
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 275,
+    "y": 75,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 464,
+    "y": 75,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 1430,
+    "y": 79,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 1491,
+    "y": 76,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 1170,
+    "y": 401,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 1160,
+    "y": 509,
+    "w": 80,
+    "h": 80,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 1170,
+    "y": 636,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 275,
+    "y": 1015,
+    "w": 619,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 902,
+    "y": 1015,
+    "w": 619,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 1104,
+    "y": 960,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1920,
+  "vh": 1080,
+  "scrollW": 1920,
+  "docH": 1084,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "overlay",
+   "cls": "ig-rail",
+   "imgPct": 21,
+   "cardPct": 34,
+   "overflowCard": -4,
+   "overflowDoc": 4,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebar_pc_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.682,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 264,
+   "y": 64,
+   "w": 1268,
+   "h": 965
+  },
+  "feed": {
+   "x": 275,
+   "y": 75,
+   "w": 1248,
+   "h": 703
+  },
+  "img": {
+   "x": 275,
+   "y": 76,
+   "w": 1248,
+   "h": 702
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 275,
+    "y": 788,
+    "w": 181,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 464,
+    "y": 788,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 1430,
+    "y": 792,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 1491,
+    "y": 789,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 766,
+    "y": 859,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 844,
+    "y": 835,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 970,
+    "y": 853,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 275,
+    "y": 968,
+    "w": 619,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 902,
+    "y": 968,
+    "w": 619,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 1478,
+    "y": 733,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1920,
+  "vh": 1080,
+  "scrollW": 1920,
+  "docH": 1080,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 42,
+   "cardPct": 72,
+   "overflowCard": -51,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebarside_pc_portrait": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.587,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 1540,
+   "y": 64,
+   "w": 372,
+   "h": 886
+  },
+  "feed": {
+   "x": 1551,
+   "y": 75,
+   "w": 352,
+   "h": 624
+  },
+  "img": {
+   "x": 1552,
+   "y": 75,
+   "w": 351,
+   "h": 624
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 1551,
+    "y": 709,
+    "w": 139,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 1698,
+    "y": 709,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 1810,
+    "y": 713,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 1871,
+    "y": 710,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 1594,
+    "y": 780,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 1672,
+    "y": 756,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 1798,
+    "y": 774,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 1551,
+    "y": 889,
+    "w": 171,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 1730,
+    "y": 889,
+    "w": 171,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 1858,
+    "y": 654,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1920,
+  "vh": 1080,
+  "scrollW": 1920,
+  "docH": 1080,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 11,
+   "cardPct": 66,
+   "overflowCard": -130,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ },
+ "sidebarside_pc_landscape": {
+  "cls": "ig-stack",
+  "layout": "stack",
+  "t": 3.604,
+  "raw": [
+   1080,
+   1200
+  ],
+  "card": {
+   "x": 1540,
+   "y": 64,
+   "w": 372,
+   "h": 461
+  },
+  "feed": {
+   "x": 1551,
+   "y": 75,
+   "w": 352,
+   "h": 199
+  },
+  "img": {
+   "x": 1551,
+   "y": 75,
+   "w": 352,
+   "h": 198
+  },
+  "controls": [
+   {
+    "id": "db-pill",
+    "x": 1551,
+    "y": 284,
+    "w": 139,
+    "h": 33,
+    "reachable": true
+   },
+   {
+    "id": "mode-pill",
+    "x": 1698,
+    "y": 284,
+    "w": 105,
+    "h": 32,
+    "reachable": true
+   },
+   {
+    "id": "rec-button",
+    "x": 1810,
+    "y": 288,
+    "w": 53,
+    "h": 24,
+    "reachable": true
+   },
+   {
+    "id": "bell-btn",
+    "x": 1871,
+    "y": 285,
+    "w": 30,
+    "h": 30,
+    "reachable": true
+   },
+   {
+    "id": "snd-btn",
+    "x": 1594,
+    "y": 355,
+    "w": 48,
+    "h": 48,
+    "reachable": true
+   },
+   {
+    "id": "intercom-button",
+    "x": 1672,
+    "y": 331,
+    "w": 96,
+    "h": 96,
+    "reachable": true
+   },
+   {
+    "id": "unlock-button",
+    "x": 1798,
+    "y": 349,
+    "w": 60,
+    "h": 60,
+    "reachable": true
+   },
+   {
+    "id": "recordings-button",
+    "x": 1551,
+    "y": 464,
+    "w": 171,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "qr-button",
+    "x": 1730,
+    "y": 464,
+    "w": 171,
+    "h": 50,
+    "reachable": true
+   },
+   {
+    "id": "fs-btn",
+    "x": 1858,
+    "y": 229,
+    "w": 30,
+    "h": 32,
+    "reachable": true
+   }
+  ],
+  "vw": 1920,
+  "vh": 1080,
+  "scrollW": 1920,
+  "docH": 1080,
+  "cardSize": 4,
+  "grid": null,
+  "summary": {
+   "layout": "stack",
+   "cls": "ig-stack",
+   "imgPct": 3,
+   "cardPct": 41,
+   "overflowCard": -555,
+   "overflowDoc": 0,
+   "hscroll": 0,
+   "unreachable": [],
+   "minTarget": 24,
+   "cardSize": 4,
+   "grid": null
+  }
+ }
+}

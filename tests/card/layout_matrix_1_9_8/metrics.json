@@ -1,0 +1,3122 @@
+{
+ "sections_pc_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.26,
+  "classes": "intercom-container ig-stack",
+  "card": {
+   "x": 838,
+   "y": 80,
+   "w": 500,
+   "h": 995
+  },
+  "feed": {
+   "x": 849,
+   "y": 91,
+   "w": 480,
+   "h": 734
+  },
+  "img": {
+   "w": 413,
+   "h": 734,
+   "usedPct": 86
+  },
+  "actions": {
+   "x": 849,
+   "y": 877,
+   "w": 478,
+   "h": 127
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 849,
+    "y": 835,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 1236,
+    "y": 839,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 1297,
+    "y": 836,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 1284,
+    "y": 780,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 956,
+    "y": 905,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 1034,
+    "y": 881,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 1160,
+    "y": 899,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 849,
+    "y": 1014,
+    "w": 235,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 1092,
+    "y": 1014,
+    "w": 235,
+    "h": 50
+   }
+  ],
+  "vw": 1920,
+  "vh": 1080,
+  "scrollW": 1920,
+  "docH": 1099,
+  "avail": 992
+ },
+ "masonry_pc_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.373,
+  "classes": "intercom-container ig-stack",
+  "card": {
+   "x": 842,
+   "y": 64,
+   "w": 492,
+   "h": 1011
+  },
+  "feed": {
+   "x": 853,
+   "y": 75,
+   "w": 472,
+   "h": 750
+  },
+  "img": {
+   "w": 422,
+   "h": 750,
+   "usedPct": 89
+  },
+  "actions": {
+   "x": 853,
+   "y": 877,
+   "w": 470,
+   "h": 127
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 853,
+    "y": 835,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 1232,
+    "y": 839,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 1293,
+    "y": 836,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 1280,
+    "y": 780,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 956,
+    "y": 905,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 1034,
+    "y": 881,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 1160,
+    "y": 899,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 853,
+    "y": 1014,
+    "w": 231,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 1092,
+    "y": 1014,
+    "w": 231,
+    "h": 50
+   }
+  ],
+  "vw": 1920,
+  "vh": 1080,
+  "scrollW": 1920,
+  "docH": 1083,
+  "avail": 1008
+ },
+ "sidebar_pc_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.276,
+  "classes": "intercom-container ig-rail",
+  "card": {
+   "x": 264,
+   "y": 64,
+   "w": 1268,
+   "h": 1012
+  },
+  "feed": {
+   "x": 275,
+   "y": 117,
+   "w": 1248,
+   "h": 888
+  },
+  "img": {
+   "w": 500,
+   "h": 888,
+   "usedPct": 40
+  },
+  "actions": {
+   "x": 1148,
+   "y": 401,
+   "w": 104,
+   "h": 320
+  },
+  "actionsParent": "feed-wrap",
+  "actionsTransform": "matrix(1, 0, 0, 1, 0, -159.781)",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 275,
+    "y": 75,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 1430,
+    "y": 79,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 1491,
+    "y": 76,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 1104,
+    "y": 960,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 1170,
+    "y": 401,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "btn mic",
+    "x": 1160,
+    "y": 508,
+    "w": 80,
+    "h": 80
+   },
+   {
+    "cls": "btn door",
+    "x": 1170,
+    "y": 636,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 275,
+    "y": 1015,
+    "w": 619,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 902,
+    "y": 1015,
+    "w": 619,
+    "h": 50
+   }
+  ],
+  "vw": 1920,
+  "vh": 1080,
+  "scrollW": 1920,
+  "docH": 1084,
+  "avail": 1008
+ },
+ "sidebarside_pc_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.337,
+  "classes": "intercom-container ig-stack",
+  "card": {
+   "x": 1540,
+   "y": 64,
+   "w": 372,
+   "h": 885
+  },
+  "feed": {
+   "x": 1551,
+   "y": 75,
+   "w": 352,
+   "h": 624
+  },
+  "img": {
+   "w": 351,
+   "h": 624,
+   "usedPct": 100
+  },
+  "actions": {
+   "x": 1551,
+   "y": 751,
+   "w": 350,
+   "h": 127
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 1551,
+    "y": 709,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 1810,
+    "y": 713,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 1871,
+    "y": 710,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 1858,
+    "y": 654,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 1594,
+    "y": 779,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 1672,
+    "y": 755,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 1798,
+    "y": 773,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 1551,
+    "y": 888,
+    "w": 171,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 1730,
+    "y": 888,
+    "w": 171,
+    "h": 50
+   }
+  ],
+  "vw": 1920,
+  "vh": 1080,
+  "scrollW": 1920,
+  "docH": 1080,
+  "avail": 1008
+ },
+ "panel_pc_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.309,
+  "classes": "intercom-container ig-rail",
+  "card": {
+   "x": 256,
+   "y": 56,
+   "w": 1664,
+   "h": 1026
+  },
+  "feed": {
+   "x": 266,
+   "y": 108,
+   "w": 1646,
+   "h": 904
+  },
+  "img": {
+   "w": 509,
+   "h": 904,
+   "usedPct": 31
+  },
+  "actions": {
+   "x": 1343,
+   "y": 400,
+   "w": 104,
+   "h": 320
+  },
+  "actionsParent": "feed-wrap",
+  "actionsTransform": "matrix(1, 0, 0, 1, 0, -159.781)",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 266,
+    "y": 66,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 1819,
+    "y": 70,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 1880,
+    "y": 67,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 1299,
+    "y": 967,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 1365,
+    "y": 400,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "btn mic",
+    "x": 1355,
+    "y": 507,
+    "w": 80,
+    "h": 80
+   },
+   {
+    "cls": "btn door",
+    "x": 1365,
+    "y": 635,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 266,
+    "y": 1022,
+    "w": 818,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 1092,
+    "y": 1022,
+    "w": 818,
+    "h": 50
+   }
+  ],
+  "vw": 1920,
+  "vh": 1080,
+  "scrollW": 1920,
+  "docH": 1082,
+  "avail": 1024
+ },
+ "panel_pc_landscape.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.297,
+  "classes": "intercom-container",
+  "card": {
+   "x": 256,
+   "y": 56,
+   "w": 1664,
+   "h": 1026
+  },
+  "feed": {
+   "x": 266,
+   "y": 108,
+   "w": 1646,
+   "h": 904
+  },
+  "img": {
+   "w": 1607,
+   "h": 904,
+   "usedPct": 98
+  },
+  "actions": {
+   "x": 267,
+   "y": 896,
+   "w": 1644,
+   "h": 105
+  },
+  "actionsParent": "feed-wrap",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 266,
+    "y": 66,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 1819,
+    "y": 70,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 1880,
+    "y": 67,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 1867,
+    "y": 967,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 973,
+    "y": 916,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "btn mic",
+    "x": 1049,
+    "y": 896,
+    "w": 80,
+    "h": 80
+   },
+   {
+    "cls": "btn door",
+    "x": 1145,
+    "y": 916,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 266,
+    "y": 1022,
+    "w": 818,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 1092,
+    "y": 1022,
+    "w": 818,
+    "h": 50
+   }
+  ],
+  "vw": 1920,
+  "vh": 1080,
+  "scrollW": 1920,
+  "docH": 1082,
+  "avail": 1024
+ },
+ "panel_pc_native.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 2.603,
+  "classes": "intercom-container ig-rail",
+  "card": {
+   "x": 256,
+   "y": 56,
+   "w": 1664,
+   "h": 1026
+  },
+  "feed": {
+   "x": 266,
+   "y": 108,
+   "w": 1646,
+   "h": 904
+  },
+  "img": {
+   "w": 814,
+   "h": 904,
+   "usedPct": 49
+  },
+  "actions": {
+   "x": 1495,
+   "y": 400,
+   "w": 104,
+   "h": 320
+  },
+  "actionsParent": "feed-wrap",
+  "actionsTransform": "matrix(1, 0, 0, 1, 0, -159.781)",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 266,
+    "y": 66,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 1819,
+    "y": 70,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 1880,
+    "y": 67,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 1451,
+    "y": 967,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 1517,
+    "y": 400,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "btn mic",
+    "x": 1507,
+    "y": 507,
+    "w": 80,
+    "h": 80
+   },
+   {
+    "cls": "btn door",
+    "x": 1517,
+    "y": 635,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 266,
+    "y": 1022,
+    "w": 818,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 1092,
+    "y": 1022,
+    "w": 818,
+    "h": 50
+   }
+  ],
+  "vw": 1920,
+  "vh": 1080,
+  "scrollW": 1920,
+  "docH": 1082,
+  "avail": 1024
+ },
+ "panelcap_pc_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.321,
+  "classes": "intercom-container ig-stack ig-rail",
+  "card": {
+   "x": 256,
+   "y": 56,
+   "w": 1664,
+   "h": 1080
+  },
+  "feed": {
+   "x": 266,
+   "y": 66,
+   "w": 1646,
+   "h": 602
+  },
+  "img": {
+   "w": 339,
+   "h": 602,
+   "usedPct": 21
+  },
+  "actions": {
+   "x": 266,
+   "y": 547,
+   "w": 104,
+   "h": 346
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "matrix(1, 0, 0, 1, 0, -172.781)",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 266,
+    "y": 678,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 1819,
+    "y": 682,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 1880,
+    "y": 679,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 1214,
+    "y": 623,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 294,
+    "y": 551,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 270,
+    "y": 654,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 288,
+    "y": 806,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 266,
+    "y": 1076,
+    "w": 818,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 1092,
+    "y": 1076,
+    "w": 818,
+    "h": 50
+   }
+  ],
+  "vw": 1920,
+  "vh": 1080,
+  "scrollW": 1920,
+  "docH": 1136,
+  "avail": 1024
+ },
+ "sections_phone_port_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.201,
+  "classes": "intercom-container ig-stack",
+  "card": {
+   "x": 8,
+   "y": 80,
+   "w": 374,
+   "h": 759
+  },
+  "feed": {
+   "x": 19,
+   "y": 91,
+   "w": 354,
+   "h": 498
+  },
+  "img": {
+   "w": 280,
+   "h": 498,
+   "usedPct": 79
+  },
+  "actions": {
+   "x": 19,
+   "y": 641,
+   "w": 352,
+   "h": 127
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 19,
+    "y": 599,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 280,
+    "y": 603,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 341,
+    "y": 600,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 328,
+    "y": 544,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 63,
+    "y": 669,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 141,
+    "y": 645,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 267,
+    "y": 663,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 19,
+    "y": 778,
+    "w": 172,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 199,
+    "y": 778,
+    "w": 172,
+    "h": 50
+   }
+  ],
+  "vw": 390,
+  "vh": 844,
+  "scrollW": 390,
+  "docH": 863,
+  "avail": 756
+ },
+ "masonry_phone_port_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.294,
+  "classes": "intercom-container ig-stack",
+  "card": {
+   "x": 8,
+   "y": 64,
+   "w": 374,
+   "h": 775
+  },
+  "feed": {
+   "x": 19,
+   "y": 75,
+   "w": 354,
+   "h": 514
+  },
+  "img": {
+   "w": 289,
+   "h": 514,
+   "usedPct": 82
+  },
+  "actions": {
+   "x": 19,
+   "y": 641,
+   "w": 352,
+   "h": 127
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 19,
+    "y": 599,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 280,
+    "y": 603,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 341,
+    "y": 600,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 328,
+    "y": 544,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 63,
+    "y": 669,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 141,
+    "y": 645,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 267,
+    "y": 663,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 19,
+    "y": 778,
+    "w": 172,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 199,
+    "y": 778,
+    "w": 172,
+    "h": 50
+   }
+  ],
+  "vw": 390,
+  "vh": 844,
+  "scrollW": 390,
+  "docH": 847,
+  "avail": 772
+ },
+ "sidebar_phone_port_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.159,
+  "classes": "intercom-container ig-stack",
+  "card": {
+   "x": 8,
+   "y": 64,
+   "w": 374,
+   "h": 775
+  },
+  "feed": {
+   "x": 19,
+   "y": 75,
+   "w": 354,
+   "h": 514
+  },
+  "img": {
+   "w": 289,
+   "h": 514,
+   "usedPct": 82
+  },
+  "actions": {
+   "x": 19,
+   "y": 641,
+   "w": 352,
+   "h": 127
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 19,
+    "y": 599,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 280,
+    "y": 603,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 341,
+    "y": 600,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 328,
+    "y": 544,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 63,
+    "y": 669,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 141,
+    "y": 645,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 267,
+    "y": 663,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 19,
+    "y": 778,
+    "w": 172,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 199,
+    "y": 778,
+    "w": 172,
+    "h": 50
+   }
+  ],
+  "vw": 390,
+  "vh": 844,
+  "scrollW": 390,
+  "docH": 912,
+  "avail": 772
+ },
+ "sidebarside_phone_port_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.422,
+  "classes": "intercom-container ig-stack",
+  "card": {
+   "x": 8,
+   "y": 128,
+   "w": 374,
+   "h": 759
+  },
+  "feed": {
+   "x": 19,
+   "y": 139,
+   "w": 354,
+   "h": 498
+  },
+  "img": {
+   "w": 280,
+   "h": 498,
+   "usedPct": 79
+  },
+  "actions": {
+   "x": 19,
+   "y": 689,
+   "w": 352,
+   "h": 127
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 19,
+    "y": 647,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 280,
+    "y": 651,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 341,
+    "y": 648,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 328,
+    "y": 593,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 63,
+    "y": 717,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 141,
+    "y": 693,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 267,
+    "y": 711,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 19,
+    "y": 827,
+    "w": 172,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 199,
+    "y": 827,
+    "w": 172,
+    "h": 50
+   }
+  ],
+  "vw": 390,
+  "vh": 844,
+  "scrollW": 390,
+  "docH": 896,
+  "avail": 756
+ },
+ "panel_phone_port_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.321,
+  "classes": "intercom-container ig-stack",
+  "card": {
+   "x": 0,
+   "y": 56,
+   "w": 390,
+   "h": 789
+  },
+  "feed": {
+   "x": 10,
+   "y": 66,
+   "w": 372,
+   "h": 530
+  },
+  "img": {
+   "w": 298,
+   "h": 530,
+   "usedPct": 80
+  },
+  "actions": {
+   "x": 10,
+   "y": 648,
+   "w": 370,
+   "h": 127
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 10,
+    "y": 606,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 289,
+    "y": 610,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 350,
+    "y": 607,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 337,
+    "y": 551,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 63,
+    "y": 676,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 141,
+    "y": 652,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 267,
+    "y": 670,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 10,
+    "y": 785,
+    "w": 181,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 199,
+    "y": 785,
+    "w": 181,
+    "h": 50
+   }
+  ],
+  "vw": 390,
+  "vh": 844,
+  "scrollW": 390,
+  "docH": 845,
+  "avail": 788
+ },
+ "sections_phone_land_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.319,
+  "classes": "intercom-container ig-stack ig-rail",
+  "card": {
+   "x": 172,
+   "y": 80,
+   "w": 500,
+   "h": 662
+  },
+  "feed": {
+   "x": 183,
+   "y": 91,
+   "w": 480,
+   "h": 182
+  },
+  "img": {
+   "w": 102,
+   "h": 182,
+   "usedPct": 21
+  },
+  "actions": {
+   "x": 183,
+   "y": 152,
+   "w": 104,
+   "h": 346
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "matrix(1, 0, 0, 1, 0, -172.781)",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 183,
+    "y": 283,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 570,
+    "y": 287,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 631,
+    "y": 284,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 430,
+    "y": 228,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 211,
+    "y": 156,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 187,
+    "y": 259,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 205,
+    "y": 411,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 183,
+    "y": 681,
+    "w": 235,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 426,
+    "y": 681,
+    "w": 235,
+    "h": 50
+   }
+  ],
+  "vw": 844,
+  "vh": 390,
+  "scrollW": 844,
+  "docH": 766,
+  "avail": 302
+ },
+ "masonry_phone_land_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.317,
+  "classes": "intercom-container ig-stack ig-rail",
+  "card": {
+   "x": 176,
+   "y": 64,
+   "w": 492,
+   "h": 662
+  },
+  "feed": {
+   "x": 187,
+   "y": 75,
+   "w": 472,
+   "h": 182
+  },
+  "img": {
+   "w": 102,
+   "h": 182,
+   "usedPct": 22
+  },
+  "actions": {
+   "x": 187,
+   "y": 136,
+   "w": 104,
+   "h": 346
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "matrix(1, 0, 0, 1, 0, -172.781)",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 187,
+    "y": 267,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 566,
+    "y": 271,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 627,
+    "y": 268,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 430,
+    "y": 212,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 215,
+    "y": 140,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 191,
+    "y": 243,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 209,
+    "y": 395,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 187,
+    "y": 665,
+    "w": 231,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 426,
+    "y": 665,
+    "w": 231,
+    "h": 50
+   }
+  ],
+  "vw": 844,
+  "vh": 390,
+  "scrollW": 844,
+  "docH": 734,
+  "avail": 318
+ },
+ "sidebar_phone_land_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.308,
+  "classes": "intercom-container ig-stack ig-rail",
+  "card": {
+   "x": 8,
+   "y": 64,
+   "w": 533,
+   "h": 662
+  },
+  "feed": {
+   "x": 19,
+   "y": 75,
+   "w": 513,
+   "h": 182
+  },
+  "img": {
+   "w": 102,
+   "h": 182,
+   "usedPct": 20
+  },
+  "actions": {
+   "x": 19,
+   "y": 136,
+   "w": 104,
+   "h": 346
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "matrix(1, 0, 0, 1, 0, -172.781)",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 19,
+    "y": 267,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 439,
+    "y": 271,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 500,
+    "y": 268,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 282,
+    "y": 212,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 47,
+    "y": 140,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 23,
+    "y": 243,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 41,
+    "y": 395,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 19,
+    "y": 665,
+    "w": 251,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 278,
+    "y": 665,
+    "w": 251,
+    "h": 50
+   }
+  ],
+  "vw": 844,
+  "vh": 390,
+  "scrollW": 844,
+  "docH": 734,
+  "avail": 318
+ },
+ "sidebarside_phone_land_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.264,
+  "classes": "intercom-container ig-stack",
+  "card": {
+   "x": 464,
+   "y": 64,
+   "w": 372,
+   "h": 443
+  },
+  "feed": {
+   "x": 475,
+   "y": 75,
+   "w": 352,
+   "h": 182
+  },
+  "img": {
+   "w": 102,
+   "h": 182,
+   "usedPct": 29
+  },
+  "actions": {
+   "x": 475,
+   "y": 309,
+   "w": 350,
+   "h": 127
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 475,
+    "y": 267,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 734,
+    "y": 271,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 795,
+    "y": 268,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 782,
+    "y": 212,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 518,
+    "y": 337,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 596,
+    "y": 313,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 722,
+    "y": 331,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 475,
+    "y": 446,
+    "w": 171,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 654,
+    "y": 446,
+    "w": 171,
+    "h": 50
+   }
+  ],
+  "vw": 844,
+  "vh": 390,
+  "scrollW": 844,
+  "docH": 515,
+  "avail": 318
+ },
+ "panel_phone_land_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.299,
+  "classes": "intercom-container ig-rail",
+  "card": {
+   "x": 0,
+   "y": 56,
+   "w": 844,
+   "h": 336
+  },
+  "feed": {
+   "x": 10,
+   "y": 108,
+   "w": 826,
+   "h": 214
+  },
+  "img": {
+   "w": 120,
+   "h": 214,
+   "usedPct": 15
+  },
+  "actions": {
+   "x": 483,
+   "y": 55,
+   "w": 104,
+   "h": 320
+  },
+  "actionsParent": "feed-wrap",
+  "actionsTransform": "matrix(1, 0, 0, 1, 0, -159.781)",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 10,
+    "y": 66,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 743,
+    "y": 70,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 804,
+    "y": 67,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 439,
+    "y": 277,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 505,
+    "y": 55,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "btn mic",
+    "x": 495,
+    "y": 162,
+    "w": 80,
+    "h": 80
+   },
+   {
+    "cls": "btn door",
+    "x": 505,
+    "y": 290,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 10,
+    "y": 332,
+    "w": 408,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 426,
+    "y": 332,
+    "w": 408,
+    "h": 50
+   }
+  ],
+  "vw": 844,
+  "vh": 390,
+  "scrollW": 844,
+  "docH": 392,
+  "avail": 334
+ },
+ "sections_tablet_port_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.303,
+  "classes": "intercom-container ig-stack",
+  "card": {
+   "x": 150,
+   "y": 80,
+   "w": 500,
+   "h": 1113
+  },
+  "feed": {
+   "x": 161,
+   "y": 91,
+   "w": 480,
+   "h": 852
+  },
+  "img": {
+   "w": 479,
+   "h": 852,
+   "usedPct": 100
+  },
+  "actions": {
+   "x": 161,
+   "y": 995,
+   "w": 478,
+   "h": 127
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 161,
+    "y": 953,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 548,
+    "y": 957,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 609,
+    "y": 954,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 596,
+    "y": 898,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 268,
+    "y": 1023,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 346,
+    "y": 999,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 472,
+    "y": 1017,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 161,
+    "y": 1132,
+    "w": 235,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 404,
+    "y": 1132,
+    "w": 235,
+    "h": 50
+   }
+  ],
+  "vw": 800,
+  "vh": 1280,
+  "scrollW": 800,
+  "docH": 1280,
+  "avail": 1192
+ },
+ "masonry_tablet_port_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.169,
+  "classes": "intercom-container ig-stack",
+  "card": {
+   "x": 154,
+   "y": 64,
+   "w": 492,
+   "h": 1099
+  },
+  "feed": {
+   "x": 165,
+   "y": 75,
+   "w": 472,
+   "h": 838
+  },
+  "img": {
+   "w": 471,
+   "h": 838,
+   "usedPct": 100
+  },
+  "actions": {
+   "x": 165,
+   "y": 965,
+   "w": 470,
+   "h": 127
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 165,
+    "y": 923,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 544,
+    "y": 927,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 605,
+    "y": 924,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 592,
+    "y": 868,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 268,
+    "y": 993,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 346,
+    "y": 969,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 472,
+    "y": 987,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 165,
+    "y": 1102,
+    "w": 231,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 404,
+    "y": 1102,
+    "w": 231,
+    "h": 50
+   }
+  ],
+  "vw": 800,
+  "vh": 1280,
+  "scrollW": 800,
+  "docH": 1280,
+  "avail": 1208
+ },
+ "sidebar_tablet_port_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.285,
+  "classes": "intercom-container ig-stack",
+  "card": {
+   "x": 8,
+   "y": 64,
+   "w": 503,
+   "h": 1118
+  },
+  "feed": {
+   "x": 19,
+   "y": 75,
+   "w": 483,
+   "h": 857
+  },
+  "img": {
+   "w": 482,
+   "h": 857,
+   "usedPct": 100
+  },
+  "actions": {
+   "x": 19,
+   "y": 984,
+   "w": 481,
+   "h": 127
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 19,
+    "y": 942,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 409,
+    "y": 946,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 470,
+    "y": 943,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 457,
+    "y": 887,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 128,
+    "y": 1012,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 206,
+    "y": 988,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 332,
+    "y": 1006,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 19,
+    "y": 1121,
+    "w": 237,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 264,
+    "y": 1121,
+    "w": 237,
+    "h": 50
+   }
+  ],
+  "vw": 800,
+  "vh": 1280,
+  "scrollW": 800,
+  "docH": 1280,
+  "avail": 1208
+ },
+ "sidebarside_tablet_port_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.346,
+  "classes": "intercom-container ig-stack",
+  "card": {
+   "x": 420,
+   "y": 64,
+   "w": 372,
+   "h": 885
+  },
+  "feed": {
+   "x": 431,
+   "y": 75,
+   "w": 352,
+   "h": 624
+  },
+  "img": {
+   "w": 351,
+   "h": 624,
+   "usedPct": 100
+  },
+  "actions": {
+   "x": 431,
+   "y": 751,
+   "w": 350,
+   "h": 127
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 431,
+    "y": 709,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 690,
+    "y": 713,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 751,
+    "y": 710,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 738,
+    "y": 654,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 474,
+    "y": 779,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 552,
+    "y": 755,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 678,
+    "y": 773,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 431,
+    "y": 888,
+    "w": 171,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 610,
+    "y": 888,
+    "w": 171,
+    "h": 50
+   }
+  ],
+  "vw": 800,
+  "vh": 1280,
+  "scrollW": 800,
+  "docH": 1280,
+  "avail": 1208
+ },
+ "panel_tablet_port_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.372,
+  "classes": "intercom-container ig-stack",
+  "card": {
+   "x": 0,
+   "y": 56,
+   "w": 800,
+   "h": 1225
+  },
+  "feed": {
+   "x": 10,
+   "y": 66,
+   "w": 782,
+   "h": 966
+  },
+  "img": {
+   "w": 543,
+   "h": 966,
+   "usedPct": 69
+  },
+  "actions": {
+   "x": 10,
+   "y": 1084,
+   "w": 780,
+   "h": 127
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 10,
+    "y": 1042,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 699,
+    "y": 1046,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 760,
+    "y": 1043,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 747,
+    "y": 987,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 268,
+    "y": 1112,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 346,
+    "y": 1088,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 472,
+    "y": 1106,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 10,
+    "y": 1221,
+    "w": 386,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 404,
+    "y": 1221,
+    "w": 386,
+    "h": 50
+   }
+  ],
+  "vw": 800,
+  "vh": 1280,
+  "scrollW": 800,
+  "docH": 1281,
+  "avail": 1224
+ },
+ "sections_tablet_land_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.337,
+  "classes": "intercom-container ig-stack",
+  "card": {
+   "x": 518,
+   "y": 80,
+   "w": 500,
+   "h": 715
+  },
+  "feed": {
+   "x": 529,
+   "y": 91,
+   "w": 480,
+   "h": 454
+  },
+  "img": {
+   "w": 255,
+   "h": 454,
+   "usedPct": 53
+  },
+  "actions": {
+   "x": 529,
+   "y": 597,
+   "w": 478,
+   "h": 127
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 529,
+    "y": 555,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 916,
+    "y": 559,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 977,
+    "y": 556,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 964,
+    "y": 500,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 636,
+    "y": 625,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 714,
+    "y": 601,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 840,
+    "y": 619,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 529,
+    "y": 734,
+    "w": 235,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 772,
+    "y": 734,
+    "w": 235,
+    "h": 50
+   }
+  ],
+  "vw": 1280,
+  "vh": 800,
+  "scrollW": 1280,
+  "docH": 819,
+  "avail": 712
+ },
+ "masonry_tablet_land_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.263,
+  "classes": "intercom-container ig-stack",
+  "card": {
+   "x": 522,
+   "y": 64,
+   "w": 492,
+   "h": 731
+  },
+  "feed": {
+   "x": 533,
+   "y": 75,
+   "w": 472,
+   "h": 470
+  },
+  "img": {
+   "w": 264,
+   "h": 470,
+   "usedPct": 56
+  },
+  "actions": {
+   "x": 533,
+   "y": 597,
+   "w": 470,
+   "h": 127
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 533,
+    "y": 555,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 912,
+    "y": 559,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 973,
+    "y": 556,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 960,
+    "y": 500,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 636,
+    "y": 625,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 714,
+    "y": 601,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 840,
+    "y": 619,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 533,
+    "y": 734,
+    "w": 231,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 772,
+    "y": 734,
+    "w": 231,
+    "h": 50
+   }
+  ],
+  "vw": 1280,
+  "vh": 800,
+  "scrollW": 1280,
+  "docH": 803,
+  "avail": 728
+ },
+ "sidebar_tablet_land_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.322,
+  "classes": "intercom-container ig-rail",
+  "card": {
+   "x": 264,
+   "y": 64,
+   "w": 648,
+   "h": 732
+  },
+  "feed": {
+   "x": 275,
+   "y": 117,
+   "w": 628,
+   "h": 608
+  },
+  "img": {
+   "w": 342,
+   "h": 608,
+   "usedPct": 54
+  },
+  "actions": {
+   "x": 759,
+   "y": 261,
+   "w": 104,
+   "h": 320
+  },
+  "actionsParent": "feed-wrap",
+  "actionsTransform": "matrix(1, 0, 0, 1, 0, -159.781)",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 275,
+    "y": 75,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 810,
+    "y": 79,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 871,
+    "y": 76,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 715,
+    "y": 680,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 781,
+    "y": 261,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "btn mic",
+    "x": 771,
+    "y": 368,
+    "w": 80,
+    "h": 80
+   },
+   {
+    "cls": "btn door",
+    "x": 781,
+    "y": 496,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 275,
+    "y": 735,
+    "w": 309,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 592,
+    "y": 735,
+    "w": 309,
+    "h": 50
+   }
+  ],
+  "vw": 1280,
+  "vh": 800,
+  "scrollW": 1280,
+  "docH": 804,
+  "avail": 728
+ },
+ "sidebarside_tablet_land_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.288,
+  "classes": "intercom-container ig-stack",
+  "card": {
+   "x": 900,
+   "y": 64,
+   "w": 372,
+   "h": 731
+  },
+  "feed": {
+   "x": 911,
+   "y": 75,
+   "w": 352,
+   "h": 470
+  },
+  "img": {
+   "w": 264,
+   "h": 470,
+   "usedPct": 75
+  },
+  "actions": {
+   "x": 911,
+   "y": 597,
+   "w": 350,
+   "h": 127
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 911,
+    "y": 555,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 1170,
+    "y": 559,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 1231,
+    "y": 556,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 1218,
+    "y": 500,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 954,
+    "y": 625,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 1032,
+    "y": 601,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 1158,
+    "y": 619,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 911,
+    "y": 734,
+    "w": 171,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 1090,
+    "y": 734,
+    "w": 171,
+    "h": 50
+   }
+  ],
+  "vw": 1280,
+  "vh": 800,
+  "scrollW": 1280,
+  "docH": 803,
+  "avail": 728
+ },
+ "panel_tablet_land_portrait.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.278,
+  "classes": "intercom-container ig-rail",
+  "card": {
+   "x": 256,
+   "y": 56,
+   "w": 1024,
+   "h": 746
+  },
+  "feed": {
+   "x": 266,
+   "y": 108,
+   "w": 1006,
+   "h": 624
+  },
+  "img": {
+   "w": 351,
+   "h": 624,
+   "usedPct": 35
+  },
+  "actions": {
+   "x": 944,
+   "y": 260,
+   "w": 104,
+   "h": 320
+  },
+  "actionsParent": "feed-wrap",
+  "actionsTransform": "matrix(1, 0, 0, 1, 0, -159.781)",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 266,
+    "y": 66,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 1179,
+    "y": 70,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 1240,
+    "y": 67,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 900,
+    "y": 687,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 966,
+    "y": 260,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "btn mic",
+    "x": 956,
+    "y": 367,
+    "w": 80,
+    "h": 80
+   },
+   {
+    "cls": "btn door",
+    "x": 966,
+    "y": 495,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 266,
+    "y": 742,
+    "w": 498,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 772,
+    "y": 742,
+    "w": 498,
+    "h": 50
+   }
+  ],
+  "vw": 1280,
+  "vh": 800,
+  "scrollW": 1280,
+  "docH": 802,
+  "avail": 744
+ },
+ "panel_tablet_land_landscape.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 3.372,
+  "classes": "intercom-container ig-stack",
+  "card": {
+   "x": 256,
+   "y": 56,
+   "w": 1024,
+   "h": 745
+  },
+  "feed": {
+   "x": 266,
+   "y": 66,
+   "w": 1006,
+   "h": 486
+  },
+  "img": {
+   "w": 864,
+   "h": 486,
+   "usedPct": 86
+  },
+  "actions": {
+   "x": 266,
+   "y": 604,
+   "w": 1004,
+   "h": 127
+  },
+  "actionsParent": "stack-controls",
+  "actionsTransform": "none",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 266,
+    "y": 562,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 1179,
+    "y": 566,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 1240,
+    "y": 563,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 1227,
+    "y": 507,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 636,
+    "y": 632,
+    "w": 48,
+    "h": 48
+   },
+   {
+    "cls": "btn mic",
+    "x": 714,
+    "y": 608,
+    "w": 96,
+    "h": 96
+   },
+   {
+    "cls": "btn door",
+    "x": 840,
+    "y": 626,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 266,
+    "y": 741,
+    "w": 498,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 772,
+    "y": 741,
+    "w": 498,
+    "h": 50
+   }
+  ],
+  "vw": 1280,
+  "vh": 800,
+  "scrollW": 1280,
+  "docH": 801,
+  "avail": 744
+ },
+ "panel_tablet_land_native.png": {
+  "rot": 0,
+  "raw": [
+   1080,
+   1200
+  ],
+  "t": 2.673,
+  "classes": "intercom-container ig-rail",
+  "card": {
+   "x": 256,
+   "y": 56,
+   "w": 1024,
+   "h": 746
+  },
+  "feed": {
+   "x": 266,
+   "y": 108,
+   "w": 1006,
+   "h": 624
+  },
+  "img": {
+   "w": 562,
+   "h": 624,
+   "usedPct": 56
+  },
+  "actions": {
+   "x": 1049,
+   "y": 260,
+   "w": 104,
+   "h": 320
+  },
+  "actionsParent": "feed-wrap",
+  "actionsTransform": "matrix(1, 0, 0, 1, 0, -159.781)",
+  "btns": [
+   {
+    "cls": "mode-pill mode-normal",
+    "x": 266,
+    "y": 66,
+    "w": 105,
+    "h": 32
+   },
+   {
+    "cls": "rec-pill",
+    "x": 1179,
+    "y": 70,
+    "w": 53,
+    "h": 24
+   },
+   {
+    "cls": "bell-btn unread",
+    "x": 1240,
+    "y": 67,
+    "w": 30,
+    "h": 30
+   },
+   {
+    "cls": "hud-fs",
+    "x": 1005,
+    "y": 687,
+    "w": 30,
+    "h": 32
+   },
+   {
+    "cls": "btn snd",
+    "x": 1071,
+    "y": 260,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "btn mic",
+    "x": 1061,
+    "y": 367,
+    "w": 80,
+    "h": 80
+   },
+   {
+    "cls": "btn door",
+    "x": 1071,
+    "y": 495,
+    "w": 60,
+    "h": 60
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 266,
+    "y": 742,
+    "w": 498,
+    "h": 50
+   },
+   {
+    "cls": "quick-btn half",
+    "x": 772,
+    "y": 742,
+    "w": 498,
+    "h": 50
+   }
+  ],
+  "vw": 1280,
+  "vh": 800,
+  "scrollW": 1280,
+  "docH": 802,
+  "avail": 744
+ }
+}

@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>v1.11.0 layout harness (adaptive layout; network doubled)</title>
+</head>
+<body style="margin:0;background:#111;">
+  <!-- The driver rebuilds this with a fake Home Assistant view (hui-panel-view / hui-masonry-view,
+       the tag names the card's _viewHost() looks for) around #host. -->
+  <div id="stage"><div id="host"></div></div>
+  <!-- The 1.10.0 harness is reused as is: fake doorbells, hass, network. It doesn't touch the card. -->
+  <script src="../ui_v1_10_0/harness.js"></script>
+  <script src="../../../custom_components/ig_doorbell/frontend/ig-doorbell-card.js"></script>
+</body>
+</html>

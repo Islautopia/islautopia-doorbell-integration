@@ -1,0 +1,13 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>idle release / touch reactivation harness (network doubled, startWebRTC REAL)</title></head>
+<body>
+  <div id="host"></div>
+  <!-- Carga el fichero REAL de dist/ (no una copia). startWebRTC() NO se toca aqui: solo se
+       doblan fetch/EventSource/WebSocket y el puente hass.connection.sendMessagePromise, que es
+       lo mas cerca de "capa de red" que se puede aislar sin un portero y un Home Assistant reales
+       delante. -->
+  <script src="../../../custom_components/ig_doorbell/frontend/ig-doorbell-card.js"></script>
+  <script src="harness.js"></script>
+</body>
+</html>
