@@ -5,9 +5,8 @@
 // EventSource/WebSocket/hass.connection.sendMessagePromise -- the network layer, never the card's
 // logic.
 //
-// RUN:
-//   1. From the worktree root: `python -m http.server 8792`
-//   2. `node test/idle_release_network/driver.js`
+// RUN: cd tests/card && npm install && node run_all.js       (serves the repo itself)
+// Standalone (from the worktree root): `python -m http.server 8792`, then `node idle_release_network/driver.js`
 const { chromium } = require('playwright-core');
 
 const EXE = process.env.PLAYWRIGHT_CHROMIUM_PATH
@@ -27,7 +26,7 @@ async function newPage(browser) {
   });
   page.on('pageerror', (err) => console.log('[pageerror] ' + err));
   await page.goto(BASE);
-  await page.waitForFunction(() => window.TESTLOG && window.TESTLOG.some((l) => l.includes('harness listo')));
+  await page.waitForFunction(() => window.TESTLOG && window.TESTLOG.some((l) => l.includes('harness ready')));
   return page;
 }
 
@@ -39,7 +38,7 @@ async function pollState(page, id, totalMs, stepMs) {
   while (elapsed <= totalMs) {
     const s = await page.evaluate((id) => window.tState(id), id);
     samples.push({ t: elapsed, ...s });
-    console.log(`  t+${elapsed}ms: hasPc=${s.hasPc} streamPausedByHide=${s.streamPausedByHide} connGen=${s.connGen} arranqueEnVueloGen=${s.arranqueEnVueloGen} nativeWS=${s.nativeWS}`);
+    console.log(`  t+${elapsed}ms: hasPc=${s.hasPc} streamPausedByHide=${s.streamPausedByHide} connGen=${s.connGen} startInFlightGen=${s.startInFlightGen} nativeWS=${s.nativeWS}`);
     await sleep(stepMs);
     elapsed += stepMs;
   }
@@ -57,7 +56,7 @@ async function main() {
   // ════════════════════════════════════════════════════════════════════════════════════════════
   {
     const page = await newPage(browser);
-    console.log('\n########## CONTROL POSITIVO: soltar por visibilitychange y reponer por visibilitychange ##########');
+    console.log('\n########## POSITIVE CONTROL: release via visibilitychange and restore via visibilitychange ##########');
     await page.evaluate(() => {
       window.tSetNetCfg({ esOutcome: 'error', esDelay: 40, wsOutcome: 'open', wsDelay: 40, turnFail: true });
       window.tCreateCard('p', { idle_release_seconds: 0 }); // 0 = disables the idle clock, doesn't interfere
@@ -65,19 +64,19 @@ async function main() {
     });
     await sleep(600);
     const before = await page.evaluate(() => window.tState('p'));
-    console.log('estado tras conectar:', JSON.stringify(before));
+    console.log('state after connecting:', JSON.stringify(before));
     await page.evaluate(() => window.tHide('p'));
     await sleep(200);
     const hidden = await page.evaluate(() => window.tState('p'));
-    console.log('estado tras ocultar (visibilitychange):', JSON.stringify(hidden));
+    console.log('state after hiding (visibilitychange):', JSON.stringify(hidden));
     await page.evaluate(() => window.tShow('p'));
     await sleep(600);
     const shown = await page.evaluate(() => window.tState('p'));
-    console.log('estado tras volver a mostrar:', JSON.stringify(shown));
-    const veredicto = !before.hasPc ? 'CONTROL INVALIDO (no conecto de entrada)'
-      : (hidden.hasPc ? 'CONTROL INVALIDO (no solto al ocultar)'
-        : (shown.hasPc ? 'CONTROL POSITIVO OK: el arnes SI ve una reposicion cuando ocurre' : 'CONTROL INVALIDO (tampoco repuso por visibilitychange -- arnes sospechoso)'));
-    console.log('=> ' + veredicto);
+    console.log('state after showing again:', JSON.stringify(shown));
+    const verdict = !before.hasPc ? 'INVALID CONTROL (did not connect to begin with)'
+      : (hidden.hasPc ? 'INVALID CONTROL (did not release on hiding)'
+        : (shown.hasPc ? 'POSITIVE CONTROL OK: the harness DOES see a restoration when one happens' : 'INVALID CONTROL (did not restore via visibilitychange either -- harness suspect)'));
+    console.log('=> ' + verdict);
     await page.close();
   }
 
@@ -89,7 +88,7 @@ async function main() {
   // ════════════════════════════════════════════════════════════════════════════════════════════
   {
     const page = await newPage(browser);
-    console.log('\n########## CASO 1: idle_release_seconds=2, red normal (rapida), soltar solo y luego TOCAR ##########');
+    console.log('\n########## CASE 1: idle_release_seconds=2, normal (fast) network, release on its own then TAP ##########');
     await page.evaluate(() => {
       window.tSetNetCfg({ esOutcome: 'error', esDelay: 40, wsOutcome: 'open', wsDelay: 40, turnFail: true,
         connInfoDelay: 30, turnDelay: 30, localSignalUrlDelay: 30 });
@@ -97,18 +96,18 @@ async function main() {
       window.tAttach('c1');
     });
     await sleep(500);
-    console.log('estado tras conectar:', JSON.stringify(await page.evaluate(() => window.tState('c1'))));
+    console.log('state after connecting:', JSON.stringify(await page.evaluate(() => window.tState('c1'))));
     await sleep(2600); // > 2s past the deadline
     const released = await page.evaluate(() => window.tState('c1'));
-    console.log('estado tras el plazo de inactividad (SIN tocar):', JSON.stringify(released));
+    console.log('state after the idle deadline (with NO tap):', JSON.stringify(released));
     if (released.hasPc) {
-      console.log('=> CASO 1 INVALIDO: no llego a soltarse solo, no se puede probar el toque');
+      console.log('=> CASE 1 INVALID: it did not manage to release on its own, the tap cannot be tested');
     } else {
-      console.log('-- tocando ahora, y muestreando el estado cada 500ms durante 13s (pasado el fusible de 12s) --');
+      console.log('-- tapping now, and sampling the state every 500ms for 13s (past the 12s fuse) --');
       await page.evaluate(() => window.tTouch('c1'));
       const samples = await pollState(page, 'c1', 13000, 500);
-      const recuperado = samples.some((s) => s.hasPc);
-      console.log('=> CASO 1: ' + (recuperado ? 'SE REPUSO (hasPc volvio a true en algun momento)' : 'NO SE REPUSO EN 13s -- reproducido el sintoma'));
+      const recovered = samples.some((s) => s.hasPc);
+      console.log('=> CASE 1: ' + (recovered ? 'DID RESTORE (hasPc went back to true at some point)' : 'DID NOT RESTORE in 13s -- symptom reproduced'));
     }
     await page.close();
   }
@@ -122,7 +121,7 @@ async function main() {
   // ════════════════════════════════════════════════════════════════════════════════════════════
   {
     const page = await newPage(browser);
-    console.log('\n########## CASO 2: primer arranque COLGADO (relay nunca abre/falla), idle_release_seconds=2, luego TOCAR ##########');
+    console.log('\n########## CASE 2: first startup STUCK (relay never opens/fails), idle_release_seconds=2, then TAP ##########');
     await page.evaluate(() => {
       window.tSetNetCfg({ esOutcome: 'error', esDelay: 40, wsOutcome: 'hang', turnFail: true,
         connInfoDelay: 30, turnDelay: 30, localSignalUrlDelay: 30 });
@@ -131,16 +130,16 @@ async function main() {
     });
     await sleep(500);
     const midflight = await page.evaluate(() => window.tState('c2'));
-    console.log('estado con el primer arranque colgado en el relay:', JSON.stringify(midflight));
+    console.log('state with the first startup stuck on the relay:', JSON.stringify(midflight));
     await sleep(2600);
     const released = await page.evaluate(() => window.tState('c2'));
-    console.log('estado tras el plazo de inactividad (arranque original SIGUE colgado):', JSON.stringify(released));
-    console.log('-- tocando ahora, muestreando 13s (fusible START_IN_FLIGHT_MAX_MS=12000ms) --');
+    console.log('state after the idle deadline (the original startup is STILL stuck):', JSON.stringify(released));
+    console.log('-- tapping now, sampling for 13s (fuse START_IN_FLIGHT_MAX_MS=12000ms) --');
     await page.evaluate(() => window.tTouch('c2'));
     const samples = await pollState(page, 'c2', 13000, 500);
-    const qrLocked = samples.some((s) => s.arranqueEnVueloGen !== null && !s.hasPc);
-    const recuperado = samples.some((s) => s.hasPc);
-    console.log(`=> CASO 2: arranqueEnVuelo visto no-null en algun momento tras tocar=${qrLocked}; ` + (recuperado ? 'SE REPUSO' : 'NO SE REPUSO EN 13s'));
+    const stillLocked = samples.some((s) => s.startInFlightGen !== null && !s.hasPc);
+    const recovered = samples.some((s) => s.hasPc);
+    console.log(`=> CASE 2: startInFlightGen seen non-null at some point after tapping=${stillLocked}; ` + (recovered ? 'DID RESTORE' : 'DID NOT RESTORE in 13s'));
     await page.close();
   }
 
@@ -153,7 +152,7 @@ async function main() {
   // ════════════════════════════════════════════════════════════════════════════════════════════
   {
     const page = await newPage(browser);
-    console.log('\n########## CASO 3: idle-release + visibilitychange espurio ANTES de tocar ##########');
+    console.log('\n########## CASE 3: idle-release + a spurious visibilitychange BEFORE tapping ##########');
     await page.evaluate(() => {
       window.tSetNetCfg({ esOutcome: 'error', esDelay: 40, wsOutcome: 'open', wsDelay: 40, turnFail: true,
         connInfoDelay: 30, turnDelay: 30, localSignalUrlDelay: 30 });
@@ -163,21 +162,21 @@ async function main() {
     await sleep(500);
     await sleep(2600);
     const released = await page.evaluate(() => window.tState('c3'));
-    console.log('estado tras el plazo de inactividad:', JSON.stringify(released));
-    console.log('-- disparando visibilitychange hidden->visible espurio (la pagina nunca deja de estar activa de verdad) --');
+    console.log('state after the idle deadline:', JSON.stringify(released));
+    console.log('-- firing a spurious hidden->visible visibilitychange (the page never genuinely stops being active) --');
     await page.evaluate(() => { window.tHide('c3'); });
     await sleep(50);
     const afterHideSpurious = await page.evaluate(() => window.tState('c3'));
-    console.log('estado tras el hidden espurio:', JSON.stringify(afterHideSpurious));
+    console.log('state after the spurious hidden:', JSON.stringify(afterHideSpurious));
     await page.evaluate(() => { window.tShow('c3'); });
     await sleep(300);
     const afterShowSpurious = await page.evaluate(() => window.tState('c3'));
-    console.log('estado tras el show espurio (¿reconecto solo, sin tocar?):', JSON.stringify(afterShowSpurious));
-    console.log('-- ahora SI se toca --');
+    console.log('state after the spurious show (did it reconnect on its own, without tapping?):', JSON.stringify(afterShowSpurious));
+    console.log('-- now it really IS tapped --');
     await page.evaluate(() => window.tTouch('c3'));
     const samples = await pollState(page, 'c3', 4000, 500);
-    const recuperado = samples.some((s) => s.hasPc);
-    console.log('=> CASO 3: ' + (recuperado ? 'SE REPUSO tras el toque' : 'NO SE REPUSO tras el toque'));
+    const recovered = samples.some((s) => s.hasPc);
+    console.log('=> CASE 3: ' + (recovered ? 'DID RESTORE after the tap' : 'DID NOT RESTORE after the tap'));
     await page.close();
   }
 
@@ -191,7 +190,7 @@ async function main() {
   // ════════════════════════════════════════════════════════════════════════════════════════════
   {
     const page = await newPage(browser);
-    console.log('\n########## CASO 4: red lo mas rapida posible tras el toque -- carrera fina pc-vs-reloj-de-inactividad ##########');
+    console.log('\n########## CASE 4: the fastest possible network right after the tap -- fine-grained pc-vs-idle-clock race ##########');
     await page.evaluate(() => {
       window.tSetNetCfg({ esOutcome: 'error', esDelay: 10, wsOutcome: 'open', wsDelay: 10, turnFail: true,
         connInfoDelay: 30, turnDelay: 30, localSignalUrlDelay: 10 });
@@ -201,10 +200,10 @@ async function main() {
     await sleep(500);
     await sleep(2600);
     const released = await page.evaluate(() => window.tState('c4'));
-    console.log('estado tras el plazo de inactividad:', JSON.stringify(released));
+    console.log('state after the idle deadline:', JSON.stringify(released));
     // Now the network becomes instantaneous (pure microtask) ONLY for whatever decides the race.
     await page.evaluate(() => window.tSetNetCfg({ connInfoDelay: 0, turnDelay: 0 }));
-    console.log('-- tocando con red instantanea, muestreando cada 5ms los primeros 300ms --');
+    console.log('-- tapping with an instantaneous network, sampling every 5ms for the first 300ms --');
     await page.evaluate(() => window.tTouch('c4'));
     let sawArmedTrue = false;
     let sawPcTrueThenFalseFast = false;
@@ -218,8 +217,8 @@ async function main() {
       await sleep(5);
     }
     const final = await page.evaluate(() => window.tState('c4'));
-    console.log('estado final (300ms tras el toque):', JSON.stringify(final));
-    console.log(`=> CASO 4: idleTimerArmed visto en true en algun momento=${sawArmedTrue}; pc paso de true a false otra vez tras el toque=${sawPcTrueThenFalseFast}; hasPc final=${final.hasPc}`);
+    console.log('final state (300ms after the tap):', JSON.stringify(final));
+    console.log(`=> CASE 4: idleTimerArmed seen true at some point=${sawArmedTrue}; pc went from true to false again after the tap=${sawPcTrueThenFalseFast}; final hasPc=${final.hasPc}`);
     await page.close();
   }
 
@@ -235,7 +234,7 @@ async function main() {
   // ════════════════════════════════════════════════════════════════════════════════════════════
   {
     const page = await newPage(browser);
-    console.log('\n########## CASO 5: tras reponerse por toque, ¿el reloj de inactividad vuelve a disparar solo? ##########');
+    console.log('\n########## CASE 5: after restoring via a tap, does the idle clock fire again on its own? ##########');
     await page.evaluate(() => {
       window.tSetNetCfg({ esOutcome: 'error', esDelay: 40, wsOutcome: 'open', wsDelay: 40, turnFail: true,
         connInfoDelay: 30, turnDelay: 30, localSignalUrlDelay: 30 });
@@ -244,17 +243,17 @@ async function main() {
     });
     await sleep(500);
     await sleep(2600);
-    console.log('estado tras el PRIMER plazo de inactividad:', JSON.stringify(await page.evaluate(() => window.tState('c5'))));
+    console.log('state after the FIRST idle deadline:', JSON.stringify(await page.evaluate(() => window.tState('c5'))));
     await page.evaluate(() => window.tTouch('c5'));
     await sleep(500);
     const afterTouch = await page.evaluate(() => window.tState('c5'));
-    console.log('estado 500ms tras el toque (reconectado):', JSON.stringify(afterTouch));
-    console.log('-- esperando 6s SIN tocar (3x el plazo configurado) para ver si el reloj de inactividad dispara un SEGUNDO ciclo automatico --');
+    console.log('state 500ms after the tap (reconnected):', JSON.stringify(afterTouch));
+    console.log('-- waiting 6s with NO tap (3x the configured deadline) to see whether the idle clock fires a SECOND automatic cycle --');
     const samples = await pollState(page, 'c5', 6000, 1000);
-    const segundoDisparo = samples.some((s) => !s.hasPc);
-    console.log('=> CASO 5: ' + (segundoDisparo
-      ? 'el reloj SI volvio a disparar solo (el idle-release automatico sigue vivo tras un ciclo)'
-      : 'el reloj NO volvio a disparar en 6s -- reproducido: el idle-release automatico murio tras el primer ciclo toque-reposicion'));
+    const secondFire = samples.some((s) => !s.hasPc);
+    console.log('=> CASE 5: ' + (secondFire
+      ? 'the clock DID fire again on its own (the automatic idle-release survives a cycle)'
+      : 'the clock did NOT fire again in 6s -- reproduced: the automatic idle-release died after the first tap-restore cycle'));
     await page.close();
   }
 
@@ -267,7 +266,7 @@ async function main() {
   // ════════════════════════════════════════════════════════════════════════════════════════════
   {
     const page = await newPage(browser);
-    console.log('\n########## CASO 6: mismo mecanismo con red RAPIDA REALISTA (5-10ms, sin microtarea instantanea) ##########');
+    console.log('\n########## CASE 6: same mechanism with a REALISTIC FAST network (5-10ms, no instant microtask) ##########');
     await page.evaluate(() => {
       window.tSetNetCfg({ esOutcome: 'error', esDelay: 8, wsOutcome: 'open', wsDelay: 8, turnFail: true,
         connInfoDelay: 6, turnDelay: 6, localSignalUrlDelay: 6 });
@@ -276,8 +275,8 @@ async function main() {
     });
     await sleep(500);
     await sleep(2600);
-    console.log('estado tras el plazo de inactividad:', JSON.stringify(await page.evaluate(() => window.tState('c6'))));
-    console.log('-- tocando con red rapida REALISTA (setTimeout de 6-8ms, no microtarea), muestreando cada 5ms --');
+    console.log('state after the idle deadline:', JSON.stringify(await page.evaluate(() => window.tState('c6'))));
+    console.log('-- tapping with a REALISTIC fast network (setTimeout of 6-8ms, not a microtask), sampling every 5ms --');
     await page.evaluate(() => window.tTouch('c6'));
     let sawPcTrue = false;
     for (let i = 0; i < 40; i++) {
@@ -287,8 +286,8 @@ async function main() {
       await sleep(5);
     }
     const final6 = await page.evaluate(() => window.tState('c6'));
-    console.log('estado final (200ms tras el toque):', JSON.stringify(final6));
-    console.log(`=> CASO 6: this.pc se vio truthy en ALGUN muestreo=${sawPcTrue}; estado final hasPc=${final6.hasPc} streamPausedByHide=${final6.streamPausedByHide}`);
+    console.log('final state (200ms after the tap):', JSON.stringify(final6));
+    console.log(`=> CASE 6: this.pc was seen truthy in SOME sample=${sawPcTrue}; final state hasPc=${final6.hasPc} streamPausedByHide=${final6.streamPausedByHide}`);
     await page.close();
   }
 

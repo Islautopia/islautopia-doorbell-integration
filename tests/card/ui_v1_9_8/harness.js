@@ -18,11 +18,11 @@ window.__t0 = performance.now();
 // missing element instead of on the checks.
 const CARD_ELEMENT_TAG = customElements.get('ig-doorbell-view') ? 'ig-doorbell-view' : 'ig-doorbell-card';
 const CardClass = customElements.get(CARD_ELEMENT_TAG);
-if (!CardClass) log('ERROR: ig-doorbell-card no se registro');
+if (!CardClass) log('ERROR: ig-doorbell-card did not register');
 
 // -- network double: fails fast, without blocking each test for seconds ----------------------
 window.fetch = function () {
-  return new Promise((_, reject) => setTimeout(() => reject(new TypeError('network error (doblado)')), 10));
+  return new Promise((_, reject) => setTimeout(() => reject(new TypeError('network error (doubled)')), 10));
 };
 class FakeEventSource {
   constructor(url) { this.url = url; this.onmessage = null; this.onerror = null; }
@@ -90,7 +90,7 @@ function makeHass() {
     formatEntityState: (stateObj, opt) => opt,
     callService: (domain, service, data) => {
       window.__calledServices.push({ domain, service, data });
-      log(`callService(${domain}.${service}, ${JSON.stringify(data)}) modo=${window.__serviceMode}`);
+      log(`callService(${domain}.${service}, ${JSON.stringify(data)}) mode=${window.__serviceMode}`);
       if (window.__serviceMode === 'reject') return Promise.reject(new Error('That sequence does not exist on the doorbell.'));
       if (window.__serviceMode === 'hang') return new Promise((res) => { window.__releaseService = res; });
       return Promise.resolve();
@@ -107,7 +107,7 @@ function makeHass() {
           return { quick_replies: window.__quickReplies };
         }
         if (msg.type === 'history/history_during_period') return { [msg.entity_ids[0]]: [] };
-        throw new Error('mensaje no soportado por el doble de hass: ' + msg.type);
+        throw new Error('message not supported by the hass double: ' + msg.type);
       },
     },
   };
@@ -133,7 +133,7 @@ window.tRefreshHass = function (id) {
 };
 window.tClick = function (id, selector) {
   const el = window.__cards[id].querySelector(selector);
-  if (!el) { log(`tClick(${id}, ${selector}) -- NO ENCONTRADO`); return false; }
+  if (!el) { log(`tClick(${id}, ${selector}) -- NOT FOUND`); return false; }
   el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   log(`tClick(${id}, ${selector})`);
   return true;
@@ -145,4 +145,4 @@ window.tRect = function (id, selector) {
   return { x: r.x, y: r.y, width: r.width, height: r.height };
 };
 
-log('harness listo');
+log('harness ready');

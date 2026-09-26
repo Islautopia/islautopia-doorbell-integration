@@ -33,7 +33,7 @@ function sleep(ms) { return ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Pro
 // missing element instead of on the checks.
 const CARD_ELEMENT_TAG = customElements.get('ig-doorbell-view') ? 'ig-doorbell-view' : 'ig-doorbell-card';
 const CardClass = customElements.get(CARD_ELEMENT_TAG);
-if (!CardClass) log('ERROR: ig-doorbell-card no se registro');
+if (!CardClass) log('ERROR: ig-doorbell-card did not register');
 
 // ── Network-double configuration, mutable between tests ──────────────────────────────────────
 window.__netCfg = {
@@ -55,8 +55,8 @@ window.tSetNetCfg = function (patch) {
 window.__fetchLog = [];
 window.fetch = function (url, opts) {
   window.__fetchLog.push(String(url));
-  log(`fetch() [doblado] -> ${url}`);
-  return new Promise((_, reject) => setTimeout(() => reject(new TypeError('network error (doblado, arnes offline)')), 15));
+  log(`fetch() [doubled] -> ${url}`);
+  return new Promise((_, reject) => setTimeout(() => reject(new TypeError('network error (doubled, offline harness)')), 15));
 };
 
 // ── Doubled EventSource: represents LOCAL signaling (SSE) ────────────────────────────────────
@@ -76,7 +76,7 @@ class FakeEventSource {
         if (this.onerror) this.onerror(new Event('error'));
       } else if (c.esOutcome === 'offer') {
         log(`FakeEventSource -> onmessage 'offer' (${url})`);
-        if (this.onmessage) this.onmessage({ data: JSON.stringify({ type: 'offer', slot: 0, sdp: 'FAKE-SDP-NO-VALIDO' }) });
+        if (this.onmessage) this.onmessage({ data: JSON.stringify({ type: 'offer', slot: 0, sdp: 'FAKE-SDP-NOT-VALID' }) });
       }
     }, c.esDelay);
   }
@@ -165,7 +165,7 @@ function makeHass() {
           await sleep(c.localSignalUrlDelay);
           return null; // forces the 'direct' path (easier to double than the proxy)
         }
-        throw new Error('mensaje no soportado por el doble de hass: ' + msg.type);
+        throw new Error('message not supported by the hass double: ' + msg.type);
       },
     },
   };
@@ -197,7 +197,7 @@ window.tDetach = function (id) {
 
 window.tTouch = function (id) {
   window.__cards[id].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
-  log(`tTouch(${id}) -- pointerdown real disparado sobre la card`);
+  log(`tTouch(${id}) -- real pointerdown fired on the card`);
 };
 
 window.tState = function (id) {
@@ -208,7 +208,7 @@ window.tState = function (id) {
     pcConnState: card.pc ? card.pc.connectionState : null,
     streamPausedByHide: !!card._streamPausedByHide,
     connGen: card._connGen,
-    arranqueEnVueloGen: card._startInFlightGen,
+    startInFlightGen: card._startInFlightGen,
     reconnecting: !!card._reconnecting,
     isConnected: card.isConnected,
     content: !!card.content,
@@ -234,4 +234,4 @@ window.tShow = function (id) {
   log(`tShow(${id}) -- document.visibilityState = 'visible'`);
 };
 
-log('harness listo');
+log('harness ready');

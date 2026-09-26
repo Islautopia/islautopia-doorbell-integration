@@ -1,8 +1,9 @@
 // Isolated simulation of startWebRTC()'s REENTRANCY RACE and the idle clock,
 // with no browser, no Home Assistant, no doorbell.
 //
-//   node test/sim_carrera_reentrada.js dist/ig-doorbell-card.js
-//   node test/sim_carrera_reentrada.js --controles          <- THIS is what needs to be run
+//   cd tests/card && npm install && node run_all.js            <- runs this bench and every other one
+//   node sim_carrera_reentrada.js <path-to-dist>/ig-doorbell-card.js   (standalone, a single build)
+//   node sim_carrera_reentrada.js --controls                          <- what the standalone run needs
 //
 // ══════════════════════════════════════════════════════════════════════════════════════════════
 //  WHAT IT MEASURES, AND WHY IT CAN'T BE MEASURED BY READING THE CODE
@@ -34,11 +35,11 @@
 //  THE CONTROLS, WHICH ARE THE SERIOUS HALF OF THIS FILE (CLAUDE.md: "an instrument with no negative
 //  test isn't a weak measurement: it isn't a measurement")
 //
-//  A bench that always said OK would pass just as well. `--controles` takes it apart from both
+//  A bench that always said OK would pass just as well. `--controls` takes it apart from both
 //  sides, and EACH control is of the same kind and in the same shape as what's being measured:
 //
 //   · NEGATIVE CONTROL -- the file from BEFORE the fix (commit 3983f68, never a branch
-//     name: see the note in COMMIT_PREVIO) has to FAIL cases 1 and 5. If it passed them, this
+//     name: see the note in PREVIOUS_COMMIT) has to FAIL cases 1 and 5. If it passed them, this
 //     bench wouldn't be seeing the real bug.
 //   · POSITIVE CONTROL A -- a mutant whose guard NEVER lets anything through (a `return` on entering
 //     startWebRTC) has to FAIL case 2. Without this control, the easiest way to "fix"
@@ -57,7 +58,7 @@
 
 const fs = require('fs');
 const os = require('os');
-const pathmod = require('path');
+const path = require('path');
 const vm = require('vm');
 const { execFileSync } = require('child_process');
 
@@ -65,29 +66,29 @@ const { execFileSync } = require('child_process');
 //  Network-layer doubles. Each one carries its own counter: what's measured is HOW MANY open and
 //  how many close, which is exactly the real bug's signature ("of N, one closes").
 // ─────────────────────────────────────────────────────────────────────────────────────────────
-function construirEntorno(reloj) {
-  const censo = { ws: [], pc: [], es: [], iceServers: [], fetch: [] };
+function buildEnvironment(clock) {
+  const census = { ws: [], pc: [], es: [], iceServers: [], fetch: [] };
 
   class FakeWebSocket {
     constructor(url) {
       this.url = url;
       this.readyState = 0;
-      this.cerrado = false;
-      this.enviados = [];
-      censo.ws.push(this);
+      this.closed = false;
+      this.sent = [];
+      census.ws.push(this);
       setTimeout(() => {
-        if (this.cerrado) return;
+        if (this.closed) return;
         this.readyState = 1;
         if (this.onopen) this.onopen();
-      }, reloj.wsOpenMs);
+      }, clock.wsOpenMs);
     }
-    send(d) { this.enviados.push(d); }
-    close() { this.cerrado = true; this.readyState = 3; if (this.onclose) this.onclose({ code: 1000 }); }
+    send(d) { this.sent.push(d); }
+    close() { this.closed = true; this.readyState = 3; if (this.onclose) this.onclose({ code: 1000 }); }
   }
   FakeWebSocket.OPEN = 1;
 
   class FakePeerConnection {
-    constructor(cfg) { this.cfg = cfg; this.cerrado = false; this.connectionState = 'new'; censo.pc.push(this); censo.iceServers.push(cfg && cfg.iceServers); }
+    constructor(cfg) { this.cfg = cfg; this.closed = false; this.connectionState = 'new'; census.pc.push(this); census.iceServers.push(cfg && cfg.iceServers); }
     async setRemoteDescription() {}
     async createAnswer() { return { type: 'answer', sdp: 'v=0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\na=sendrecv' }; }
     async setLocalDescription() {}
@@ -96,58 +97,58 @@ function construirEntorno(reloj) {
     addTrack(t) { const s = { track: t, replaceTrack: async () => {} }; this._sender = s; return s; }
     getTransceivers() { return [{ sender: this._sender, direction: 'sendrecv' }]; }
     async getStats() { return new Map(); }
-    close() { this.cerrado = true; }
+    close() { this.closed = true; }
   }
 
   class FakeEventSource {
     constructor(url) {
-      this.url = url; this.cerrado = false; censo.es.push(this);
+      this.url = url; this.closed = false; census.es.push(this);
       // The doorbell assigns a slot and sends the offer as soon as it accepts the SSE (§1.4).
       setTimeout(() => {
-        if (this.cerrado || !this.onmessage) return;
+        if (this.closed || !this.onmessage) return;
         this.onmessage({ data: JSON.stringify({ type: 'offer', slot: 0, sdp: 'v=0' }) });
-      }, reloj.esOfertaMs || 5);
+      }, clock.esOfertaMs || 5);
     }
-    close() { this.cerrado = true; }
+    close() { this.closed = true; }
   }
 
   class FakeAudioContext {
-    constructor() { this.cerrado = false; }
+    constructor() { this.closed = false; }
     createMediaStreamDestination() {
       return { stream: { getAudioTracks: () => [{ id: 'muda', stop() {} }] } };
     }
-    close() { this.cerrado = true; }
+    close() { this.closed = true; }
   }
 
-  return { censo, FakeWebSocket, FakePeerConnection, FakeEventSource, FakeAudioContext };
+  return { census, FakeWebSocket, FakePeerConnection, FakeEventSource, FakeAudioContext };
 }
 
-function cargarClase(src, entorno, oyentesDoc) {
+function loadCardClass(src, environment, docListeners) {
   let CardClass = null;
   const sandbox = {
     console: { log() {}, warn() {}, error() {}, info() {} },
     performance: { now: () => Date.now() },
     setTimeout, clearTimeout, setInterval, clearInterval,
     HTMLElement: class {},
-    WebSocket: entorno.FakeWebSocket,
-    EventSource: entorno.FakeEventSource,
-    RTCPeerConnection: entorno.FakePeerConnection,
+    WebSocket: environment.FakeWebSocket,
+    EventSource: environment.FakeEventSource,
+    RTCPeerConnection: environment.FakePeerConnection,
     IntersectionObserver: class { observe() {} disconnect() {} },
     // The local path's reachability probe: it's rejected, so the local path is abandoned
-    // right away and the whole race window ends up governed by `reloj.turnMs`, which is what
+    // right away and the whole race window ends up governed by `clock.turnMs`, which is what
     // we want to control. (On the real device that window is opened by the TURN request to Germany.)
-    fetch: (url) => { entorno.censo.fetch.push(url); return Promise.reject(new Error('sin red en la simulacion')); },
+    fetch: (url) => { environment.census.fetch.push(url); return Promise.reject(new Error('no network in the simulation')); },
     AbortController: class { constructor() { this.signal = {}; } abort() {} },
     localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
     navigator: {},                       // WITHOUT wakeLock, like the wallpanel's webview
     document: {
       visibilityState: 'visible',
       createElement: () => ({ style: {}, setAttribute() {}, classList: { add() {}, remove() {}, contains: () => false, toggle() {} } }),
-      addEventListener(t, f) { (oyentesDoc[t] = oyentesDoc[t] || []).push(f); },
+      addEventListener(t, f) { (docListeners[t] = docListeners[t] || []).push(f); },
       removeEventListener() {},
       body: { classList: { add() {}, remove() {} } },
     },
-    window: { addEventListener() {}, removeEventListener() {}, AudioContext: entorno.FakeAudioContext },
+    window: { addEventListener() {}, removeEventListener() {}, AudioContext: environment.FakeAudioContext },
     customElements: { get: () => undefined, define: (n, c) => { if (n === 'ig-doorbell-view' || (n === 'ig-doorbell-card' && !CardClass)) CardClass = c; } },  // pre-1.10.0 commits (negative control) have no view element: the card IS the view
   };
   sandbox.window.customCards = [];
@@ -161,34 +162,34 @@ function cargarClase(src, entorno, oyentesDoc) {
 //  A live card without going through setConfig()/render(): same initial state, no DOM.
 //  ONLY UI sheets get replaced. None of the connection machinery.
 // ─────────────────────────────────────────────────────────────────────────────────────────────
-function nuevaCard(CardClass, opciones) {
+function newCard(CardClass, options) {
   const c = Object.create(CardClass.prototype);
-  const o = opciones || {};
+  const o = options || {};
   c.config = { device_id: 'abc' };
   c._hass = {
     connection: {
       sendMessagePromise: (msg) => {
         if (msg.type === 'ig_doorbell/get_connection_info') {
           // Phase 0: no credential or relay; the entities the card reads.
-          const info = { device_id: 'abc', live_timeout_entity: o.plazoEntidad === undefined ? null : 'number.x_live_view_timeout', events_entity: 'event.x_events' };
+          const info = { device_id: 'abc', live_timeout_entity: o.entityDeadline === undefined ? null : 'number.x_live_view_timeout', events_entity: 'event.x_events' };
           // The BEFORE code (negative control) read these two: they're given to it so it can follow its path.
           info.relay_ws_url = 'wss://relay/ws'; info.credential = 'X';
           return new Promise((r) => setTimeout(() => r(info), o.infoMs || 0));
         }
         // The race window: it used to be opened by the TURN request, today by the signed URL's.
         if (msg.type === 'ig_doorbell/get_turn_credentials' || msg.type === 'ig_doorbell/get_local_signal_url') {
-          if (o.turnColgado) return new Promise(() => {});   // never resolves: the fuse case
+          if (o.turnHung) return new Promise(() => {});   // never resolves: the fuse case
           const r0 = msg.type === 'ig_doorbell/get_turn_credentials' ? { urls: [] } : { signal_url: '/api/ig_doorbell/signal/abc?authSig=x' };
           return new Promise((r) => setTimeout(() => r(r0), o.turnMs || 0));
         }
-        return Promise.reject(new Error('desconocido'));
+        return Promise.reject(new Error('unknown'));
       },
     },
-    states: o.estados || {},
-    callApi: (metodo, ruta, cuerpo) => { c._enviados.push(cuerpo); return Promise.resolve({}); },
+    states: o.entityStates || {},
+    callApi: (method, route, requestBody) => { c._enviados.push(requestBody); return Promise.resolve({}); },
   };
   c._enviados = [];
-  if (o.plazoEntidad !== undefined) c._hass.states['number.x_live_view_timeout'] = { state: String(o.plazoEntidad) };
+  if (o.entityDeadline !== undefined) c._hass.states['number.x_live_view_timeout'] = { state: String(o.entityDeadline) };
   Object.assign(c, {
     pc: null, nativeSSE: null, nativeWS: null, _slot: null,
     _connGen: 0, _startInFlightGen: null, _startInFlightAt: 0,
@@ -196,7 +197,7 @@ function nuevaCard(CardClass, opciones) {
     _lastLifeSignalAt: null, _prevPacketsReceived: null,
     _idleReleaseMs: o.idleMs === undefined ? 0 : o.idleMs,
     _idleWakeLockTimer: null, _wakeLock: null, _fsActive: false,
-    _pauseState: null, _pauseGraceTimer: null, _idleGraceMs: o.graciaMs === undefined ? 15000 : o.graciaMs,
+    _pauseState: null, _pauseGraceTimer: null, _idleGraceMs: o.graceMs === undefined ? 15000 : o.graceMs,
     _livePauseWanted: false, _livePauseAck: null, _rescueTimers: [],
     _talkHeld: false, _talkPending: false,
     talkActive: false, localAudioStream: null, dummyAudioTrack: null,
@@ -232,12 +233,12 @@ function nuevaCard(CardClass, opciones) {
   return c;
 }
 
-const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Collects a card at the end of a case WITHOUT assuming the new functions exist: the controls
 // also run the old code, and there a missing method must show up as a case in red,
 // not take down the whole bench.
-function limpiar(c) {
+function cleanup(c) {
   for (const f of ['_cancelPause', '_teardownConnectionObjects', '_clearIdleWakeLockTimer']) {
     if (typeof c[f] === 'function') { try { c[f](); } catch (err) { /* collected */ } }
   }
@@ -246,61 +247,61 @@ function limpiar(c) {
 // The BEFORE code (negative control) handles offers from already-superseded sessions on a null `pc`
 // and rejects promises nobody's waiting on. That's part of the bug the control must SEE through its effect
 // (accumulated connections), not a reason for the whole bench to crash without reporting.
-let rechazosSinAtender = 0;
-process.on('unhandledRejection', (e) => { rechazosSinAtender += 1; if (process.env.SIM_DEBUG) console.error('RECHAZO', e); });
+let unhandledRejections = 0;
+process.on('unhandledRejection', (e) => { unhandledRejections += 1; if (process.env.SIM_DEBUG) console.error('REJECTION', e); });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 //  The cases
 // ─────────────────────────────────────────────────────────────────────────────────────────────
-async function ejecutar(src, mostrar) {
-  const fallos = [];
-  const oyentesDoc = {};
-  const entorno = construirEntorno({ wsOpenMs: 5 });
-  const CardClass = cargarClase(src, entorno, oyentesDoc);
-  if (!CardClass) return { fallos: ['could not capture the class'], total: 0 };
+async function runCases(src, verbose) {
+  const failures = [];
+  const docListeners = {};
+  const environment = buildEnvironment({ wsOpenMs: 5 });
+  const CardClass = loadCardClass(src, environment, docListeners);
+  if (!CardClass) return { failures: ['could not capture the class'], total: 0 };
 
   let total = 0;
-  const comp = (optLabel, cond) => {
+  const check = (label, cond) => {
     total += 1;
-    if (!cond) fallos.push(optLabel);
-    if (mostrar) console.log(`  ${cond ? 'OK   ' : 'FALLO'} ${optLabel}`);
+    if (!cond) failures.push(label);
+    if (verbose) console.log(`  ${cond ? 'OK  ' : 'FAIL'} ${label}`);
   };
-  const seccion = (t) => { if (mostrar) console.log(`\n== ${t} ==`); };
+  const section = (t) => { if (verbose) console.log(`\n== ${t} ==`); };
 
-  const vivos = (lista) => lista.filter((x) => !x.cerrado).length;
+  const aliveCount = (list) => list.filter((x) => !x.closed).length;
 
   // ── 1. THE MEASURED BUG ─────────────────────────────────────────────────────────────────────
   // Three triggers in 0.3 s (a ring: visibilitychange + render + connectedCallback) with the
   // TURN request taking 400 ms. Before the fix: 3 WebSockets open, 1 closed.
-  seccion('1. Tres arranques en 0,3s tras un timbrazo (el fallo medido)');
+  section('1. Three startups in 0.3s after a ring (the measured bug)');
   {
-    const e = construirEntorno({ wsOpenMs: 5 });
-    const C = cargarClase(src, e, {});
-    const c = nuevaCard(C, { turnMs: 400 });
+    const e = buildEnvironment({ wsOpenMs: 5 });
+    const C = loadCardClass(src, e, {});
+    const c = newCard(C, { turnMs: 400 });
     c.startWebRTC('visibilitychange');
-    await esperar(140);
+    await wait(140);
     c.startWebRTC('render');
-    await esperar(160);
+    await wait(160);
     c.startWebRTC('connectedCallback');
-    await esperar(900);
-    comp(`EventSources VIVOS = 1 (abiertos ${e.censo.es.length}, vivos ${vivos(e.censo.es)})`, vivos(e.censo.es) === 1);
-    comp(`RTCPeerConnection VIVAS = 1 (creadas ${e.censo.pc.length}, vivas ${vivos(e.censo.pc)})`, vivos(e.censo.pc) === 1);
-    comp('  -> y el que queda vivo es el que la card tiene en this.nativeSSE', c.nativeSSE && !c.nativeSSE.cerrado);
+    await wait(900);
+    check(`EventSources ALIVE = 1 (opened ${e.census.es.length}, alive ${aliveCount(e.census.es)})`, aliveCount(e.census.es) === 1);
+    check(`RTCPeerConnection ALIVE = 1 (created ${e.census.pc.length}, alive ${aliveCount(e.census.pc)})`, aliveCount(e.census.pc) === 1);
+    check('  -> and the one that stays alive is the one the card holds in this.nativeSSE', c.nativeSSE && !c.nativeSSE.closed);
     c._teardownConnectionObjects();
   }
 
   // ── 2. NO-BLOCKING CONTROL: a lone startup HAS to connect ─────────────────────────────────
   // Without this, "connections don't pile up" would also be satisfied by a card that never connects.
-  seccion('2. Un arranque normal SI conecta (control de no bloquear)');
+  section('2. A normal startup DOES connect (no-blocking control)');
   {
-    const e = construirEntorno({ wsOpenMs: 5 });
-    const C = cargarClase(src, e, {});
-    const c = nuevaCard(C, { turnMs: 20 });
-    await c.startWebRTC('unico');
-    await esperar(200);
-    comp('hay sesion viva: pc asignada y sin cerrar', !!c.pc && !c.pc.cerrado);
-    comp('hay EventSource por el proxy de Home Assistant, abierto', !!c.nativeSSE && !c.nativeSSE.cerrado && c.nativeSSE.url.startsWith('/api/ig_doorbell/signal/'));
-    comp('  -> y se contesto a la oferta por el proxy', c._slot === 0 && c._enviados.some((m) => m.type === 'answer' && m.slot === 0));
+    const e = buildEnvironment({ wsOpenMs: 5 });
+    const C = loadCardClass(src, e, {});
+    const c = newCard(C, { turnMs: 20 });
+    await c.startWebRTC('sole');
+    await wait(200);
+    check('there is a live session: pc assigned and not closed', !!c.pc && !c.pc.closed);
+    check('there is an EventSource through Home Assistant\'s proxy, open', !!c.nativeSSE && !c.nativeSSE.closed && c.nativeSSE.url.startsWith('/api/ig_doorbell/signal/'));
+    check('  -> and the offer was answered through the proxy', c._slot === 0 && c._enviados.some((m) => m.type === 'answer' && m.slot === 0));
     c._teardownConnectionObjects();
   }
 
@@ -308,85 +309,85 @@ async function ejecutar(src, mostrar) {
   // The reentrancy guard does NOT cover this case: here the old startup has been torn down
   // out from under it (what _scheduleReconnect does), so the new one rightfully gets through. What stops the
   // leak is that the old one, on waking up, realizes it and closes its own.
-  seccion('3. Desmontaje mientras un arranque espera (contador de generacion)');
+  section('3. Teardown while a startup is waiting (generation counter)');
   {
-    const e = construirEntorno({ wsOpenMs: 5 });
-    const C = cargarClase(src, e, {});
-    const c = nuevaCard(C, { turnMs: 400 });
-    c.startWebRTC('el que sera relevado');
-    await esperar(120);
+    const e = buildEnvironment({ wsOpenMs: 5 });
+    const C = loadCardClass(src, e, {});
+    const c = newCard(C, { turnMs: 400 });
+    c.startWebRTC('the one that will be superseded');
+    await wait(120);
     c._teardownConnectionObjects();          // exactly what _scheduleReconnect() does
-    c.startWebRTC('el relevo');
-    await esperar(900);
-    comp(`EventSources VIVOS = 1 (abiertos ${e.censo.es.length}, vivos ${vivos(e.censo.es)})`, vivos(e.censo.es) === 1);
-    comp(`RTCPeerConnection VIVAS = 1 (creadas ${e.censo.pc.length}, vivas ${vivos(e.censo.pc)})`, vivos(e.censo.pc) === 1);
-    comp('  -> el relevo SI quedo conectado (no se le comio el guardia)', !!c.nativeSSE && !c.nativeSSE.cerrado);
+    c.startWebRTC('the replacement');
+    await wait(900);
+    check(`EventSources ALIVE = 1 (opened ${e.census.es.length}, alive ${aliveCount(e.census.es)})`, aliveCount(e.census.es) === 1);
+    check(`RTCPeerConnection ALIVE = 1 (created ${e.census.pc.length}, alive ${aliveCount(e.census.pc)})`, aliveCount(e.census.pc) === 1);
+    check('  -> the replacement DID stay connected (the guard did not eat it)', !!c.nativeSSE && !c.nativeSSE.closed);
     c._teardownConnectionObjects();
   }
 
   // ── 4. FUSE: a stuck startup can't leave the card black forever ───────────────────────────
-  seccion('4. Un arranque colgado se releva por fusible, no bloquea para siempre');
+  section('4. A stuck startup gets superseded by the fuse, it never blocks forever');
   {
-    const e = construirEntorno({ wsOpenMs: 5 });
-    const C = cargarClase(src, e, {});
-    const opciones = { turnColgado: true };
-    const c = nuevaCard(C, opciones);
-    c.startWebRTC('el que se cuelga');
-    await esperar(50);
-    comp('mientras es joven, un segundo disparo se descarta', c._startInFlightGen !== null);
-    c.startWebRTC('demasiado pronto');
-    await esperar(50);
-    comp('  -> y no ha abierto ninguna conexion de mas', e.censo.es.length === 0);
+    const e = buildEnvironment({ wsOpenMs: 5 });
+    const C = loadCardClass(src, e, {});
+    const options = { turnHung: true };
+    const c = newCard(C, options);
+    c.startWebRTC('the one that hangs');
+    await wait(50);
+    check('while it is young, a second trigger is discarded', c._startInFlightGen !== null);
+    c.startWebRTC('too soon');
+    await wait(50);
+    check('  -> and it has not opened any extra connection', e.census.es.length === 0);
     // The marker is aged instead of waiting 12 s of real clock time: what's tested is the fuse's
     // rule, not setTimeout's punctuality.
     c._startInFlightAt = Date.now() - 60000;
     // And the network comes back: if the supersession also got stuck, this check could NEVER
     // pass and would be an impossible case disguised as a test -- the kind that reads as a product bug.
-    opciones.turnColgado = false;
-    c.startWebRTC('tras el fusible');
-    await esperar(200);
-    comp('pasado el fusible, un disparo nuevo SI arranca', !!c.nativeSSE && !c.nativeSSE.cerrado);
+    options.turnHung = false;
+    c.startWebRTC('after the fuse');
+    await wait(200);
+    check('past the fuse, a new trigger DOES start', !!c.nativeSSE && !c.nativeSSE.closed);
     c._teardownConnectionObjects();
   }
 
   // ── 5. THE IDLE CLOCK EXISTS WITHOUT wakeLock ─────────────────────────────────────────────
   // The sandbox's `navigator` has NO `wakeLock`, and the card never enters fullscreen:
   // exactly the wallpanel where v1.5.0/v1.5.1/v1.6.0 all three failed.
-  seccion('5. El reloj de inactividad se arma sin wake lock y sin pantalla completa');
+  section('5. The idle clock arms with no wake lock and no fullscreen');
   {
-    const e = construirEntorno({ wsOpenMs: 5 });
-    const C = cargarClase(src, e, {});
-    const c = nuevaCard(C, { turnMs: 10, idleMs: 300 });
-    await c.startWebRTC('unico');
-    await esperar(100);
-    comp('hay cuenta atras armada con la sesion en marcha', !!c._idleWakeLockTimer);
+    const e = buildEnvironment({ wsOpenMs: 5 });
+    const C = loadCardClass(src, e, {});
+    const c = newCard(C, { turnMs: 10, idleMs: 300 });
+    await c.startWebRTC('sole');
+    await wait(100);
+    check('there is a countdown armed with the session running', !!c._idleWakeLockTimer);
     c._teardownConnectionObjects();
     if (c._idleWakeLockTimer) clearTimeout(c._idleWakeLockTimer);
   }
 
   // ── 6. AND IT FIRES: without touching anything, it releases the video ─────────────────────
-  seccion('6. Sin interaccion, el plazo vence y suelta el video');
+  section('6. With no interaction, the deadline expires and releases the video');
   {
-    const e = construirEntorno({ wsOpenMs: 5 });
-    const C = cargarClase(src, e, {});
-    const c = nuevaCard(C, { turnMs: 10, idleMs: 250, graciaMs: 50 });
-    await c.startWebRTC('unico');
-    await esperar(600);
-    comp('la sesion se ha soltado sola', c.pc === null);
-    comp('  -> el EventSource esta cerrado', e.censo.es.every((w) => w.cerrado));
-    comp('  -> y queda en pausa colgada, esperando a alguien', !!c._pauseState && c._pauseState.phase === 'hung_up');
+    const e = buildEnvironment({ wsOpenMs: 5 });
+    const C = loadCardClass(src, e, {});
+    const c = newCard(C, { turnMs: 10, idleMs: 250, graceMs: 50 });
+    await c.startWebRTC('sole');
+    await wait(600);
+    check('the session has released itself', c.pc === null);
+    check('  -> the EventSource is closed', e.census.es.every((w) => w.closed));
+    check('  -> and it is left hung-up paused, waiting for someone', !!c._pauseState && c._pauseState.phase === 'hung_up');
   }
 
   // ── 7. NO-FIRE CONTROL: while touching, it can NEVER release ──────────────────────────────
   // This is the more important of the clock's two controls: cutting the video for someone who's
   // watching is a worse bug than leaving the screen on for too long.
-  seccion('7. Con toques periodicos NO suelta jamas (control de no disparar)');
+  section('7. With periodic taps it NEVER releases (no-fire control)');
   {
-    const e = construirEntorno({ wsOpenMs: 5 });
-    const C = cargarClase(src, e, {});
-    const c = nuevaCard(C, { turnMs: 10, idleMs: 250 });
-    await c.startWebRTC('unico');
-    comp('el manejador real de interaccion esta registrado', typeof c._onIdleActivity === 'function');
+    const e = buildEnvironment({ wsOpenMs: 5 });
+    const C = loadCardClass(src, e, {});
+    const c = newCard(C, { turnMs: 10, idleMs: 250 });
+    await c.startWebRTC('sole');
+    check('the real interaction handler is registered', typeof c._onIdleActivity === 'function');
     // One touch every 100 ms with a 250 deadline, via the REAL PATH: it fires the same
     // `_onIdleActivity` the card registers, not `_armIdleWakeLockTimer` by hand. The difference isn't
     // cosmetic -- it's exactly where the bug lived (a tap updated the mark without rearming), and
@@ -395,7 +396,7 @@ async function ejecutar(src, mostrar) {
     // the case has already marked it as a failure above, and crashing here would take down the rest
     // of the bench -- an instrument that crashes doesn't report, and in a control that reads as "it doesn't break".
     for (let i = 0; c._onIdleActivity && i < 12; i += 1) {
-      await esperar(100);
+      await wait(100);
       c._onIdleActivity();
     }
     // ⚠️ OPEN SESSIONS ARE COUNTED, THE FINAL STATE IS NOT LOOKED AT, and that difference is the whole
@@ -404,241 +405,241 @@ async function ejecutar(src, mostrar) {
     // check comes out green, and the user still saw a black box. By counting how many
     // sessions have actually been built, "it released and came back" can no longer be disguised as "it never
     // released". (Found precisely because the mutant further below was passing this case.)
-    comp(`tras 1,2s de toques con plazo de 0,25s NO se solto ni una vez (sesiones construidas: ${e.censo.pc.length})`, e.censo.pc.length === 1 && e.censo.es.length === 1);
-    comp('  -> la sesion sigue viva', !!c.pc && !c.pc.cerrado);
-    comp('  -> y no se marco como soltada', !c._pauseState);
+    check(`after 1.2s of taps with a 0.25s deadline it did NOT release even once (sessions built: ${e.census.pc.length})`, e.census.pc.length === 1 && e.census.es.length === 1);
+    check('  -> the session is still alive', !!c.pc && !c.pc.closed);
+    check('  -> and it was not marked as released', !c._pauseState);
     // Phase 0: expiring no longer hangs up right away (live_pause + grace), so "it paused and the
     // next tap resumed it" leaves no trace in pc/sessions. It shows up in what was sent to the doorbell.
-    comp('  -> y no se mando ni un live_pause', !(c._enviados || []).some((m) => m.type === 'live_pause'));
+    check('  -> and not a single live_pause was sent', !(c._enviados || []).some((m) => m.type === 'live_pause'));
     c._teardownConnectionObjects();
     if (c._idleWakeLockTimer) clearTimeout(c._idleWakeLockTimer);
   }
 
   // ══ PHASE 0 ═══════════════════════════════════════════════════════════════════════════════
   // ── 8. The deadline is set by the integration's entity ────────────────────────────────────
-  seccion('8. El plazo sale de number.*_live_view_timeout (y 0 lo desactiva)');
+  section('8. The deadline comes from number.*_live_view_timeout (and 0 disables it)');
   {
-    const e = construirEntorno({});
-    const C = cargarClase(src, e, {});
-    const c = nuevaCard(C, { turnMs: 10, idleMs: 999000, plazoEntidad: 0.25, graciaMs: 20000 });
-    await c.startWebRTC('unico');
-    await esperar(500);
-    comp('con la entidad a 0,25 s vence aunque el respaldo sea 999 s', !!c._pauseState && c._pauseState.phase === 'grace');
-    limpiar(c);
-    const c2 = nuevaCard(C, { turnMs: 10, idleMs: 250, plazoEntidad: 0 });
-    await c2.startWebRTC('unico');
-    await esperar(500);
-    comp('  -> y con la entidad a 0 no vence nunca', !c2._pauseState && !!c2.pc);
-    limpiar(c2);
+    const e = buildEnvironment({});
+    const C = loadCardClass(src, e, {});
+    const c = newCard(C, { turnMs: 10, idleMs: 999000, entityDeadline: 0.25, graceMs: 20000 });
+    await c.startWebRTC('sole');
+    await wait(500);
+    check('with the entity at 0.25 s it expires even if the fallback is 999 s', !!c._pauseState && c._pauseState.phase === 'grace');
+    cleanup(c);
+    const c2 = newCard(C, { turnMs: 10, idleMs: 250, entityDeadline: 0 });
+    await c2.startWebRTC('sole');
+    await wait(500);
+    check('  -> and with the entity at 0 it never expires', !c2._pauseState && !!c2.pc);
+    cleanup(c2);
   }
 
   // ── 9. Never with a call in progress ───────────────────────────────────────────────────────
-  seccion('9. Con el micro abierto NO vence (§1.4-bis: never pause during a call)');
+  section('9. With the mic open it NEVER expires (§1.4-bis: never pause during a call)');
   {
-    const e = construirEntorno({});
-    const C = cargarClase(src, e, {});
-    const c = nuevaCard(C, { turnMs: 10, idleMs: 250, graciaMs: 50 });
-    await c.startWebRTC('unico');
+    const e = buildEnvironment({});
+    const C = loadCardClass(src, e, {});
+    const c = newCard(C, { turnMs: 10, idleMs: 250, graceMs: 50 });
+    await c.startWebRTC('sole');
     c.talkActive = true;
-    await esperar(800);
-    comp('con el micro abierto 0,8 s y plazo de 0,25 s: ni pausa ni bye', !c._pauseState && !!c.pc && !c.pc.cerrado);
-    comp('  -> y no se mando live_pause', !c._enviados.some((m) => m.type === 'live_pause'));
+    await wait(800);
+    check('with the mic open for 0.8 s and a 0.25 s deadline: neither pause nor bye', !c._pauseState && !!c.pc && !c.pc.closed);
+    check('  -> and no live_pause was sent', !c._enviados.some((m) => m.type === 'live_pause'));
     c.talkActive = false;
-    limpiar(c);
+    cleanup(c);
   }
 
   // ── 10. On expiry: live_pause RIGHT AWAY, bye after grace (the slot is released) ───────────
-  seccion('10. Vence: live_pause en el acto y bye tras la gracia');
+  section('10. Expires: live_pause right away and bye after the grace period');
   {
-    const e = construirEntorno({});
-    const C = cargarClase(src, e, {});
-    const c = nuevaCard(C, { turnMs: 10, idleMs: 200, graciaMs: 300 });
-    await c.startWebRTC('unico');
+    const e = buildEnvironment({});
+    const C = loadCardClass(src, e, {});
+    const c = newCard(C, { turnMs: 10, idleMs: 200, graceMs: 300 });
+    await c.startWebRTC('sole');
     const pc = c.pc;
-    await esperar(350);
-    comp('dentro de la gracia: live_pause enviado y la sesion sigue viva', c._enviados.some((m) => m.type === 'live_pause' && m.slot === 0) && c.pc === pc && !pc.cerrado);
-    comp('  -> todavia sin bye', !c._enviados.some((m) => m.type === 'bye'));
-    await esperar(400);
-    comp('pasada la gracia: bye enviado (la ranura se libera ya, no a los 20 s)', c._enviados.some((m) => m.type === 'bye' && m.slot === 0));
-    comp('  -> sesion cerrada y EventSource cerrado', c.pc === null && e.censo.es.every((x) => x.cerrado));
-    comp('  -> y la card queda en pausa, esperando un toque', !!c._pauseState && c._pauseState.phase === 'hung_up');
+    await wait(350);
+    check('within the grace period: live_pause sent and the session is still alive', c._enviados.some((m) => m.type === 'live_pause' && m.slot === 0) && c.pc === pc && !pc.closed);
+    check('  -> still no bye', !c._enviados.some((m) => m.type === 'bye'));
+    await wait(400);
+    check('past the grace period: bye sent (the slot is released right away, not after 20 s)', c._enviados.some((m) => m.type === 'bye' && m.slot === 0));
+    check('  -> session closed and EventSource closed', c.pc === null && e.census.es.every((x) => x.closed));
+    check('  -> and the card is left paused, waiting for a tap', !!c._pauseState && c._pauseState.phase === 'hung_up');
   }
 
   // ── 11. A tap within the grace period resumes the SAME session ───────────────────────────
-  seccion('11. Toque dentro de la gracia: live_resume, sin sesion nueva');
+  section('11. A tap within the grace period: live_resume, no new session');
   {
-    const e = construirEntorno({});
-    const C = cargarClase(src, e, {});
-    const c = nuevaCard(C, { turnMs: 10, idleMs: 200, graciaMs: 2000 });
-    await c.startWebRTC('unico');
-    await esperar(350);
-    comp('esta en gracia', !!c._pauseState && c._pauseState.phase === 'grace');
+    const e = buildEnvironment({});
+    const C = loadCardClass(src, e, {});
+    const c = newCard(C, { turnMs: 10, idleMs: 200, graceMs: 2000 });
+    await c.startWebRTC('sole');
+    await wait(350);
+    check('it is in the grace period', !!c._pauseState && c._pauseState.phase === 'grace');
     if (c._onIdleActivity) c._onIdleActivity();
-    await esperar(50);
-    comp('tras el toque: live_resume enviado', c._enviados.some((m) => m.type === 'live_resume'));
-    comp('  -> la misma sesion, ninguna nueva', e.censo.pc.length === 1 && !!c.pc && !c.pc.cerrado);
-    comp('  -> y sin bye', !c._enviados.some((m) => m.type === 'bye'));
-    limpiar(c);
+    await wait(50);
+    check('after the tap: live_resume sent', c._enviados.some((m) => m.type === 'live_resume'));
+    check('  -> the same session, no new one', e.census.pc.length === 1 && !!c.pc && !c.pc.closed);
+    check('  -> and no bye', !c._enviados.some((m) => m.type === 'bye'));
+    cleanup(c);
   }
 
   // ── 12. A ring wakes up the hung-up card; a package doesn't ─────────────────────────────────
-  seccion('12. Timbrazo (event_type ring) tras colgar: sesion nueva; un paquete no');
+  section('12. A ring (event_type ring) after hanging up: new session; a package does not');
   {
-    const e = construirEntorno({});
-    const C = cargarClase(src, e, {});
-    const c = nuevaCard(C, { turnMs: 10, idleMs: 150, graciaMs: 50 });
+    const e = buildEnvironment({});
+    const C = loadCardClass(src, e, {});
+    const c = newCard(C, { turnMs: 10, idleMs: 150, graceMs: 50 });
     c.config.ring_entity = undefined;
     c._hass.states['event.x_events'] = { state: 't0', attributes: { event_type: 'ring' } };
-    await c.startWebRTC('unico');
+    await c.startWebRTC('sole');
     c._updateRingState();                       // first read: doesn't fire
-    await esperar(500);
-    comp('colgada por inactividad', !!c._pauseState && c._pauseState.phase === 'hung_up' && c.pc === null);
+    await wait(500);
+    check('hung up due to inactivity', !!c._pauseState && c._pauseState.phase === 'hung_up' && c.pc === null);
     c._hass.states['event.x_events'] = { state: 't1', attributes: { event_type: 'package' } };
     c._updateRingState();
-    await esperar(100);
-    comp('un paquete NO la despierta', !!c._pauseState && c._pauseState.phase === 'hung_up' && e.censo.pc.length === 1);
+    await wait(100);
+    check('a package does NOT wake it up', !!c._pauseState && c._pauseState.phase === 'hung_up' && e.census.pc.length === 1);
     c._hass.states['event.x_events'] = { state: 't2', attributes: { event_type: 'ring' } };
     c._updateRingState();
-    await esperar(60);
-    comp('un timbrazo SI: sesion nueva', !c._pauseState && e.censo.pc.length === 2 && !!c.pc);
-    limpiar(c);
+    await wait(60);
+    check('a ring DOES: new session', !c._pauseState && e.census.pc.length === 2 && !!c.pc);
+    cleanup(c);
   }
 
   // ── 13. No path outside Home Assistant ───────────────────────────────────────────────────
-  seccion('13. Sin STUN/TURN, sin relay, sin fetch al portero: solo Home Assistant');
+  section('13. No STUN/TURN, no relay, no fetch to the doorbell: only Home Assistant');
   {
-    const e = construirEntorno({});
-    const C = cargarClase(src, e, {});
-    const c = nuevaCard(C, { turnMs: 10 });
-    await c.startWebRTC('unico');
-    await esperar(100);
-    comp('RTCPeerConnection sin iceServers', e.censo.iceServers.length === 1 && Array.isArray(e.censo.iceServers[0]) && e.censo.iceServers[0].length === 0);
-    comp('  -> ningun WebSocket', e.censo.ws.length === 0);
-    comp('  -> ningun fetch directo', e.censo.fetch.length === 0);
-    comp('  -> y la SSE es la del proxy de HA', e.censo.es.every((x) => x.url.startsWith('/api/ig_doorbell/')));
-    limpiar(c);
+    const e = buildEnvironment({});
+    const C = loadCardClass(src, e, {});
+    const c = newCard(C, { turnMs: 10 });
+    await c.startWebRTC('sole');
+    await wait(100);
+    check('RTCPeerConnection with no iceServers', e.census.iceServers.length === 1 && Array.isArray(e.census.iceServers[0]) && e.census.iceServers[0].length === 0);
+    check('  -> no WebSocket at all', e.census.ws.length === 0);
+    check('  -> no direct fetch', e.census.fetch.length === 0);
+    check('  -> and the SSE is the one from HA\'s proxy', e.census.es.every((x) => x.url.startsWith('/api/ig_doorbell/')));
+    cleanup(c);
   }
 
   // ══ IÑAKI'S RULE 2026-09-25: OFF-SCREEN, PAUSE; ON RETURN, IN THE SAME STATE ═══════════════
   const ocultar = (C, c, v) => { C.__doc.visibilityState = v; c._onVisibilityForStream && c._onVisibilityForStream(); };
 
   // ── 14. Hiding: live_pause RIGHT AWAY, session alive; returning: live_resume, the same session ──
-  seccion('14. Oculta -> live_pause inmediato; visible -> live_resume en la misma sesion');
+  section('14. Hidden -> live_pause right away; visible -> live_resume on the same session');
   {
-    const e = construirEntorno({});
-    const C = cargarClase(src, e, {});
-    const c = nuevaCard(C, { turnMs: 10, idleMs: 999000, graciaMs: 5000 });
+    const e = buildEnvironment({});
+    const C = loadCardClass(src, e, {});
+    const c = newCard(C, { turnMs: 10, idleMs: 999000, graceMs: 5000 });
     c._registerVisibilityStreamHandler && c._registerVisibilityStreamHandler();
-    await c.startWebRTC('unico');
-    await esperar(80);
+    await c.startWebRTC('sole');
+    await wait(80);
     const pc = c.pc;
     ocultar(C, c, 'hidden');
-    await esperar(30);
-    comp('al ocultarse: live_pause enviado en el acto y la sesion sigue', c._enviados.some((m) => m.type === 'live_pause') && c.pc === pc && !pc.cerrado);
-    comp('  -> sin bye todavia', !c._enviados.some((m) => m.type === 'bye'));
+    await wait(30);
+    check('on hiding: live_pause sent right away and the session continues', c._enviados.some((m) => m.type === 'live_pause') && c.pc === pc && !pc.closed);
+    check('  -> no bye yet', !c._enviados.some((m) => m.type === 'bye'));
     ocultar(C, c, 'visible');
-    await esperar(30);
-    comp('al volver: live_resume, misma sesion, ninguna nueva', c._enviados.some((m) => m.type === 'live_resume') && c.pc === pc && e.censo.pc.length === 1);
-    limpiar(c); C.__doc.visibilityState = 'visible';
+    await wait(30);
+    check('on returning: live_resume, same session, no new one', c._enviados.some((m) => m.type === 'live_resume') && c.pc === pc && e.census.pc.length === 1);
+    cleanup(c); C.__doc.visibilityState = 'visible';
   }
 
   // ── 15. Hidden WITH a call: pauses, but never hangs up; on return the turn is requested again ──
-  seccion('15. Oculta con el micro abierto: live_pause, sin bye; al volver, talk_request');
+  section('15. Hidden with the mic open: live_pause, no bye; on return, talk_request');
   {
-    const e = construirEntorno({});
-    const C = cargarClase(src, e, {});
-    const c = nuevaCard(C, { turnMs: 10, idleMs: 999000, graciaMs: 100 });
+    const e = buildEnvironment({});
+    const C = loadCardClass(src, e, {});
+    const c = newCard(C, { turnMs: 10, idleMs: 999000, graceMs: 100 });
     c._registerVisibilityStreamHandler && c._registerVisibilityStreamHandler();
     c._stopTalk = function () { this.talkActive = false; this._talkHeld = false; };
     c._requestTalkTurn = function () { this.sendNativeSignal({ type: 'talk_request' }); };
-    await c.startWebRTC('unico');
-    await esperar(80);
+    await c.startWebRTC('sole');
+    await wait(80);
     c.talkActive = true; c._talkHeld = true;
     ocultar(C, c, 'hidden');
-    await esperar(400);
-    comp('con llamada: live_pause y SIN bye pasada la gracia', c._enviados.some((m) => m.type === 'live_pause') && !c._enviados.some((m) => m.type === 'bye') && !!c.pc);
+    await wait(400);
+    check('with a call: live_pause and NO bye past the grace period', c._enviados.some((m) => m.type === 'live_pause') && !c._enviados.some((m) => m.type === 'bye') && !!c.pc);
     ocultar(C, c, 'visible');
-    await esperar(30);
-    comp('  -> al volver: live_resume y se vuelve a pedir el turno (mismo estado)', c._enviados.some((m) => m.type === 'live_resume') && c._enviados.some((m) => m.type === 'talk_request'));
-    limpiar(c); C.__doc.visibilityState = 'visible';
+    await wait(30);
+    check('  -> on returning: live_resume and the turn is requested again (same state)', c._enviados.some((m) => m.type === 'live_resume') && c._enviados.some((m) => m.type === 'talk_request'));
+    cleanup(c); C.__doc.visibilityState = 'visible';
   }
 
   // ── 16. Hidden with no call: after the grace period, bye (the slot is released) ─────────────
-  seccion('16. Oculta sin llamada: bye tras la gracia');
+  section('16. Hidden with no call: bye after the grace period');
   {
-    const e = construirEntorno({});
-    const C = cargarClase(src, e, {});
-    const c = nuevaCard(C, { turnMs: 10, idleMs: 999000, graciaMs: 100 });
+    const e = buildEnvironment({});
+    const C = loadCardClass(src, e, {});
+    const c = newCard(C, { turnMs: 10, idleMs: 999000, graceMs: 100 });
     c._registerVisibilityStreamHandler && c._registerVisibilityStreamHandler();
-    await c.startWebRTC('unico');
-    await esperar(80);
+    await c.startWebRTC('sole');
+    await wait(80);
     ocultar(C, c, 'hidden');
-    await esperar(300);
-    comp('sin llamada: bye pasada la gracia', c._enviados.some((m) => m.type === 'bye') && c.pc === null);
+    await wait(300);
+    check('with no call: bye past the grace period', c._enviados.some((m) => m.type === 'bye') && c.pc === null);
     ocultar(C, c, 'visible');
-    await esperar(80);
-    comp('  -> y al volver, sesion nueva', e.censo.pc.length === 2 && !!c.pc && !c._pauseState);
-    limpiar(c); C.__doc.visibilityState = 'visible';
+    await wait(80);
+    check('  -> and on returning, a new session', e.census.pc.length === 2 && !!c.pc && !c._pauseState);
+    cleanup(c); C.__doc.visibilityState = 'visible';
   }
 
   // ── 17. The loop measured on the tablet: re-inserting the paused card does NOT open a session ──
-  seccion('17. connectedCallback de un portero en pausa por inactividad: no arranca');
+  section('17. connectedCallback on a doorbell paused for inactivity: it does not start');
   {
-    const e = construirEntorno({});
-    const C = cargarClase(src, e, {});
-    const c = nuevaCard(C, { turnMs: 10, idleMs: 150, graciaMs: 50 });
-    await c.startWebRTC('unico');
-    await esperar(400);
-    comp('colgada por inactividad', !!c._pauseState && c._pauseState.phase === 'hung_up');
-    const displayBefore = e.censo.pc.length;
-    const c2 = nuevaCard(C, { turnMs: 10, idleMs: 150, graciaMs: 50 });   // Home Assistant recreates the element
+    const e = buildEnvironment({});
+    const C = loadCardClass(src, e, {});
+    const c = newCard(C, { turnMs: 10, idleMs: 150, graceMs: 50 });
+    await c.startWebRTC('sole');
+    await wait(400);
+    check('hung up due to inactivity', !!c._pauseState && c._pauseState.phase === 'hung_up');
+    const displayBefore = e.census.pc.length;
+    const c2 = newCard(C, { turnMs: 10, idleMs: 150, graceMs: 50 });   // Home Assistant recreates the element
     c2._registerFullscreenListeners = () => {}; c2._registerVisibilityStreamHandler = () => {}; c2._registerOffscreenStreamHandler = () => {};
     c2.connectedCallback();
     c.connectedCallback && (c._registerFullscreenListeners = () => {}, c._registerVisibilityStreamHandler = () => {}, c._registerOffscreenStreamHandler = () => {}, c.connectedCallback());
-    await esperar(200);
-    comp('ni la card reinsertada ni una recreada abren sesion', e.censo.pc.length === displayBefore && !!c2._pauseState);
-    limpiar(c); limpiar(c2);
+    await wait(200);
+    check('neither the reinserted card nor a recreated one opens a session', e.census.pc.length === displayBefore && !!c2._pauseState);
+    cleanup(c); cleanup(c2);
   }
 
   // ── 18. A recent ring wakes up a freshly created card (its "first read") ───────────────────
-  seccion('18. Timbrazo de hace 5 s en la primera lectura de una card en pausa: la despierta');
+  section('18. A ring from 5 s ago on the first read of a paused card: it wakes it up');
   {
-    const e = construirEntorno({});
-    const C = cargarClase(src, e, {});
-    const c = nuevaCard(C, { turnMs: 10, idleMs: 150, graciaMs: 50 });
-    await c.startWebRTC('unico');
-    await esperar(400);
-    const c2 = nuevaCard(C, { turnMs: 10, idleMs: 150, graciaMs: 50 });
+    const e = buildEnvironment({});
+    const C = loadCardClass(src, e, {});
+    const c = newCard(C, { turnMs: 10, idleMs: 150, graceMs: 50 });
+    await c.startWebRTC('sole');
+    await wait(400);
+    const c2 = newCard(C, { turnMs: 10, idleMs: 150, graceMs: 50 });
     c2._connInfo = { events_entity: 'event.x_events' };
     c2._hass.states['event.x_events'] = { state: new Date(Date.now() - 5000).toISOString(), attributes: { event_type: 'ring' } };
     c2._restoreSavedPause && c2._restoreSavedPause();
-    const displayBefore = e.censo.pc.length;
+    const displayBefore = e.census.pc.length;
     c2._updateRingState();
-    await esperar(60);
-    comp('card nueva en pausa + timbrazo reciente: sesion nueva', e.censo.pc.length === displayBefore + 1 && !c2._pauseState);
-    limpiar(c); limpiar(c2);
+    await wait(60);
+    check('new card while paused + recent ring: new session', e.census.pc.length === displayBefore + 1 && !c2._pauseState);
+    cleanup(c); cleanup(c2);
   }
 
   // ── 19. Switching Lovelace views removes the card from the DOM: pause, and on return the SAME element
-  seccion('19. disconnectedCallback -> live_pause (no bye); connectedCallback -> live_resume, misma sesion');
+  section('19. disconnectedCallback -> live_pause (no bye); connectedCallback -> live_resume, same session');
   {
-    const e = construirEntorno({});
-    const C = cargarClase(src, e, {});
-    const c = nuevaCard(C, { turnMs: 10, idleMs: 999000, graciaMs: 5000 });
+    const e = buildEnvironment({});
+    const C = loadCardClass(src, e, {});
+    const c = newCard(C, { turnMs: 10, idleMs: 999000, graceMs: 5000 });
     c._registerFullscreenListeners = () => {};
-    await c.startWebRTC('unico');
-    await esperar(80);
+    await c.startWebRTC('sole');
+    await wait(80);
     const pc = c.pc;
     c.disconnectedCallback();
-    await esperar(30);
-    comp('sacada del DOM: live_pause y la sesion sigue (sin bye)', c._enviados.some((m) => m.type === 'live_pause') && !c._enviados.some((m) => m.type === 'bye') && c.pc === pc);
+    await wait(30);
+    check('taken out of the DOM: live_pause and the session continues (no bye)', c._enviados.some((m) => m.type === 'live_pause') && !c._enviados.some((m) => m.type === 'bye') && c.pc === pc);
     c.connectedCallback();
-    await esperar(30);
-    comp('  -> reinsertada: live_resume en la misma sesion', c._enviados.some((m) => m.type === 'live_resume') && c.pc === pc && e.censo.pc.length === 1);
-    limpiar(c);
+    await wait(30);
+    check('  -> reinserted: live_resume on the same session', c._enviados.some((m) => m.type === 'live_resume') && c.pc === pc && e.census.pc.length === 1);
+    cleanup(c);
   }
 
-  return { fallos, total };
+  return { failures, total };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -648,41 +649,41 @@ async function ejecutar(src, mostrar) {
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // The dist file is saved with Windows line endings and `git show` delivers them with Unix ones. Without
 // this, any anchor spanning more than one line NEVER matches against the file on disk -- and
-// the only thing that kept that from going unnoticed was `mutar()`'s guard: without it, a mutant
+// the only thing that kept that from going unnoticed was `mutate()`'s guard: without it, a mutant
 // whose anchor doesn't match comes out IDENTICAL to the original, i.e. a positive control that controls nothing and
 // that on top of that says OK.
-const normalizarFinales = (t) => t.split('\r\n').join('\n');
+const normalizeLineEndings = (t) => t.split('\r\n').join('\n');
 
-function mutar(src, anchorEntity, reemplazo, dayName) {
-  const n = src.split(anchorEntity).length - 1;
-  if (n !== 1) throw new Error(`mutante "${dayName}": el ancla aparece ${n} veces, no 1 - ABORTADO`);
-  return src.replace(anchorEntity, reemplazo);
+function mutate(src, anchor, replacement, mutantLabel) {
+  const n = src.split(anchor).length - 1;
+  if (n !== 1) throw new Error(`mutant "${mutantLabel}": the anchor appears ${n} times, not 1 - ABORTED`);
+  return src.replace(anchor, replacement);
 }
 
 (async () => {
   const arg = process.argv[2];
-  const rutaDist = pathmod.join(__dirname, '..', '..', 'custom_components', 'ig_doorbell', 'frontend', 'ig-doorbell-card.js');
+  const distPath = path.join(__dirname, '..', '..', 'custom_components', 'ig_doorbell', 'frontend', 'ig-doorbell-card.js');
 
-  if (arg && arg !== '--controles') {
-    const r = await ejecutar(fs.readFileSync(arg, 'utf8'), true);
-    console.log(r.fallos.length === 0 ? `\nTODO OK (${r.total} comprobaciones)\n` : `\n${r.fallos.length} COMPROBACIONES FALLIDAS\n`);
-    process.exit(r.fallos.length === 0 ? 0 : 1);
+  if (arg && arg !== '--controls') {
+    const r = await runCases(fs.readFileSync(arg, 'utf8'), true);
+    console.log(r.failures.length === 0 ? `\nALL OK (${r.total} checks)\n` : `\n${r.failures.length} FAILED CHECK(S)\n`);
+    process.exit(r.failures.length === 0 ? 0 : 1);
   }
 
   // ⚠️ CRLF -> LF ON READ. The dist file is saved with Windows line endings and `git show`
   // delivers them with Unix ones. Without normalizing, mutant anchors spanning more than one
-  // line NEVER match -- and `mutar()` loudly aborts, which is what happened the first time. Without
-  // `mutar()`'s guard they would have passed as mutants... identical to the original, i.e. positive
+  // line NEVER match -- and `mutate()` loudly aborts, which is what happened the first time. Without
+  // `mutate()`'s guard they would have passed as mutants... identical to the original, i.e. positive
   // controls that control nothing.
-  const src = normalizarFinales(fs.readFileSync(rutaDist, 'utf8'));
-  let mal = 0;
+  const src = normalizeLineEndings(fs.readFileSync(distPath, 'utf8'));
+  let bad = 0;
 
-  console.log('\n############ EL FICHERO DE VERDAD ############');
-  const bueno = await ejecutar(src, true);
-  if (bueno.fallos.length) { console.log(`\n${bueno.fallos.length} FALLOS en el dist actual`); mal += 1; }
-  else console.log(`\nTODO OK (${bueno.total} comprobaciones)`);
+  console.log('\n############ THE REAL FILE ############');
+  const goodRun = await runCases(src, true);
+  if (goodRun.failures.length) { console.log(`\n${goodRun.failures.length} FAILURES in the current dist`); bad += 1; }
+  else console.log(`\nALL OK (${goodRun.total} checks)`);
 
-  console.log('\n############ CONTROLES ############');
+  console.log('\n############ CONTROLS ############');
 
   // ── NEGATIVE CONTROL: the file from before the fix has to FAIL ───────────────────────────
   // ⚠️ A COMMIT, NEVER A BRANCH NAME -- and this already cost us once (2026-09-07). The first
@@ -695,148 +696,148 @@ function mutar(src, anchorEntity, reemplazo, dayName) {
   // Since 1.0.0 that build is a FIXTURE (tests/card/fixtures/legacy/card_3983f68.js, translated to
   // today's names by fixtures/make_legacy.js): the card's git history stayed in its old repository.
   // A fixed file is the same guarantee as a commit - it never moves.
-  const COMMIT_PREVIO = '3983f68';
-  let previo = null;
+  const PREVIOUS_COMMIT = '3983f68';
+  let previousSrc = null;
   try {
-    previo = normalizarFinales(fs.readFileSync(pathmod.join(__dirname, 'fixtures', 'legacy', `card_${COMMIT_PREVIO}.js`), 'utf8'));
+    previousSrc = normalizeLineEndings(fs.readFileSync(path.join(__dirname, 'fixtures', 'legacy', `card_${PREVIOUS_COMMIT}.js`), 'utf8'));
   } catch (err) {
-    console.log(`  WARNING: could not read the ${COMMIT_PREVIO} fixture - the NEGATIVE control did not run.`);
+    console.log(`  WARNING: could not read the ${PREVIOUS_COMMIT} fixture - the NEGATIVE control did not run.`);
     console.log('         Without it, this bench is NOT validated: it could be saying OK without looking at anything.');
-    mal += 1;
+    bad += 1;
   }
-  if (previo) {
+  if (previousSrc) {
     // An exception is a failure, never a pass by default.
     let r;
-    try { r = await ejecutar(previo, false); } catch (err) { r = { fallos: ['excepcion: ' + err.message], total: 0 }; }
-    const veLaFuga = r.fallos.some((f) => f.startsWith('EventSources VIVOS'));
-    const veElReloj = r.fallos.some((f) => f.startsWith('hay cuenta atras armada'));
-    console.log(`  ${veLaFuga ? 'OK   ' : 'FALLO'} control negativo: el codigo de antes del arreglo ACUMULA conexiones (caso 1)`);
-    console.log(`  ${veElReloj ? 'OK   ' : 'FALLO'} control negativo: el codigo de antes del arreglo NO arma el reloj (caso 5)`);
-    if (!veLaFuga || !veElReloj) {
-      console.log(`         fallos observados en el codigo viejo: ${JSON.stringify(r.fallos)}`);
-      mal += 1;
+    try { r = await runCases(previousSrc, false); } catch (err) { r = { failures: ['exception: ' + err.message], total: 0 }; }
+    const seesLeak = r.failures.some((f) => f.startsWith('EventSources ALIVE'));
+    const seesClock = r.failures.some((f) => f.startsWith('there is a countdown armed'));
+    console.log(`  ${seesLeak ? 'OK  ' : 'FAIL'} negative control: the code from before the fix ACCUMULATES connections (case 1)`);
+    console.log(`  ${seesClock ? 'OK  ' : 'FAIL'} negative control: the code from before the fix does NOT arm the clock (case 5)`);
+    if (!seesLeak || !seesClock) {
+      console.log(`         failures observed in the old code: ${JSON.stringify(r.failures)}`);
+      bad += 1;
     }
   }
 
   // ── POSITIVE CONTROLS: each mutant has to break EXACTLY its own case ─────────────────────
-  const mutantes = [
+  const mutants = [
     {
-      dayName: 'el guardia nunca deja pasar (card en negro para siempre)',
-      src: () => mutar(src,
+      mutantLabel: 'the guard never lets anything through (card black forever)',
+      src: () => mutate(src,
         "    const inFlight = this._startInFlightGen;",
         "    return; const inFlight = this._startInFlightGen;",
-        'guardia total'),
-      debeFallar: 'hay sesion viva',
+        'total guard'),
+      mustFail: 'there is a live session',
     },
     {
-      dayName: 'contador de generacion desactivado (_superseded siempre false)',
-      src: () => mutar(src,
+      mutantLabel: 'generation counter disabled (_superseded always false)',
+      src: () => mutate(src,
         '  _superseded(gen) { return gen !== this._connGen; }',
         '  _superseded(gen) { return false; }',
-        'sin generacion'),
-      debeFallar: 'EventSources VIVOS',
+        'no generation'),
+      mustFail: 'EventSources ALIVE',
     },
     {
-      dayName: 'el toque no rearma (fallo de antes) Y sin re-verificacion del plazo',
+      mutantLabel: 'the tap does not rearm (the old bug) AND no re-check of the deadline',
       src: () => {
         // ⚠️ A SINGLE-LINE ANCHOR WITH NOT ONE BACKSLASH, and it's not a style choice: the first
         // version of this mutant carried an escaped newline inside the anchor, and that
         // escape collapsed into a real newline when crossing a shell layer -- exactly the
         // landmine CLAUDE.md already had written down. It broke the file visibly, which is the
         // lucky outcome; the dangerous failure mode is the silent one, an anchor that stops matching and a
-        // substitution that does nothing without saying so. Hence `mutar()`'s guard.
-        let m = mutar(src,
+        // substitution that does nothing without saying so. Hence `mutate()`'s guard.
+        let m = mutate(src,
           '      this._armIdleWakeLockTimer(true);',
           '      /* mutante: el toque actualiza la marca pero NO rearma, como antes del arreglo */',
-          'toque que no rearma');
-        return mutar(m,
+          'tap that does not rearm');
+        return mutate(m,
           '      if (remainingMs > 0) {',
           '      if (false) {',
-          'sin re-verificacion');
+          'no re-check');
       },
       // Phase 0: expiring no longer releases right away, it pauses (live_pause) and the next tap resumes it;
       // case 7 sees this in what was sent to the doorbell.
-      debeFallar: '  -> y no se mando ni un live_pause',
+      mustFail: '  -> and not a single live_pause was sent',
     },
     {
-      dayName: 'fase 0: el plazo ignora la entidad',
-      src: () => mutar(src, "    if (Number.isFinite(v) && v >= 0) return v * 1000;", "    if (false) return v * 1000;", 'sin entidad'),
-      debeFallar: 'con la entidad a 0,25 s',
+      mutantLabel: 'phase 0: the deadline ignores the entity',
+      src: () => mutate(src, "    if (Number.isFinite(v) && v >= 0) return v * 1000;", "    if (false) return v * 1000;", 'no entity'),
+      mustFail: 'with the entity at 0.25 s',
     },
     {
-      dayName: 'fase 0: sin veto de llamada',
-      src: () => mutar(src, "    return !!(this.talkActive || this._talkHeld || this._talkPending);", "    return false;", 'sin veto'),
-      debeFallar: 'con el micro abierto',
+      mutantLabel: 'phase 0: no call veto',
+      src: () => mutate(src, "    return !!(this.talkActive || this._talkHeld || this._talkPending);", "    return false;", 'no veto'),
+      mustFail: 'with the mic open',
     },
     {
-      dayName: 'fase 0: al vencer se cuelga sin live_pause ni gracia',
-      src: () => mutar(src, "    if (!inCall) this._pauseGraceTimer = setTimeout(() => this._hangUpPaused(), this._idleGraceMs);", "    if (!inCall) { this._hangUpPaused(); return; }", 'sin gracia'),
-      debeFallar: 'dentro de la gracia',
+      mutantLabel: 'phase 0: on expiry it hangs up with no live_pause or grace period',
+      src: () => mutate(src, "    if (!inCall) this._pauseGraceTimer = setTimeout(() => this._hangUpPaused(), this._idleGraceMs);", "    if (!inCall) { this._hangUpPaused(); return; }", 'no grace period'),
+      mustFail: 'within the grace period',
     },
     {
-      dayName: 'fase 0: la gracia nunca cuelga (la ranura no se libera)',
-      src: () => mutar(src, "    this._teardownConnectionObjects();    // sends `bye`", "    // mutante", 'sin bye'),
-      debeFallar: 'pasada la gracia',
+      mutantLabel: 'phase 0: the grace period never hangs up (the slot never releases)',
+      src: () => mutate(src, "    this._teardownConnectionObjects();    // sends `bye`", "    // mutante", 'no bye'),
+      mustFail: 'past the grace period',
     },
     {
-      dayName: 'fase 0: el timbrazo no despierta',
-      src: () => mutar(src, "    if (this._pauseState && document.visibilityState === 'visible') this._resume('ring');", "", 'sin timbre'),
-      debeFallar: 'un timbrazo SI',
+      mutantLabel: 'phase 0: the ring does not wake it up',
+      src: () => mutate(src, "    if (this._pauseState && document.visibilityState === 'visible') this._resume('ring');", "", 'no ring'),
+      mustFail: 'a ring DOES',
     },
     {
-      dayName: 'fase 0: vuelve el STUN del VPS',
-      src: () => mutar(src, "    const iceServers = [];", "    const iceServers = [{ urls: 'stun:46.225.57.138:3478' }];", 'con stun'),
-      debeFallar: 'RTCPeerConnection sin iceServers',
+      mutantLabel: 'phase 0: the VPS STUN server comes back',
+      src: () => mutate(src, "    const iceServers = [];", "    const iceServers = [{ urls: 'stun:46.225.57.138:3478' }];", 'with stun'),
+      mustFail: 'RTCPeerConnection with no iceServers',
     },
     {
-      dayName: 'regla de Iñaki: ocultarse vuelve a desmontar en el acto (1.9.0)',
-      src: () => mutar(src, "      if (document.visibilityState === 'hidden') {", "      if (document.visibilityState === 'hidden') { this._teardownConnectionObjects(); return;", 'desmonta al ocultar'),
-      debeFallar: 'al ocultarse: live_pause enviado',
+      mutantLabel: 'Iñaki\'s rule: hiding tears down again right away (1.9.0)',
+      src: () => mutate(src, "      if (document.visibilityState === 'hidden') {", "      if (document.visibilityState === 'hidden') { this._teardownConnectionObjects(); return;", 'tears down on hide'),
+      mustFail: 'on hiding: live_pause sent',
     },
     {
-      dayName: 'regla de Iñaki: con llamada tambien se cuelga',
-      src: () => mutar(src, "    if (!inCall) this._pauseGraceTimer = setTimeout(", "    if (true) this._pauseGraceTimer = setTimeout(", 'cuelga con llamada'),
-      debeFallar: 'con llamada: live_pause y SIN bye',
+      mutantLabel: 'Iñaki\'s rule: it also hangs up during a call',
+      src: () => mutate(src, "    if (!inCall) this._pauseGraceTimer = setTimeout(", "    if (true) this._pauseGraceTimer = setTimeout(", 'hangs up with a call'),
+      mustFail: 'with a call: live_pause and NO bye',
     },
     {
-      dayName: 'regla de Iñaki: al volver no se recupera el turno',
-      src: () => mutar(src, "      if (p.micOpen) this._requestTalkTurn();", "", 'sin turno'),
-      debeFallar: '  -> al volver: live_resume y se vuelve a pedir el turno',
+      mutantLabel: 'Iñaki\'s rule: returning does not recover the turn',
+      src: () => mutate(src, "      if (p.micOpen) this._requestTalkTurn();", "", 'no turn'),
+      mustFail: '  -> on returning: live_resume and the turn is requested again',
     },
     {
-      dayName: 'bucle de la tablet: la pausa vuelve a vivir solo en `this`',
-      src: () => mutar(src, "    if (!this.config || !PAUSED_BY_DOORBELL[this.config.device_id]) return false;", "    if (!this.config || !this._pauseState) return false;", 'pausa por instancia'),
-      debeFallar: 'ni la card reinsertada ni una recreada',
+      mutantLabel: 'the tablet loop: the pause lives only in `this` again',
+      src: () => mutate(src, "    if (!this.config || !PAUSED_BY_DOORBELL[this.config.device_id]) return false;", "    if (!this.config || !this._pauseState) return false;", 'pause per instance'),
+      mustFail: 'neither the reinserted card nor a recreated one',
     },
     {
-      dayName: 'cambiar de vista vuelve a desmontar (1.9.0)',
+      mutantLabel: 'switching views tears down again (1.9.0)',
       // A ONE-line anchor with no backslashes (CLAUDE.md): the first version carried an escaped
       // newline that a shell layer turned into a real one and broke this file.
-      src: () => mutar(src, "    this._pause('hidden');                     // leaving the DOM = pausing, not tearing down", "    this._teardownConnectionObjects();", 'desmonta al salir del DOM'),
-      debeFallar: 'sacada del DOM: live_pause',
+      src: () => mutate(src, "    this._pause('hidden');                     // leaving the DOM = pausing, not tearing down", "    this._teardownConnectionObjects();", 'tears down on leaving the DOM'),
+      mustFail: 'taken out of the DOM: live_pause',
     },
     {
-      dayName: 'timbrazo reciente ignorado en la primera lectura',
-      src: () => mutar(src, "        && Date.now() - Date.parse(marker) < RECENT_RING_MS", "        && false", 'sin timbre reciente'),
-      debeFallar: 'card nueva en pausa + timbrazo reciente',
+      mutantLabel: 'a recent ring ignored on the first read',
+      src: () => mutate(src, "        && Date.now() - Date.parse(marker) < RECENT_RING_MS", "        && false", 'no recent ring'),
+      mustFail: 'new card while paused + recent ring',
     },
   ];
 
-  for (const m of mutantes) {
+  for (const m of mutants) {
     let r;
-    try { r = await ejecutar(m.src(), false); } catch (err) {
-      console.log(`  FALLO control positivo: ${m.dayName} -> ${err.message}`);
-      mal += 1;
+    try { r = await runCases(m.src(), false); } catch (err) {
+      console.log(`  FAIL positive control: ${m.mutantLabel} -> ${err.message}`);
+      bad += 1;
       continue;
     }
-    const rompe = r.fallos.some((f) => f.startsWith(m.debeFallar));
-    console.log(`  ${rompe ? 'OK   ' : 'FALLO'} control positivo: "${m.dayName}" rompe el caso que deberia`);
-    if (!rompe) {
-      console.log(`         se esperaba un fallo que empezara por "${m.debeFallar}"; se observo: ${JSON.stringify(r.fallos)}`);
-      mal += 1;
+    const breaks = r.failures.some((f) => f.startsWith(m.mustFail));
+    console.log(`  ${breaks ? 'OK  ' : 'FAIL'} positive control: "${m.mutantLabel}" breaks the case it should`);
+    if (!breaks) {
+      console.log(`         expected a failure starting with "${m.mustFail}"; observed: ${JSON.stringify(r.failures)}`);
+      bad += 1;
     }
   }
 
-  console.log(mal === 0 ? '\nBANCO VERDE Y VALIDADO POR SUS DOS LADOS\n' : `\n${mal} PROBLEMAS (revisa: un control fallido invalida el banco entero)\n`);
-  process.exit(mal === 0 ? 0 : 1);
+  console.log(bad === 0 ? '\nBENCH GREEN AND VALIDATED FROM BOTH SIDES\n' : `\n${bad} PROBLEM(S) (check: a failed control invalidates the whole bench)\n`);
+  process.exit(bad === 0 ? 0 : 1);
 })().catch((e) => { console.error("EXCEPTION in the bench (not a green run):", e); process.exit(2); });

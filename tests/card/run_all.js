@@ -17,7 +17,7 @@
 //   - ui_v1_11_0 and ui_v1_10_0 carry built-in mutants of the card (they fail themselves if a
 //     mutant survives).
 //   - ui_v1_9_7 run against the 1.9.6 build, ui_v1_9_8 against the 1.9.7 build (fixtures/legacy).
-//   - sim_carrera_reentrada.js --controles: negative control (the build before the reentrancy fix,
+//   - sim_carrera_reentrada.js --controls: negative control (the build before the reentrancy fix,
 //     fixtures/legacy/card_3983f68.js) plus its own mutants.
 const http = require('http');
 const fs = require('fs');
@@ -66,7 +66,7 @@ const JOBS = [
   { name: 'idle_release_network', bench: 'idle_release_network', args: ['idle_release_network/driver.js'], expect: 0 },
   { name: 'sim_multicliente', args: ['sim_multicliente.js', CARD], expect: 0 },
   { name: 'sim_carrera_reentrada', args: ['sim_carrera_reentrada.js', CARD], expect: 0 },
-  { name: 'sim_carrera_reentrada --controles', args: ['sim_carrera_reentrada.js', '--controles'], expect: 0 },
+  { name: 'sim_carrera_reentrada --controls', args: ['sim_carrera_reentrada.js', '--controls'], expect: 0 },
   // positive controls: an older build must FAIL the newer checks, by failing checks
   { name: 'CONTROL ui_v1_9_7 vs 1.9.6 build (must fail)', bench: 'ui_v1_9_7', control: true,
     args: ['ui_v1_9_7/driver.js'], env: { CARD_FILE: LEGACY('card_1.9.6.js') }, expect: 1, failText: /^ {2}FAIL /m, },

@@ -4,10 +4,9 @@
 // Loads the REAL dist/ file; harness.js only doubles the network and hass (same rule as the other
 // harnesses in this directory).
 //
-// RUN (from the repo root):
-//   1. python -m http.server 8797
-//   2. node test/ui_v1_9_7/driver.js
-// POSITIVE CONTROL: CARD_FILE=<path to an older dist> node test/ui_v1_9_7/driver.js serves that
+// RUN: cd tests/card && npm install && node run_all.js       (serves the repo itself)
+// Standalone (from the repo root): python -m http.server 8797, then node ui_v1_9_7/driver.js
+// POSITIVE CONTROL: CARD_FILE=<path to an older dist> node ui_v1_9_7/driver.js serves that
 // file instead - with 1.9.6 this suite must go red (it did: see CLAUDE.md, v1.9.7).
 const fs = require('fs');
 const { chromium } = require('playwright-core');
@@ -31,7 +30,7 @@ async function newPage(browser, viewport) {
   }
   page.on('pageerror', (err) => console.log('[pageerror] ' + err));
   await page.goto(BASE);
-  await page.waitForFunction(() => window.TESTLOG && window.TESTLOG.some((l) => l.includes('harness listo')));
+  await page.waitForFunction(() => window.TESTLOG && window.TESTLOG.some((l) => l.includes('harness ready')));
   return page;
 }
 

@@ -4,10 +4,9 @@
 // play_sequence service. Loads the REAL dist/ file; harness.js only doubles the network and hass
 // (same rule as every other harness in this directory).
 //
-// RUN (from the repo root):
-//   1. python -m http.server 8797
-//   2. node test/ui_v1_9_8/driver.js
-// POSITIVE CONTROL: CARD_FILE=<path to dist/ as of v1.9.7> node test/ui_v1_9_8/driver.js must go
+// RUN: cd tests/card && npm install && node run_all.js       (serves the repo itself)
+// Standalone (from the repo root): python -m http.server 8797, then node ui_v1_9_8/driver.js
+// POSITIVE CONTROL: CARD_FILE=<path to dist/ as of v1.9.7> node ui_v1_9_8/driver.js must go
 // red (no #qr-button/#qr-panel existed yet) - see the bottom of this file for how that was run.
 const fs = require('fs');
 const { chromium } = require('playwright-core');
@@ -31,7 +30,7 @@ async function newPage(browser, viewport) {
   }
   page.on('pageerror', (err) => console.log('[pageerror] ' + err));
   await page.goto(BASE);
-  await page.waitForFunction(() => window.TESTLOG && window.TESTLOG.some((l) => l.includes('harness listo')));
+  await page.waitForFunction(() => window.TESTLOG && window.TESTLOG.some((l) => l.includes('harness ready')));
   return page;
 }
 

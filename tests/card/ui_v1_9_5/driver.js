@@ -4,9 +4,8 @@
 // Loads the real dist/ig-doorbell-card.js; harness.js (a literal copy of test/ui_v1_9_2's)
 // only doubles the network layer, same criterion as the rest of this directory's harnesses.
 //
-// RUN:
-//   1. From the worktree root: python -m http.server 8795
-//   2. node test/ui_v1_9_5/driver.js
+// RUN: cd tests/card && npm install && node run_all.js       (serves the repo itself)
+// Standalone (from the worktree root): python -m http.server 8795, then node ui_v1_9_5/driver.js
 const { chromium } = require('playwright-core');
 
 const EXE = process.env.PLAYWRIGHT_CHROMIUM_PATH
@@ -30,7 +29,7 @@ async function newPage(browser) {
   });
   page.on('pageerror', (err) => console.log('[pageerror] ' + err));
   await page.goto(BASE);
-  await page.waitForFunction(() => window.TESTLOG && window.TESTLOG.some((l) => l.includes('harness listo')));
+  await page.waitForFunction(() => window.TESTLOG && window.TESTLOG.some((l) => l.includes('harness ready')));
   return page;
 }
 
@@ -38,7 +37,7 @@ async function main() {
   const browser = await chromium.launch({ executablePath: EXE, headless: true });
   const page = await newPage(browser);
 
-  console.log('\n########## 1. REC: capsula en la cabecera, "REC" fijo (no traducido), no en .actions-row ##########');
+  console.log('\n########## 1. REC: pill in the header, fixed "REC" (not translated), not in .actions-row ##########');
   await page.evaluate(() => {
     window.tSetAdmin(false); // same as the "Kiosko" tablet: the HA user isn't an admin
     window.tSetRole('admin'); // but the integration IS the doorbell's administrator
@@ -57,10 +56,10 @@ async function main() {
       recording: c.recButton.classList.contains('recording'),
     };
   });
-  check('#rec-button vive en la cabecera (#top-row)', recInfo.inTopRow === true);
-  check('#rec-button ya NO vive en .actions-row', recInfo.inActionsRow === false);
-  check('la etiqueta es "REC" fija, universal como en las apps (no "Grabar"/"Grabando")', recInfo.label === 'REC');
-  check('sin grabar: clase "recording" ausente', recInfo.recording === false);
+  check('#rec-button lives in the header (#top-row)', recInfo.inTopRow === true);
+  check('#rec-button no longer lives in .actions-row', recInfo.inActionsRow === false);
+  check('the label is a fixed "REC", universal like in the apps (not "Grabar"/"Grabando")', recInfo.label === 'REC');
+  check('not recording: class "recording" absent', recInfo.recording === false);
 
   await page.evaluate(() => { window.tSetHassState('switch.rec_test', 'on', {}); window.tRefreshHass('a'); });
   await sleep(50);
@@ -68,10 +67,10 @@ async function main() {
     const c = window.__cards['a'];
     return { recording: c.recButton.classList.contains('recording'), label: c.recLabel.textContent };
   });
-  check('grabando: clase "recording" presente (rojo, via CSS)', recOn.recording === true);
-  check('la etiqueta sigue siendo "REC" fija tambien grabando', recOn.label === 'REC');
+  check('recording: class "recording" present (red, via CSS)', recOn.recording === true);
+  check('the label stays a fixed "REC" while recording too', recOn.label === 'REC');
 
-  console.log('\n########## 2. Modo: chip desplegable (no fila de 4 chips) ##########');
+  console.log('\n########## 2. Mode: dropdown chip (not a row of 4 chips) ##########');
   await page.evaluate(() => {
     window.tSetHassState('select.modo_test', 'away', { options: ['normal', 'away', 'do_not_disturb', 'custom'] });
     window.tCreateCard('b', { mode_entity: 'select.modo_test' });
@@ -88,24 +87,24 @@ async function main() {
       pillText: c.querySelector('.mode-pill-label').textContent,
     };
   });
-  check('hay exactamente UN chip desplegable (no una fila de chips)', modeShape.pillCount === 1);
-  check('la fila vieja de chips segmentados ya no existe', modeShape.chipCount === 0);
-  check('el desplegable arranca cerrado', modeShape.menuClosedAtStart === true);
-  check('el chip enseña la etiqueta del modo VIGENTE sin desplegar nada ("away")', modeShape.pillText === 'away');
+  check('there is exactly ONE dropdown chip (not a row of chips)', modeShape.pillCount === 1);
+  check('the old row of segmented chips no longer exists', modeShape.chipCount === 0);
+  check('the dropdown starts closed', modeShape.menuClosedAtStart === true);
+  check('the chip shows the CURRENT mode\'s label with nothing expanded ("away")', modeShape.pillText === 'away');
 
   await page.evaluate(() => window.tClick('b', '#mode-pill'));
   await sleep(30);
   let menuOpen = await page.evaluate(() => window.__cards['b'].querySelector('#mode-menu').style.display !== 'none');
-  check('un click en el chip abre el desplegable', menuOpen === true);
+  check('a click on the chip opens the dropdown', menuOpen === true);
 
   // A click outside (on <body>, outside the card) closes it -- same criterion as the rest of this
   // card's menus (fullscreen/quality).
   await page.evaluate(() => document.body.click());
   await sleep(30);
   let menuClosedAfterOutsideClick = await page.evaluate(() => window.__cards['b'].querySelector('#mode-menu').style.display === 'none');
-  check('un click fuera cierra el desplegable', menuClosedAfterOutsideClick === true);
+  check('a click outside closes the dropdown', menuClosedAfterOutsideClick === true);
 
-  console.log('\n########## 3. Grabaciones: mismo gating que REC (rol del portero, no hass.user.is_admin), sin Ajustes ##########');
+  console.log('\n########## 3. Recordings: same gating as REC (the doorbell\'s role, not hass.user.is_admin), no Settings ##########');
   await page.evaluate(() => {
     window.tSetAdmin(false);
     window.tSetRole('user'); // the doorbell did NOT pair this integration as its administrator
@@ -119,9 +118,9 @@ async function main() {
   // _updateQuickReplyButton() in dist/). What still gates by role is specifically the Recordings
   // BUTTON (`recordingsButton`), not the row that contains it.
   let recNoAdmin = await page.evaluate(() => window.__cards['c'].recordingsButton.style.display);
-  check('el boton de Grabaciones se oculta para un emparejamiento no-admin del portero', recNoAdmin === 'none');
+  check('the Recordings button hides for a non-admin pairing of the doorbell', recNoAdmin === 'none');
   let noSettingsButton = await page.evaluate(() => !window.__cards['c'].querySelector('#settings-button, .quick-btn[data-target="settings"]'));
-  check('no existe ningun boton de Ajustes en la card (vive en la integracion)', noSettingsButton === true);
+  check('no Settings button exists in the card (it lives in the integration)', noSettingsButton === true);
 
   await page.evaluate(() => { window.tSetRole('admin'); window.tCreateCard('d', {}); window.tAttach('d'); window.tRefreshHass('d'); });
   await sleep(150);
@@ -129,22 +128,22 @@ async function main() {
     const c = window.__cards['d'];
     return { display: c.recordingsAction.style.display, label: c.querySelector('.quick-btn-label').textContent };
   });
-  check('visible con emparejamiento admin del portero', recAdmin.display !== 'none');
-  check('la etiqueta es "Grabaciones" (es-ES por defecto del arnes)', recAdmin.label === 'Grabaciones');
+  check('visible with an admin pairing of the doorbell', recAdmin.display !== 'none');
+  check('the label is "Grabaciones" (es-ES, the harness\'s default)', recAdmin.label === 'Grabaciones');
 
-  console.log('\n########## 4. Grabaciones: navega al media_source de ESTE portero sin reproductor propio ##########');
+  console.log('\n########## 4. Recordings: navigates to THIS doorbell\'s media_source, with no player of its own ##########');
   const beforePath = await page.evaluate(() => location.pathname);
   await page.evaluate(() => window.tClick('d', '#recordings-button'));
   await sleep(30);
   const afterPath = await page.evaluate(() => decodeURIComponent(location.pathname));
-  check('la URL cambio (navegacion SPA, sin recarga)', afterPath !== beforePath);
+  check('the URL changed (SPA navigation, no reload)', afterPath !== beforePath);
   check(
-    'la URL apunta al media-browser nativo, sin entidad media_player, con el media_content_id de ESTE portero',
+    'the URL points at the native media-browser, with no media_player entity, with THIS doorbell\'s media_content_id',
     afterPath === '/media-browser/browser/video,media-source://ig_doorbell/test-device-d',
   );
 
   await browser.close();
-  console.log(`\n${fails === 0 ? 'TODO OK' : `${fails} FALLO(S)`}`);
+  console.log(`\n${fails === 0 ? 'ALL OK' : `${fails} FAILURE(S)`}`);
   process.exit(fails === 0 ? 0 : 1);
 }
 

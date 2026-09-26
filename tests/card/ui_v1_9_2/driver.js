@@ -9,9 +9,8 @@
 // look like the apps - see test/ui_v1_9_5/driver.js for the dedicated checks for that
 // change.
 //
-// RUN:
-//   1. From the worktree root: python -m http.server 8793
-//   2. node test/ui_v1_9_2/driver.js
+// RUN: cd tests/card && npm install && node run_all.js       (serves the repo itself)
+// Standalone (from the worktree root): python -m http.server 8793, then node ui_v1_9_2/driver.js
 const { chromium } = require('playwright-core');
 
 const EXE = process.env.PLAYWRIGHT_CHROMIUM_PATH
@@ -35,7 +34,7 @@ async function newPage(browser) {
   });
   page.on('pageerror', (err) => console.log('[pageerror] ' + err));
   await page.goto(BASE);
-  await page.waitForFunction(() => window.TESTLOG && window.TESTLOG.some((l) => l.includes('harness listo')));
+  await page.waitForFunction(() => window.TESTLOG && window.TESTLOG.some((l) => l.includes('harness ready')));
   return page;
 }
 
@@ -43,13 +42,13 @@ async function main() {
   const browser = await chromium.launch({ executablePath: EXE, headless: true });
   const page = await newPage(browser);
 
-  console.log('\n########## 1. Sin rec_entity: el boton de REC no existe visible ##########');
+  console.log('\n########## 1. No rec_entity: the REC button does not exist, is not just hidden ##########');
   await page.evaluate(() => { window.tCreateCard('a', {}); window.tAttach('a'); });
   await sleep(150);
   let recDisplay = await page.evaluate(() => document.getElementById('host').querySelector('ig-doorbell-view').recAction.style.display);
-  check('rec-action display:none sin rec_entity configurada', recDisplay === 'none');
+  check('rec-action display:none with no rec_entity configured', recDisplay === 'none');
 
-  console.log('\n########## 2. Con rec_entity + integracion admin del portero: aparece y hace toggle ##########');
+  console.log('\n########## 2. With rec_entity + an admin pairing of the doorbell: it shows and toggles ##########');
   await page.evaluate(() => {
     // The user of THIS HA panel isn't an administrator -- exactly the real case of the
     // "Kiosko" tablet (Iñaki, 2026-09-25) -- and REC must still show, because what governs it is the role
@@ -66,13 +65,13 @@ async function main() {
     const c = window.__cards['b'];
     return { display: c.recAction.style.display, recording: c.recButton.classList.contains('recording') };
   });
-  check('rec-action visible (rol admin del portero + entidad presente, aunque el usuario de HA no sea admin)', st.display !== 'none');
-  check('boton NO marcado como grabando (estado off)', st.recording === false);
+  check('rec-action visible (admin role of the doorbell + entity present, even if the HA user is not admin)', st.display !== 'none');
+  check('button NOT marked as recording (state off)', st.recording === false);
 
   await page.evaluate(() => window.tClick('b', '#rec-button'));
   await sleep(50);
   let calls = await page.evaluate(() => window.__calledServices.slice());
-  check('el primer toque pide turn_on (estaba off)', calls.some((c) => c.domain === 'switch' && c.service === 'turn_on' && c.data.entity_id === 'switch.rec_test'));
+  check('the first tap requests turn_on (it was off)', calls.some((c) => c.domain === 'switch' && c.service === 'turn_on' && c.data.entity_id === 'switch.rec_test'));
 
   await page.evaluate(() => { window.tSetHassState('switch.rec_test', 'on', {}); window.tRefreshHass('b'); });
   await sleep(50);
@@ -80,14 +79,14 @@ async function main() {
     const c = window.__cards['b'];
     return c.recButton.classList.contains('recording');
   });
-  check('boton pasa a "grabando" en cuanto la ENTIDAD (no el ultimo tap) dice on', st2 === true);
+  check('button switches to "recording" as soon as the ENTITY (not the last tap) says on', st2 === true);
 
   await page.evaluate(() => { window.__calledServices.length = 0; window.tClick('b', '#rec-button'); });
   await sleep(50);
   calls = await page.evaluate(() => window.__calledServices.slice());
-  check('con la entidad en "on", el toque pide turn_off (nunca el ultimo tap)', calls.some((c) => c.service === 'turn_off'));
+  check('with the entity at "on", the tap requests turn_off (never the last tap)', calls.some((c) => c.service === 'turn_off'));
 
-  console.log('\n########## 3. Integracion NO admin del portero: oculto aunque la entidad exista y el usuario de HA sea admin ##########');
+  console.log('\n########## 3. A NON-admin pairing of the doorbell: hidden even if the entity exists and the HA user is admin ##########');
   await page.evaluate(() => {
     window.tSetAdmin(true);   // the HA user IS an admin -- and that must not be enough
     window.tSetRole('user'); // but the integration isn't the doorbell's administrator
@@ -97,9 +96,9 @@ async function main() {
   });
   await sleep(100);
   let recNonAdmin = await page.evaluate(() => window.__cards['c'].recAction.style.display);
-  check('oculto cuando la integracion no es administradora del portero, aunque el usuario de HA si lo sea', recNonAdmin === 'none');
+  check('hidden when the integration is not the doorbell\'s administrator, even if the HA user is', recNonAdmin === 'none');
 
-  console.log('\n########## 3-bis. Rol "unknown" (emparejamiento sin etiqueta, §3.3-ter): tambien oculto ##########');
+  console.log('\n########## 3-bis. Role "unknown" (an unlabeled pairing, §3.3-ter): also hidden ##########');
   await page.evaluate(() => {
     window.tSetRole('unknown');
     window.tCreateCard('c2', { rec_entity: 'switch.rec_test' });
@@ -108,10 +107,10 @@ async function main() {
   });
   await sleep(100);
   let recUnknown = await page.evaluate(() => window.__cards['c2'].recAction.style.display);
-  check('oculto con rol "unknown"', recUnknown === 'none');
+  check('hidden with role "unknown"', recUnknown === 'none');
   await page.evaluate(() => window.tSetRole('admin'));
 
-  console.log('\n########## 4. El chip de modo (ahora desplegable, v1.9.5) sigue llamando a select.select_option ##########');
+  console.log('\n########## 4. The mode chip (now a dropdown, v1.9.5) still calls select.select_option ##########');
   // (v1.9.5) The row of 4 segmented chips was replaced by ONE dropdown chip ("the modes should
   // also be a dropdown chip", Iñaki 2026-09-25) - it has to be opened first, just like in the
   // real app (PopupMenuButton). See test/ui_v1_9_5/driver.js for the dedicated checks on the
@@ -129,26 +128,26 @@ async function main() {
   await page.evaluate(() => { window.__calledServices.length = 0; window.tClick('d', '.mode-opt[data-option="away"]'); });
   await sleep(50);
   calls = await page.evaluate(() => window.__calledServices.slice());
-  check('el chip de modo llama a select.select_option con la opcion pulsada', calls.some((c) => c.domain === 'select' && c.service === 'select_option' && c.data.option === 'away'));
+  check('the mode chip calls select.select_option with the picked option', calls.some((c) => c.domain === 'select' && c.service === 'select_option' && c.data.option === 'away'));
 
-  console.log('\n########## 5. Altavoz reubicado: sin deslizador de volumen, el boton alterna mute ##########');
+  console.log('\n########## 5. Relocated speaker: no volume slider, the button toggles mute ##########');
   await page.evaluate(() => { window.tCreateCard('e', {}); window.tAttach('e'); });
   await sleep(100);
   const noSlider = await page.evaluate(() => !window.__cards['e'].querySelector('#vol-slider'));
-  check('no existe ya #vol-slider en el DOM', noSlider);
+  check('#vol-slider no longer exists in the DOM', noSlider);
   const sndInActionsRow = await page.evaluate(() => {
     const c = window.__cards['e'];
     const btn = c.querySelector('#snd-btn');
     return !!btn && !!btn.closest('.actions-row') && btn.classList.contains('btn') && btn.classList.contains('snd');
   });
-  check('el boton de sonido vive en la fila de acciones (btn.snd)', sndInActionsRow);
+  check('the sound button lives in the actions row (btn.snd)', sndInActionsRow);
   const audioBefore = await page.evaluate(() => window.__cards['e']._audioOn);
   await page.evaluate(() => window.tClick('e', '#snd-btn'));
   await sleep(30);
   const audioAfter = await page.evaluate(() => window.__cards['e']._audioOn);
-  check('un toque en el altavoz invierte _audioOn (arranca mudo)', audioBefore === false && audioAfter === true);
+  check('a tap on the speaker flips _audioOn (starts muted)', audioBefore === false && audioAfter === true);
 
-  console.log('\n########## 6. Selector de calidad y reloj superpuesto: retirados del DOM ##########');
+  console.log('\n########## 6. Quality selector and overlaid clock: removed from the DOM ##########');
   const goneEls = await page.evaluate(() => {
     const c = window.__cards['e'];
     return {
@@ -156,10 +155,10 @@ async function main() {
       clock: !!c.querySelector('#hud-time'),
     };
   });
-  check('#hud-quality ya no existe (chip de calidad retirado)', goneEls.quality === false);
-  check('#hud-time ya no existe (reloj superpuesto retirado)', goneEls.clock === false);
+  check('#hud-quality no longer exists (quality chip removed)', goneEls.quality === false);
+  check('#hud-time no longer exists (overlaid clock removed)', goneEls.clock === false);
 
-  console.log('\n########## 7. Orden de la fila de botones: sonido, micro, abrir (REC ya no vive aqui, v1.9.5) ##########');
+  console.log('\n########## 7. Order of the button row: sound, mic, open (REC no longer lives here, v1.9.5) ##########');
   const order = await page.evaluate(() => {
     window.tSetHassState('switch.rec_order', 'off', {});
     const c = document.createElement('ig-doorbell-view');
@@ -170,10 +169,10 @@ async function main() {
     const ids = Array.from(c.querySelectorAll('.actions-row .action button')).map((b) => b.id);
     return { ids, recInHeader: !!c.querySelector('#top-row #rec-button'), recInActionsRow: !!c.querySelector('.actions-row #rec-button') };
   });
-  check(`orden real: ${JSON.stringify(order.ids)}`, JSON.stringify(order.ids) === JSON.stringify(['snd-btn', 'mic-button', 'unlock-button']));
-  check('REC vive en la cabecera (#top-row), no en la fila de botones (v1.9.5)', order.recInHeader === true && order.recInActionsRow === false);
+  check(`real order: ${JSON.stringify(order.ids)}`, JSON.stringify(order.ids) === JSON.stringify(['snd-btn', 'mic-button', 'unlock-button']));
+  check('REC lives in the header (#top-row), not in the button row (v1.9.5)', order.recInHeader === true && order.recInActionsRow === false);
 
-  console.log('\n########## 8. Pantalla completa: toggle no lanza excepcion y deja un estado consistente ##########');
+  console.log('\n########## 8. Fullscreen: toggling throws no exception and leaves a consistent state ##########');
   // ⚠️ page.evaluate()+dispatchEvent('click') does NOT work here: it's a synthetic event with no user
   // activation, and requestFullscreen() ALWAYS rejects it for that reason (not because of anything in the card) - the
   // harness would be measuring its own limitation, not the code. Playwright's page.click() does go through CDP
@@ -194,25 +193,25 @@ async function main() {
       isDocFsElement: document.fullscreenElement === c,
     };
   });
-  console.log('  estado tras el primer toque:', JSON.stringify(fsState));
-  check('data-fs presente tras activar', fsState.hasDataFs === true);
+  console.log('  state after the first tap:', JSON.stringify(fsState));
+  check('data-fs present after activating', fsState.hasDataFs === true);
   check('_fsActive true', fsState.fsActive === true);
   // Internal consistency: native <=> has the safety class AND does NOT have ig-fs-pseudo; fallback <=> the other way around.
-  const consistente = fsState.fsNative
+  const consistent = fsState.fsNative
     ? (fsState.nativeLayoutClass === true && fsState.pseudoClass === false)
     : (fsState.nativeLayoutClass === false && fsState.pseudoClass === true);
-  check('el modo (nativo/respaldo) y sus clases CSS coinciden entre si', consistente);
+  check('the mode (native/fallback) and its CSS classes agree with each other', consistent);
   await fsBtnHandle.asElement().click();
   await sleep(200);
   const fsAfterExit = await page.evaluate(() => {
     const c = window.__cards['f'];
     return { hasDataFs: c.hasAttribute('data-fs'), nativeLayoutClass: c.classList.contains('ig-fs-native-layout') };
   });
-  check('sale de pantalla completa: sin data-fs', fsAfterExit.hasDataFs === false);
-  check('sale de pantalla completa: sin la clase de seguridad nativa', fsAfterExit.nativeLayoutClass === false);
+  check('exits fullscreen: no data-fs', fsAfterExit.hasDataFs === false);
+  check('exits fullscreen: no native safety class', fsAfterExit.nativeLayoutClass === false);
 
   await browser.close();
-  console.log(`\n${fails === 0 ? 'TODO OK' : `${fails} FALLO(S)`}`);
+  console.log(`\n${fails === 0 ? 'ALL OK' : `${fails} FAILURE(S)`}`);
   process.exit(fails === 0 ? 0 : 1);
 }
 

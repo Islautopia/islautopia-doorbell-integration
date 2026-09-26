@@ -211,7 +211,7 @@ async function run(browser, variant) {
     e.hass = window.__hass; e.setConfig({ type: 'custom:ig-doorbell-card' });
     return { inputs: e.querySelectorAll('input, ha-selector').length, text: e.textContent.trim() };
   });
-  check('T10', 'editor: no inputs, translated note pointing to the integration', ed.inputs === 0 && /IG Doorbell/.test(ed.text) && /Konfigurieren/.test(ed.text));
+  check('T10', 'editor: no inputs, translated note pointing to the integration', ed.inputs === 0 && /Islautopia Garage Doorbell/.test(ed.text) && /Konfigurieren/.test(ed.text));
   check('T10', 'stub config is empty', (await ev(() => JSON.stringify(customElements.get('ig-doorbell-card').getStubConfig()))) === '{}');
   await ev(() => { window.__lang = 'es'; window.tReset(); });
 
