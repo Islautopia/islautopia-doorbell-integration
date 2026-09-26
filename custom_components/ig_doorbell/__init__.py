@@ -121,7 +121,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     device_registry.async_get_or_create(
         config_entry_id=entry.entry_id,
         identifiers={(DOMAIN, entry.data[CONF_DEVICE_ID])},
-        manufacturer="Islautopia",
+        manufacturer="Islautopia Garage",
         model="IG Doorbell",
     )
 

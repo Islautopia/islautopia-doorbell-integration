@@ -1,28 +1,17 @@
-// Build marker (2026-07-12, see COORDINATION.md Q24-quater and the persistent memory
-// hass_card_audio_investigation.md in the firmware repo) - REAL PROBLEM FOUND while
-// investigating whether the Q24-bis audio fix (addTransceiver->addTrack) really reaches the user's
-// actual HA: the manual Lovelace resource (`/local/ig-doorbell-card.js`, see README.md
-// "Manual Installation") gets registered with a BARE URL, with no version/cache-bust suffix
-// (unlike the resource installed via HACS, `/hacsfiles/...`, which DOES carry a `?hacstagXXXXXXX`
-// that HACS manages on its own so it can force a reload on every update). Real consequence: a
-// browser that already loaded that JS module can keep serving it from its own HTTP/ES-module
-// cache indefinitely, even though the file in the host's `config/www/` has already been overwritten
-// with a fixed version - with no change to the URL, there's no signal telling the browser
-// "this is different, download it again." This explains why the repo alone can't confirm with
-// certainty whether a given fix is actually live on a user's HA: the file on
-// disk and what the browser has cached can diverge with no visible error.
-// This console.log (it ALWAYS runs when the module loads, even before any card
-// instance exists) gives a cheap, objective way to settle the doubt from real DevTools:
-// if the `build` shown here doesn't match this same file's in the repo, the browser
-// is serving a stale cached copy - a forced reload (Ctrl+Shift+R) is needed, or, better,
-// change the resource URL (see note in README.md) so this never happens again.
-const CARD_VERSION = '1.11.0';
-const CARD_BUILD_ID = `${CARD_VERSION} 2026-09-26-adaptive-layout`;
+// Build marker. Since 1.0.0 the card ships inside the ig_doorbell integration and its version IS
+// the integration's (manifest.json): one product, one number. The integration serves this file
+// with `?v=<hash of the file>` (card.py), so a browser never keeps running an old copy after an
+// update - the problem this log line was added for on 2026-07-12, when the card was a separate
+// install behind a manual Lovelace resource with a bare URL, and a fixed file on disk and the copy
+// the browser kept could diverge with no visible error.
+// The line still earns its place: it ALWAYS runs when the module loads, even before any card
+// instance exists, so DevTools settles "which build is this browser running?" in one look.
+const CARD_VERSION = '1.0.0';
+const CARD_BUILD_ID = `${CARD_VERSION} 2026-09-26-ig-doorbell`;
 
-// Names that will change in the planned rename (card ig-doorbell-card 2.0.0, integration
-// ig_doorbell 1.0.0): they live HERE and only here, so that change is mechanical. The domain is
-// the Home Assistant integration's (WS, services, proxy routes, device
-// identifiers, entity platform, media_source).
+// The names the card shares with Home Assistant live HERE and only here. The domain is the
+// integration's (WS commands, services, proxy routes, device identifiers, entity platform,
+// media_source).
 const IG_DOMAIN = 'ig_doorbell';
 const CARD_TAG = 'ig-doorbell-card';
 const VIEW_TAG = 'ig-doorbell-view';

@@ -43,7 +43,7 @@ class DoorbellEntity(CoordinatorEntity[DoorbellCoordinator]):
         data = self.coordinator.data or {}
         return DeviceInfo(
             identifiers={(DOMAIN, self.coordinator.device_id)},
-            manufacturer="Islautopia",
+            manufacturer="Islautopia Garage",
             model=f"IG Doorbell {data.get('hw_version', '')}".strip(),
             name=self.coordinator.doorbell_name,
             sw_version=data.get("fw_version"),

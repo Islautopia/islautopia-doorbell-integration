@@ -158,7 +158,7 @@ async def _async_pair(
             await session.close()
 
 
-class IslautopiaDoorbellConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class IgDoorbellConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for a single IG Doorbell."""
 
     VERSION = 1
@@ -278,11 +278,11 @@ class IslautopiaDoorbellConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
-    ) -> "IslautopiaDoorbellOptionsFlow":
-        return IslautopiaDoorbellOptionsFlow(config_entry)
+    ) -> "IgDoorbellOptionsFlow":
+        return IgDoorbellOptionsFlow(config_entry)
 
 
-class IslautopiaDoorbellOptionsFlow(config_entries.OptionsFlow):
+class IgDoorbellOptionsFlow(config_entries.OptionsFlow):
     """Entities the doorbell may act on, the doorbell's LAN address, and re-pairing."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:

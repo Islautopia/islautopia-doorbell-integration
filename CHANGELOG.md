@@ -6,6 +6,43 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.0.0] — 2026-09-26
+
+**IG Doorbell: one product, one install.** This integration was called *Islautopia Doorbell*
+(domain `islautopia_doorbell`, repository `islautopia-doorbell-integration`), and the dashboard card
+was a separate repository called *Islautopia Intercom Card* (`custom:islautopia-intercom-card`).
+Both are now **IG Doorbell** — formally *Islautopia Garage Doorbell* — in this one repository.
+
+### Changed — read this before updating
+
+- **New domain `ig_doorbell`, new repository `Islautopia/ig-doorbell-hass`.** Home Assistant sees
+  this as a different integration: remove the old *Islautopia Doorbell* entries first (so the new
+  entity ids do not get a `_2` suffix), install this one from HACS, restart, and add your doorbells
+  again. Automations that call `islautopia_doorbell.*` actions or use the old entity ids must be
+  updated. There is no automatic migration.
+- **The card ships inside the integration.** It is served by the integration and loaded on every
+  dashboard automatically: no Lovelace resource to add, nothing else to install. The card type is
+  now `custom:ig-doorbell-card`; change the `type:` line of existing dashboards, then remove the old
+  card from HACS and its resource from *Settings → Dashboards → Resources*.
+- The card's per-browser memories (last doorbell chosen, picture rotation, when the bell was last
+  opened) start fresh once, because their storage keys follow the new name.
+- Everything internal is in English now — code, state values, comments — in the integration and
+  in the card. Behaviour is unchanged: every test bench gives the same result before and after.
+
+### Added
+
+- The card appears in the dashboard's card picker as **IG Doorbell**.
+- The card's address carries a fingerprint of the file (`?v=…`), so an update never runs a copy
+  cached by the browser.
+- The card's test benches live here too (`tests/card`, `node run_all.js`), with a runner that
+  serves this repository itself and checks each bench really loaded the card under test.
+
+### Fixed
+
+- The integration's mutation check (`tools/mutants.py`) had been proving nothing: a harness error
+  in the first test made the whole suite red for every mutant, so all of them looked "killed". The
+  harness is fixed and the check now refuses to run unless the unmutated suite is green.
+
 ## [0.7.7] — 2026-09-26
 
 ### Fixed
@@ -62,7 +99,7 @@ Tests: `tests/test_hass_action.py`.
 ### Added
 
 - **Quick replies for the Lovelace card.** New websocket command
-  `islautopia_doorbell/get_quick_replies` reads the doorbell's reduced quick-reply list
+  `ig_doorbell/get_quick_replies` reads the doorbell's reduced quick-reply list
   (`GET /api/sequences?quick=1`, contract §1.18.8 - `id`/`label`/`steps` only, never the
   admin-only full sequence model) fresh over the LAN on every call, so the card can list them
   without ever seeing the pairing credential. The card plays one with the `play_sequence` service
@@ -166,7 +203,7 @@ Tests: `tests/test_hass_action.py`.
   anyone touching it, the Lovelace card pauses the live view and frees the doorbell's slot, like the
   apps do in the background. Never during a call; a tap or a new ring resumes. An automation can
   change it.
-- Actions **`islautopia_doorbell.play_sequence`** and **`islautopia_doorbell.play_audio`**: play a
+- Actions **`ig_doorbell.play_sequence`** and **`ig_doorbell.play_audio`**: play a
   sequence or a quick reply at the street, over the same signalling messages the apps use.
 - Entity names in English with translations (English, Spanish, Portuguese, German, French,
   Russian, Chinese, Hindi, Arabic). Existing entity ids do not change. **The mode `select` now
@@ -424,8 +461,8 @@ First release.
 - A bridge that lets the companion Lovelace card reach the doorbell without anything to configure
   by hand.
 
-[0.4.1]: https://github.com/Islautopia/islautopia-doorbell-integration/releases/tag/v0.4.1
-[0.4.0]: https://github.com/Islautopia/islautopia-doorbell-integration/releases/tag/v0.4.0
-[0.3.0]: https://github.com/Islautopia/islautopia-doorbell-integration/releases/tag/v0.3.0
-[0.2.0]: https://github.com/Islautopia/islautopia-doorbell-integration/releases/tag/v0.2.0
-[0.1.0]: https://github.com/Islautopia/islautopia-doorbell-integration/releases/tag/v0.1.0
+[0.4.1]: https://github.com/Islautopia/ig-doorbell-hass/releases/tag/v0.4.1
+[0.4.0]: https://github.com/Islautopia/ig-doorbell-hass/releases/tag/v0.4.0
+[0.3.0]: https://github.com/Islautopia/ig-doorbell-hass/releases/tag/v0.3.0
+[0.2.0]: https://github.com/Islautopia/ig-doorbell-hass/releases/tag/v0.2.0
+[0.1.0]: https://github.com/Islautopia/ig-doorbell-hass/releases/tag/v0.1.0
